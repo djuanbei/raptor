@@ -15,6 +15,59 @@ struct tempElment
 static bool tempElmentCmp(const tempElment &lhs, const tempElment &rhs  ) {
   return lhs.src<rhs.src;
 }
+/** 
+ * 
+ * 
+ * @param i  the id of intenal  link  id.
+ * @param src  store the id of src of link i
+ 
+ * 
+ * @return a positive number if find this src
+ *         0 otherwise
+ */
+int compressed_sparse_row_graph::_findSrc( const size_t i, size_t &src ) const{
+  size_t j, start, end,mid;
+
+  src=vertex_num+1;
+  if( i>=link_num ) return 0;
+
+  start=0;
+  end=vertex_num-1;
+  while( end> start ){
+
+    mid=( start+end )/2;
+    if(i< outIndex[ mid ] ){
+      end=mid-1;
+    }
+    else if( i>= outIndex[ mid+1 ] ){
+      start=mid+1;
+    }
+    else  {
+      src=mid;
+      return 1;
+    }
+  }
+
+
+  if( i>= outIndex[ start ] && i<  outIndex[ start+1 ] ){
+    src=start;
+    return 1;    
+  }
+
+  src=end;
+  return 1;
+
+
+}
+
+
+
+int compressed_sparse_row_graph::_findSnk( const size_t i, size_t & snk ) const{
+  snk=vertex_num+1;
+  if( i>=link_num ) return 0;
+  snk=link_ends[ i ].snk;
+  return 1;
+}
 
 
 
@@ -49,10 +102,10 @@ void compressed_sparse_row_graph::initial(vector<size_t> &srcs, vector< size_t >
   }
   std::sort( tContian.begin(  ), tContian.end(  ), tempElmentCmp  );
 
-  index.push_back( 0 );
+  outIndex.push_back( 0 );
   i=0;
   while(i< tContian[ 0 ].src  ){
-    index.push_back( 0 );
+    outIndex.push_back( 0 );
     i++;
   }
 
@@ -68,7 +121,7 @@ void compressed_sparse_row_graph::initial(vector<size_t> &srcs, vector< size_t >
   for( i=1; i< tContian.size( ) ;i++ ){
     if(  tContian[ i ].src!= tContian[ i-1 ].src ){
       for(j=tContian[ i-1 ].src; j< tContian[ i ].src; j++ ){
-        index.push_back(link_ends.size( ) );
+        outIndex.push_back(link_ends.size( ) );
       }
     }
     temp.weight=weights[ tContian[ i ].id ];
@@ -81,7 +134,46 @@ void compressed_sparse_row_graph::initial(vector<size_t> &srcs, vector< size_t >
   }
 
   for( j=tContian[ i-1 ].src; j< vertex_num; j++ ){
-      index.push_back(link_ends.size( ) );
+      outIndex.push_back(link_ends.size( ) );
+  }
+
+
+  
+  tContian.clear(  );
+  for(i=0 ; i< srcs.size( ) ; i++ ){
+    dummy_pred.id=i;
+    dummy_pred.src=snks[ i ];
+    tContian.push_back( dummy_pred );
+  }
+
+  std::sort( tContian.begin(  ), tContian.end(  ), tempElmentCmp  );
+
+  inIndex.push_back( 0 );
+  i=0;
+  while(i< tContian[ 0 ].src  ){
+    inIndex.push_back( 0 );
+    i++;
+  }
+  startElement dummy;
+  dummy.link=tContian[ 0 ].id;
+  dummy.src=srcs[ tContian[ 0 ].id ];
+
+  link_starts.push_back( dummy );
+  
+  for (i = 1; i < tContian.size(  ); i++) {
+
+    if( tContian[ i ].src!= tContian[ i-1 ].src ){
+      for( j=tContian[ i-1 ].src; j< tContian[ i ].src; j++ ){
+        inIndex.push_back( link_starts.size(  ) );        
+      }
+    }
+    dummy.link=tContian[ i ].id;
+    dummy.src=srcs[ tContian[ i ].id ];
+    link_starts.push_back( dummy );
+  }
+
+  for( j=tContian[ i-1 ].src; j< vertex_num; j++ ){
+      inIndex.push_back(link_starts.size( ) );
   }
 
 
@@ -112,12 +204,12 @@ void compressed_sparse_row_graph::compute_allPair_shortest_path(  ){
       wait.pop(  );
       outDegree=getOutDegree( current );
       for( j=0; j< outDegree; j++ ){
-        endElement &neighbour=link_ends[index[current]+j];
+        endElement &neighbour=link_ends[outIndex[current]+j];
         precedence &dummy_pred=shortPaths[shift + neighbour.snk];
         weight=shortPaths[ shift+current ].weight+ neighbour.weight;
 
         if( weight <dummy_pred.weight   ){
-          dummy_pred.link= index[current]+j;
+          dummy_pred.link= outIndex[current]+j;
           dummy_pred.weight =weight;
           dummy_pred.vertex=current;
           wait.push( neighbour.snk );
@@ -128,10 +220,48 @@ void compressed_sparse_row_graph::compute_allPair_shortest_path(  ){
 
 }
 
-int compressed_sparse_row_graph::increaseLinkWeight(const  size_t i, const double inc ){
-  
-  return 0;
+int compressed_sparse_row_graph::_increaseLinkWeight(const  size_t link, const double inc ){
+
+  assert( link< link_num );
+  assert( inc>=0 );
+  if( 0==inc ) return 0;
+
+  link_ends[ link ].weight+=inc;
+
+  size_t i;
+  size_t src, snk;
+  double orignalW, weight;
+  _getSrcSnk( link, src, snk );
+
+  #pragma omp parallel for 
+  for (i = 0; i < vertex_num; i++) {
+    size_t j, current, inDegree;
+    const  size_t shift=i*vertex_num;
+    if(link==shortPaths[ shift+snk ].link  ){
+      queue<size_t>  wait;
+      wait.push(snk );
+      while (!wait.empty(  )) {
+        current=wait.front(  );
+        wait.pop(  );
+        orignalW=shortPaths[shift+snk].weight;
+        inDegree=getInDegree( current );
+        
+        for( j=0; j< inDegree; j++ ){
+          startElement &neighbour=link_starts[ inIndex[ current ]+j ];
+          precedence &dummy_pred=shortPaths[shift + neighbour.snk];
+        }
+        
+      }
+
+
+    }
+    
+  }
+
 }
+
+
+
 int compressed_sparse_row_graph:: _getShortPath( const size_t src, const size_t snk, vector<size_t> & path ) const{
   assert( src< vertex_num && snk < vertex_num );
   assert( src!=snk );
@@ -149,7 +279,6 @@ int compressed_sparse_row_graph:: _getShortPath( const size_t src, const size_t 
   path.push_back( current );
   std::reverse(path.begin(  ), path.end(  )  );
   return 1;
-
 
 }
 

@@ -47,10 +47,10 @@ void Case1(  ){
   graph.initial( srcs, snks, weights );
   vector<size_t> path;
   int re =graph.getShortPath( 0,4, path );
-  graph.printPath( path );
+  if( re>0 )
+    graph.printPath( path );
 
 }
-
 
 
 void randGraph( const int N , const  int V , const double W){
@@ -67,7 +67,7 @@ void randGraph( const int N , const  int V , const double W){
   pair<size_t, size_t> temp;
   while( i< V ){
     src=rand( )% N;
-    snk=rand(  ) %N;
+    snk=rand( ) %N;
     temp.first=src;
     temp.second=snk;
     if( hasSet.find( temp )==hasSet.end(  ) ){
