@@ -11,6 +11,7 @@
 #include<cstdio>
 #include<vector>
 #include<cassert>
+#include<iostream>
 using std::vector;
 
 
@@ -41,7 +42,7 @@ struct precedence
 
 class compressed_sparse_row_graph{
 
- private:
+private:
   size_t vertex_num;
   size_t link_num;
   vector<size_t> index;
@@ -49,17 +50,17 @@ class compressed_sparse_row_graph{
   vector<size_t> link_map;// link_ends  --> orignal link
   vector<size_t> reLink_map; // orginal link --> link_end
   vector<precedence> shortPaths;  // allpair shortest path
+  int  _getShortPath( const size_t src, const size_t snk, vector<size_t> & path ) const;
   void compute_allPair_shortest_path(  );
 
 
- public:
+public:
   compressed_sparse_row_graph( ):vertex_num( 0 ), link_num( 0 ){
   }
 
   void initial(vector<size_t> &srcs, vector< size_t > &snks, vector<double> &weights  );
   inline size_t getOutDegree(size_t i) const{
     assert( i< vertex_num );
-
     return index[ i+1 ]-index[ i ];
   }
   inline endElement & getLink(size_t i, size_t k ) {
@@ -68,7 +69,20 @@ class compressed_sparse_row_graph{
   }
   int increaseLinkWeight(const  size_t i, const double inc );
 
-  vector<size_t> & getShortPath( const size_t src, const size_t snk );
+  int  getShortPath( const size_t src, const size_t snk, vector<size_t> & path ) const ;
+
+  static void printPath( vector<size_t>&path ){
+    size_t i=0;
+
+    std::cout<<path[ 0 ]<<std::endl;
+    i++;
+    while( i<path.size(  ) ){
+      std::cout<<"by " << path[ i ]<<std::endl;
+      i++;
+      std::cout<<path[ i ]<<std::endl;
+      i++;
+    }
+  }
   
 };
 
