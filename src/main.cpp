@@ -53,7 +53,7 @@ void Case1(  ){
 }
 
 
-void randGraph( const int N , const  int V , const double W){
+void randGraph( const int V , const  int E , const double W){
   compressed_sparse_row_graph graph;
 
   set< pair<size_t, size_t> > hasSet;
@@ -65,9 +65,9 @@ void randGraph( const int N , const  int V , const double W){
   size_t src, snk;
   double weight;
   pair<size_t, size_t> temp;
-  while( i< V ){
-    src=rand( )% N;
-    snk=rand( ) %N;
+  while( i< E ){
+    src=rand( )% V;
+    snk=rand( ) %V;
     temp.first=src;
     temp.second=snk;
     if( hasSet.find( temp )==hasSet.end(  ) ){
@@ -82,11 +82,20 @@ void randGraph( const int N , const  int V , const double W){
 
   }
   graph.initial( srcs, snks, weights );
+  for (i = 0; i < 100; i++) {
+    size_t link=rand( )% E;
+    graph.increaseLinkWeight( link, 10 );
+  
+  }
+
+  
+  graph.increaseLinkWeight( V/2, 10 );
   vector<size_t> path;
-  int re =graph.getShortPath( 0,N/2, path );
+  int re =graph.getShortPath( 0,V/2, path );
   if( re>0 ){
     graph.printPath( path );
   }
+
 }
 
 int main(int argc, char *argv[])

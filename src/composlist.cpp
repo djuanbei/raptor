@@ -1,10 +1,12 @@
 #include<algorithm>
 #include<limits> 
 #include<queue>
+#include<set>
 #include"composlist.h"
 
 using std::numeric_limits;
 using std::queue;
+using std::set;
 
 struct tempElment
 {
@@ -26,7 +28,7 @@ static bool tempElmentCmp(const tempElment &lhs, const tempElment &rhs  ) {
  *         0 otherwise
  */
 int compressed_sparse_row_graph::_findSrc( const size_t i, size_t &src ) const{
-  size_t j, start, end,mid;
+  size_t  start, end,mid;
 
   src=vertex_num+1;
   if( i>=link_num ) return 0;
@@ -180,6 +182,33 @@ void compressed_sparse_row_graph::initial(vector<size_t> &srcs, vector< size_t >
   compute_allPair_shortest_path(  );
 }
 
+void compressed_sparse_row_graph::compute_sourceallPair_shortest_path(const size_t src  ){
+
+    const  size_t shift=src*vertex_num;
+    size_t j, current, outDegree ;
+    double weight;
+    shortPaths[shift+src].weight=0;
+    queue<size_t>  wait;
+    wait.push(src );
+    while( !wait.empty(  ) ){
+      current=wait.front(  );
+      wait.pop(  );
+      outDegree=getOutDegree( current );
+      for( j=0; j< outDegree; j++ ){
+        const    endElement &neighbour=link_ends[outIndex[current]+j];
+        precedence &dummy_pred=shortPaths[shift + neighbour.snk];
+        weight=shortPaths[ shift+current ].weight+ neighbour.weight;
+
+        if( weight <dummy_pred.weight   ){
+          dummy_pred.link= outIndex[current]+j;
+          dummy_pred.weight =weight;
+          dummy_pred.vertex=current;
+          wait.push( neighbour.snk );
+        }
+      }
+    }  
+}
+
 void compressed_sparse_row_graph::compute_allPair_shortest_path(  ){
 
   size_t i;
@@ -191,31 +220,7 @@ void compressed_sparse_row_graph::compute_allPair_shortest_path(  ){
   shortPaths.resize(vertex_num*vertex_num, infPre );
 #pragma omp parallel for
   for( i=0; i< vertex_num; i++ ){
-    const  size_t shift=i*vertex_num;
-    size_t j, current, outDegree ;
-  
-    double weight;
-
-    shortPaths[shift+i].weight=0;
-    queue<size_t>  wait;
-    wait.push(i );
-    while( !wait.empty(  ) ){
-      current=wait.front(  );
-      wait.pop(  );
-      outDegree=getOutDegree( current );
-      for( j=0; j< outDegree; j++ ){
-        endElement &neighbour=link_ends[outIndex[current]+j];
-        precedence &dummy_pred=shortPaths[shift + neighbour.snk];
-        weight=shortPaths[ shift+current ].weight+ neighbour.weight;
-
-        if( weight <dummy_pred.weight   ){
-          dummy_pred.link= outIndex[current]+j;
-          dummy_pred.weight =weight;
-          dummy_pred.vertex=current;
-          wait.push( neighbour.snk );
-        }
-      }
-    }
+    compute_sourceallPair_shortest_path( i );
   }
 
 }
@@ -235,28 +240,52 @@ int compressed_sparse_row_graph::_increaseLinkWeight(const  size_t link, const d
 
   #pragma omp parallel for 
   for (i = 0; i < vertex_num; i++) {
-    size_t j, current, inDegree;
+    size_t j, current, inDegree, outDegree;
     const  size_t shift=i*vertex_num;
     if(link==shortPaths[ shift+snk ].link  ){
       queue<size_t>  wait;
+      set<size_t> pass;
+      pass.insert( i );
       wait.push(snk );
+      pass.insert( snk );
       while (!wait.empty(  )) {
         current=wait.front(  );
         wait.pop(  );
         orignalW=shortPaths[shift+snk].weight;
+        shortPaths[shift+snk].weight=numeric_limits<double>::max( )/10;
+        precedence &dummy_current=shortPaths[shift + current];
+
         inDegree=getInDegree( current );
-        
         for( j=0; j< inDegree; j++ ){
-          startElement &neighbour=link_starts[ inIndex[ current ]+j ];
-          precedence &dummy_pred=shortPaths[shift + neighbour.snk];
+          const startElement &neighbour=link_starts[ inIndex[ current ]+j ];
+
+          weight=shortPaths[ shift+ neighbour.src ].weight+ link_ends[ neighbour.link ].weight;
+          if( weight< dummy_current.weight ){
+            dummy_current.link=  neighbour.link;
+            dummy_current.weight=weight;
+            dummy_current.vertex=neighbour.src;
+            
+          }
+        }
+        if( dummy_current.weight> orignalW ){
+          outDegree=getOutDegree( current );
+          for( j=0; j< outDegree; j++ ){
+            if(  pass.find(link_ends[outIndex[ current ]+j].snk)== pass.end(  )  ){
+              pass.insert( link_ends[outIndex[ current ]+j ].snk );
+              wait.push( link_ends[outIndex[ current ]+j ].snk );
+              
+            }
+            
+          }
+
         }
         
       }
 
-
     }
     
   }
+  return 1;
 
 }
 
