@@ -55,7 +55,7 @@ public:
   vector<size_t> getPaths(void  ){
     return ver_links;
   }
-  const   double   getSize( void ) const{
+  double   getSize( void ) const{
     return size;
   }
 
@@ -72,7 +72,7 @@ class multi_commodity_flow{
 private:
   double alpha;
   double desired_cost;
-  compressed_sparse_row_graph& graph;
+  compressed_sparse_row_graph<int,float,float>& graph;
   double cost;
   size_t link_num;
   vector<flow_task> tasks;
@@ -104,16 +104,16 @@ private:
   
 
 public:
-  multi_commodity_flow(compressed_sparse_row_graph&g  ):alpha(1),desired_cost( 0 ),  graph( g ), cost( 0 ){
+  multi_commodity_flow(compressed_sparse_row_graph<int,float,float>&g  ):alpha(1),desired_cost( 0 ),  graph( g ), cost( 0 ){
     initial(  );
     
   }
 
-  multi_commodity_flow(const double a, compressed_sparse_row_graph&g  ):alpha(a),desired_cost( 0 ),  graph( g ), cost( 0 ){
+  multi_commodity_flow(const double a, compressed_sparse_row_graph<int,float,float>&g  ):alpha(a),desired_cost( 0 ),  graph( g ), cost( 0 ){
     initial(  );
   }
 
-  multi_commodity_flow(const double a, const double cost, compressed_sparse_row_graph&g  ):alpha(a),desired_cost( cost ),  graph( g ), cost( 0 ){
+  multi_commodity_flow(const double a, const double cost, compressed_sparse_row_graph<int,float,float>&g  ):alpha(a),desired_cost( cost ),  graph( g ), cost( 0 ){
     initial(  );
 
   }
@@ -125,11 +125,11 @@ public:
   void setCost(  const double cost ){
     desired_cost=cost;
   }
-  const double getAlpha( void ) const{
+  double getAlpha( void ) const{
     
     return  alpha;
   }
-  const double  getCost( void  ) const {
+  double  getCost( void  ) const {
     return desired_cost;
   }
 
