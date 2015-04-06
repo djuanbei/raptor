@@ -73,7 +73,7 @@ void randGraph( const int V , const  int E , const double W){
     temp.second=snk;
     if( hasSet.find( temp )==hasSet.end(  ) ){
       i++;
-      weight=W*(rand( ))/RAND_MAX;
+      weight=W*(rand( ))/RAND_MAX+0.1;
       hasSet.insert( temp );
       srcs.push_back( src );
       snks.push_back( snk );
@@ -92,11 +92,11 @@ void randGraph( const int V , const  int E , const double W){
 
   
   // graph.increaseLinkWeight( V/2, 10 );
-  // vector<size_t> path;
-  // int re =graph.getShortPath( 0,V/2, path );
-  // if( re>0 ){
-  //   graph.printPath( path );
-  // }
+  vector<int> path;
+  int re =graph.getShortPath( 0,V/2, path );
+  if( re>0 ){
+    graph.printPath( path );
+  }
 
 }
 

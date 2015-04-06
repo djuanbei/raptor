@@ -16,6 +16,7 @@
 #include<vector>
 #include<cassert>
 #include<algorithm>
+#include"heap.h"
 #include<queue>
 #include<set>
 #include<limits>
@@ -73,6 +74,16 @@ template<typename E>
 static bool tempElmentCmp(const tempElment<E> &lhs, const tempElment<E> &rhs  ) {
   return lhs.src<rhs.src;
 }
+
+
+
+template<class T>
+struct LESSOR{
+  bool operator(  )(const T &x, const T &y ) const{
+    return x.first< y.first;
+  }
+  
+};
 
 
 template<typename E=int, typename W=float, typename C=float>
@@ -396,6 +407,7 @@ public:
   inline void setLinkCap( const E link, const C captical  ){
     link_ends[reLink_map[ link ]  ].captical=captical;
   }
+
   
   void  compute_sourceallPair_shortest_path_dij(const E src ){
     typedef pair<W ,E> PII;
@@ -403,7 +415,11 @@ public:
     size_t j, current, outDegree ;
     W weight;
     shortPaths[shift+src].weight=0;
-    priority_queue<PII, vector<PII>, greater<PII> >Q;
+    LESSOR<PII> order;
+    Heap<W,E , LESSOR<PII> > Q( order );
+    Q.setCap(vertex_num  );
+    //    priority_queue<PII, vector<PII>, greater<PII> >Q;
+    
     Q.push( make_pair( 0.0, src ) );
     while( !Q.empty(  ) ){
       PII p=Q.top(  );
@@ -412,7 +428,7 @@ public:
       outDegree=getOutDegree( current );
 
       for(j=0; j< outDegree; j++  ){
-        const    endElement<E,W,C> &neighbour=link_ends[outIndex[current]+j];
+        const endElement<E,W,C> &neighbour=link_ends[outIndex[current]+j];
         precedence<E,W> &dummy_pred=shortPaths[shift + neighbour.snk];
         weight=shortPaths[ shift+current ].weight+ neighbour.weight;
         if( weight <dummy_pred.weight   ){
@@ -420,6 +436,7 @@ public:
           dummy_pred.weight =weight;
           dummy_pred.vertex=current;
           Q.push(make_pair(weight,  neighbour.snk) );
+          //          assert( Q.size(  )<4*vertex_num );
 
         }
 
