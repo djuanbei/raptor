@@ -27,7 +27,7 @@ private:
   int size;
 
   // Index "traversal" functions
-  static inline int left  (int i) { return i*2+1; }
+  static inline int left  (int i) { return (i<<1)|1; }
   static inline int right (int i) { return (i+1)<<1; }
   static inline int parent(int i) { return (i-1) >> 1; }
   void percolateUp(int i)
@@ -77,6 +77,7 @@ public:
       indices[ k.second ]=size;
       size++;
     }else{
+      data[indices[ k.second ]  ].first=k.first;
       percolateUp(indices[ k.second ]);
     }
     
@@ -91,7 +92,6 @@ public:
     data[0]          = data[ size-1 ];
     size--;
     if (size > 1) percolateDown(0);
- 
   }
 
 };

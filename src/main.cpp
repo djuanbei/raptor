@@ -103,7 +103,7 @@ void randGraph( const int V , const  int E , const double W){
 int main(int argc, char *argv[])
 {
   //  Case1(  );
-  randGraph( 1000, 100000, 10 );
+  randGraph( 500, 10000, 10 );
   
   return 0;
 }
