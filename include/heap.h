@@ -19,11 +19,11 @@ using std::pair;
 
 template<class W, class E, class Comp >
 
-class Heap{
+class Fixed_heap{
 private:
-  vector<pair<W, E> > data; // Heap of Keys
-  vector<int> indices;  // Each Key's position (index) in the Heap
-  Comp                  lt;       // The data is a minimum-data with respect to this comparator
+  vector<pair<W, E> > heap; // Fixed_heap of Keys
+  vector<int> indices;  // Each Key's position (index) in the Fixed_heap
+  Comp                  lt;       // The heap is a minimum-heap with respect to this comparator
   int size;
 
   // Index "traversal" functions
@@ -32,66 +32,70 @@ private:
   static inline int parent(int i) { return (i-1) >> 1; }
   void percolateUp(int i)
   {
-    pair<W, E>   x  = data[i];
+    pair<W, E>  x  = heap[i];
     int p  = parent(i);
         
-    while (i != 0 && lt(x, data[p])){
-      data[i]          = data[p];
-      indices[data[i].second] = i;
+    while (i != 0 && lt(x, heap[p])){
+      heap[i]          = heap[p];
+      indices[heap[i].second] = i;
       i                = p;
       p                = parent(p);
     }
-    data   [i] = x;
+    heap   [i] = x;
     indices[x.second] = i;
 
   }
 
   void percolateDown(int i)
   {
-    pair<W,E> x = data[i];
+    pair<W,E>  x = heap[i];
     while (left(i) <size){
-      int child = right(i) < size && lt(data[right(i)], data[left(i)]) ? right(i) : left(i);
-      if (!lt(data[child], x)) break;
-      data[i]          = data[child];
-      indices[data[i].second] = i;
+      int child = right(i) < size && lt(heap[right(i)], heap[left(i)]) ? right(i) : left(i);
+      if (!lt(heap[child], x)) break;
+      heap[i]          = heap[child];
+      indices[heap[i].second] = i;
       i                = child;
     }
-    data   [i] = x;
+    heap   [i] = x;
     indices[x.second] = i;
 
   }
   
 public:
-  Heap(const Comp& c ) :  lt(c), size( 0 )  {}
-  void setCap( int cap ){
-    data.resize(cap );
-    indices.resize( cap,-1 );
-  }
+
+  Fixed_heap( const Comp& c, int cap  ) : heap( cap ), indices( cap, -1 ),   lt(c), size( 0 )  {}
+
 
   bool empty     ()          const { return 0==size; }
   void push(pair<W,E> k)
   {
     if(-1==indices[ k.second ]  ){
-      data[ size ]=k;
-      percolateUp(size);
+      
+      heap[ size ]=k;
       indices[ k.second ]=size;
+      percolateUp(size);
       size++;
     }else{
-      data[indices[ k.second ]  ].first=k.first;
+      heap[indices[ k.second ]  ].first=k.first;
       percolateUp(indices[ k.second ]);
     }
     
 
   }
   pair<W,E> & top(  ){
-    return data[ 0 ];
+    return heap[ 0 ];
   }
 
   void pop(  ){
-    indices[data[0].second  ]=-1;
-    data[0]          = data[ size-1 ];
+    indices[heap[0].second  ]=-1;
+    heap[0]          = heap[ size-1 ];
     size--;
     if (size > 1) percolateDown(0);
+  }
+
+void  clear(  ){
+    size=0;
+    fill(indices.begin(  ), indices.end(  ), -1);
   }
 
 };

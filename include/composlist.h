@@ -266,6 +266,11 @@ public:
       }
     }
     vertex_num=ver_max+1;
+    precedence<E,W> inifPre;
+    inifPre.link=link_num+1;
+    inifPre.weight=numeric_limits<W>::max( )/10;
+    inifPre.vertex=vertex_num+10;      
+    shortPaths.resize(  vertex_num*vertex_num, inifPre);
 
     for(i=0 ; i< srcs.size( ) ; i++ ){
       dummy_pred.id=i;
@@ -409,16 +414,31 @@ public:
   }
 
   
-  void  compute_sourceallPair_shortest_path_dij(const E src ){
+  void  compute_sourceallPair_shortest_path_dijkstra(const E src ,   bool resize=true ){
+
     typedef pair<W ,E> PII;
     const  size_t shift=src*vertex_num;
     size_t j, current, outDegree ;
     W weight;
+    //    Q.clear(  );
+    if( resize ){
+
+      precedence<E,W> inifPre;
+      inifPre.link=link_num+1;
+      inifPre.weight=numeric_limits<W>::max( )/10;
+      inifPre.vertex=vertex_num+10;  
+      fill( shortPaths.begin(  ), shortPaths.begin(  )+vertex_num , inifPre);
+
+    }
+
     shortPaths[shift+src].weight=0;
+    //    vector<precedence<E,W> > tempshortPaths(shortPaths);
+
+
     LESSOR<PII> order;
-    Heap<W,E , LESSOR<PII> > Q( order );
-    Q.setCap(vertex_num  );
-    //    priority_queue<PII, vector<PII>, greater<PII> >Q;
+    Fixed_heap<W,E , LESSOR<PII> > Q( order, vertex_num );
+   //    Q.setCap(vertex_num  );
+    //priority_queue<PII, vector<PII>, greater<PII> >Q;
     
     Q.push( make_pair( 0.0, src ) );
     while( !Q.empty(  ) ){
@@ -436,14 +456,256 @@ public:
           dummy_pred.weight =weight;
           dummy_pred.vertex=current;
           Q.push(make_pair(weight,  neighbour.snk) );
-          //          assert( Q.size(  )<4*vertex_num );
+
 
         }
 
       }
     }    
 
+
+    // priority_queue<PII, vector<PII>, greater<PII> >Q1;
+    // Q1.push( make_pair( 0.0, src ) );
+
+    // while( !Q1.empty(  ) ){
+    //   PII p=Q1.top(  );
+    //   Q1.pop(  );
+    //   current=p.second;
+    //   outDegree=getOutDegree( current );
+
+    //   for(j=0; j< outDegree; j++  ){
+    //     const endElement<E,W,C> &neighbour=link_ends[outIndex[current]+j];
+    //     precedence<E,W> &dummy_pred=tempshortPaths[shift + neighbour.snk];
+    //     weight=tempshortPaths[ shift+current ].weight+ neighbour.weight;
+    //     if( weight <dummy_pred.weight   ){
+    //       dummy_pred.link= outIndex[current]+j;
+    //       dummy_pred.weight =weight;
+    //       dummy_pred.vertex=current;
+    //       Q1.push(make_pair(weight,  neighbour.snk) );
+
+
+    //     }
+
+    //   }
+    // }    
+
+    // for (j = 0; j < vertex_num; j++) {
+      
+    //   if( shortPaths[ shift+j ].link!= tempshortPaths[ shift+j ].link ||  shortPaths[ shift+j ].vertex!= tempshortPaths[ shift+j ].vertex)  
+    //     std::cout << "error" << std::endl;
+  
+    // }
+
   }
+  /** 
+   * http://en.wikipedia.org/wiki/Suurballe%27s_algorithm
+   * 
+   * @param src 
+   * @param snk 
+   * @param path1 
+   * @param path2 
+   */
+  void suurballe_shortest(  const E src, const E snk,  vector<E> & path1,  vector<E> & path2)
+  {
+    const  size_t shift=src*vertex_num;
+
+    /**
+     *  fisrt dijkstra shortest path
+     * 
+     */
+
+    compute_sourceallPair_shortest_path_dijkstra(src  );
+
+    vector<E> tempp;
+    if(_getShortPath( src, snk, tempp ) <=0 ){
+      return ;
+    }
+    vector<W>  newW(link_num  );
+    E i;
+    E srcc, snkk;
+    /**
+     *  new edge weight
+     * 
+     */
+
+    for( i=0; i< link_num; i++ )
+      {
+        _getSrcSnk(  i, srcc, snkk);
+        newW[ i ]=link_ends[ i ].weight+shortPaths[ shift+srcc ].weight-shortPaths[ shift+snkk ].weight;
+        assert( newW[ i ] )>=0);
+  }
+
+  vector<E> path1link;
+  i=0;
+  while (i< tempp.size(  ) -1) {
+    path1link.push_back(tempp[ i+1 ]  );
+    i+=2;
+  }
+
+  /**
+   *  second dijkstra shortest path
+   * 
+   */
+
+  typedef pair<W ,E> PII;
+
+  E link;
+  size_t j, current, outDegree ;
+  W weight;
+
+  vector<W> dis(vertex_num, numeric_limits<W>::max( )/10 );
+  vector<E> parent(vertex_num, vertex_num+10  );
+  vector<E> shortp(vertex_num, link_num+10  );
+    
+  dis[ src ]=0;
+
+  LESSOR<PII> order;
+  Fixed_heap<W,E , LESSOR<PII> > Q( order, vertex_num );
+
+    
+  Q.push( make_pair( 0.0, src ) );
+  while( !Q.empty(  ) ){
+    PII p=Q.top(  );
+    current=p.second;
+    if( snk==current ){
+      break;
+    }
+    Q.pop(  );
+      
+    outDegree=getOutDegree( current );
+
+    for(j=0; j< outDegree; j++  ){
+      link=outIndex[current]+j;
+      // reverse all directtion of link in path1
+      if(find( path1link.begin(  ), path1link.end(  ), link )!= path1link.end(  )  )
+        continue;
+
+      const endElement<E,W,C> &neighbour=link_ends[outIndex[current]+j];
+
+      if( src==neighbour.snk ) continue; // cut all link direct to src
+
+      weight=dis[ current ] + newW[ link ];
+
+      if( weight <dis[neighbour.snk  ]   ){
+        shortp[ neighbour.snk ]= link;
+        dis[ neighbour.snk ]=weight;
+        parent[ neighbour.snk ]=current;
+
+        Q.push(make_pair(weight,  neighbour.snk) );
+
+      }
+    }
+      
+    // reverse all directtion of link in path1 and  cut all link direct to src
+    for(j=0; j< path1link.size(  );  j++ )
+      {
+        link=path1link[ j ];
+        _getSrcSnk( link, srcc, snkk  ); 
+        if( current==snkk && srcc!= src)
+          {
+            weight=dis[ current ]+newW[ link ];
+            assert( 0.0== newW[ link ]);
+            if( weight< dis[ srcc ] ){
+              shortp[ srcc ]=link;
+              dis[ srcc ]=weight;
+              parent[ srcc ]= current;
+              Q.push( make_pair( weight, srcc ) );
+
+            }
+          }
+          
+      }
+
+  
+    if( Q.empty(  ) ) 
+      return ;
+
+    vector<E>  path2link;
+    current=snk;
+    while (snk!=src) {
+      path2link.push_back( shortp[ current ] );
+      current=parent[current  ];
+    }
+
+    /**
+     * delete the same links in path1link and path2link
+     * 
+     */
+    
+    sort(path2link.begin(  ) , path2link.end(  )  );
+    sort( path1link.begin(  ), path1link.end(  ) );
+    vector<E> sameLink( path1link.size(  ) );
+    vector<E>::iterator it=set_intersection( path1link.begin(  ), path1link.end(  ), path2link.begin(  ), path2link.end(  ), sameLink.begin(  ) );
+    sameLink.resize( it-sameLink.begin(  ) );
+    
+    for( j=0; j< sameLink.size(  ); j++ ){
+      it=find(path1link.begin(  ), path1link.end(  ), sameLink[ j ]);
+      if( it!=path1link.end(  ) ){
+        path1link.erase( it );
+      }
+
+    }
+    
+    for( j=0; j< sameLink.size(  ); j++ ){
+      it=find(path2link.begin(  ), path2link.end(  ), sameLink[ j ]);
+      if( it!=path2link.end(  ) ){
+        path2link.erase( it );
+      }
+    }
+
+    path1link.insert( path1link.end(  ),  path2link.begin(  ), path2link.end(  ) );
+
+
+
+    /**
+     * obtain the two disjoint paths
+     * 
+     */
+
+    current=src;
+    while (current!=snk) {
+      j=0;    
+      for( j=0;  j< path1link.size(  ) ; j++)
+        {
+          link=path1link[ j ];
+          _findSrc( path1link[ j ] , srcc);
+          if( srcc==current ) break;
+        }
+
+      assert( j<path1link.size(  )  );
+
+      path1link.erase( path1link.begin(  )+j );
+
+      path1.push_back( link );
+      _findSnk( link, snkk );
+      current=snkk;
+
+    }
+
+
+    current=src;
+    while (current!=snk) {
+      j=0;    
+      for( j=0;  j< path1link.size(  ) ; j++)     {
+        link=path1link[ j ];
+        _findSrc( path1link[ j ] , srcc);
+        if( srcc==current ) break;
+      }
+
+      assert( j<path1link.size(  )  );
+
+      path1link.erase( path1link.begin(  )+j );
+
+      path2.push_back( link );
+      _findSnk( link, snkk );
+      current=snkk;
+
+    }
+    
+    
+  }
+
+
 
   void compute_sourceallPair_shortest_path(const E src  ){
 
@@ -477,15 +739,20 @@ public:
   void compute_allPair_shortest_path(  ){
     
     E i;
-    precedence<E,W> infPre;
-    infPre.link=link_num+1;
-    infPre.weight=numeric_limits<double>::max( )/10;
-    infPre.vertex=vertex_num+10;
+    typedef pair<W ,E> PII;
+    precedence<E,W> inifPre;
+    inifPre.link=link_num+1;
+    inifPre.weight=numeric_limits<W>::max( )/10;
+    inifPre.vertex=vertex_num+10;
 
-    shortPaths.resize(vertex_num*vertex_num, infPre );
+    //    shortPaths.resize(vertex_num*vertex_num);
+    fill( shortPaths.begin(  ), shortPaths.end(  ) , inifPre);
+    // LESSOR<PII> order;
+    // Fixed_heap<W,E , LESSOR<PII> > Q( order, vertex_num );
+
 #pragma omp parallel for
     for( i=0; i< vertex_num; i++ ){
-      compute_sourceallPair_shortest_path_dij( i );
+      compute_sourceallPair_shortest_path_dijkstra( i ,    false);
     }
   }
 
@@ -519,7 +786,12 @@ public:
 
   static void printPath( vector<E>&path ){
     if(0== path.size(  ) ) return;
+    
     size_t i=0;
+    string ss;
+    
+    
+    
 
     std::cout<<path[ 0 ]<<std::endl;
     i++;
@@ -535,3 +807,5 @@ public:
 
 
 #endif
+
+

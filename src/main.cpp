@@ -54,6 +54,8 @@ void Case1(  ){
 
 
 void randGraph( const int V , const  int E , const double W){
+
+
   compressed_sparse_row_graph<int, float,float > graph;
   graph.setInfi( 10000000 );
 
@@ -84,6 +86,7 @@ void randGraph( const int V , const  int E , const double W){
   }
 
   graph.initial( srcs, snks, weights );
+  
   // for (i = 0; i < 100; i++) {
   //   size_t link=rand( )% E;
   //   graph.increaseLinkWeight( link, 10 );
@@ -97,13 +100,15 @@ void randGraph( const int V , const  int E , const double W){
   if( re>0 ){
     graph.printPath( path );
   }
+  
 
 }
 
 int main(int argc, char *argv[])
 {
   //  Case1(  );
-  randGraph( 500, 10000, 10 );
+  randGraph( 500, 30000, 10 );
+
   
   return 0;
 }
