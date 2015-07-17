@@ -39,6 +39,8 @@ namespace fast_graph{
   template<class E=int, class W=float, class C=float>
   class compressed_sparse_row_graph{
 
+    typedef pair<W ,E> PII;
+    
     struct endElement{
       C capacity;
       W weight;
@@ -58,14 +60,16 @@ namespace fast_graph{
     struct precedence
     {
       E link;
+      unsigned char pid;
+      
       W weight;
-      //      E vertex;
-      precedence(  ):link(0), weight( 0 ){
+
+      precedence(  ):link(0), pid( 0 ),  weight( 0 ){
       }
       precedence & operator=( const precedence&  other){
         link=other.link ;
         weight=other.weight;
-        //        vertex=other.vertex;
+
         return *this;
       }
 
@@ -83,6 +87,9 @@ namespace fast_graph{
     }
     
   private:
+    W infi_value;
+    int ksp_k;
+    
     E vertex_num;
     E link_num;
     //out links
@@ -97,7 +104,7 @@ namespace fast_graph{
     
     vector<precedence > shortPaths;  // allpair shortest path
 
-    W infi_value;
+
     bool _findSrc( const E link, E & src )const {
 
       size_t  start, end, mid;
@@ -159,110 +166,56 @@ namespace fast_graph{
      * @return  true if there have a path connect src and snk
      * false otherwise
      */
-    bool _getShortPath( const E src, const E snk, vector<E> & path ) const{
+    bool _getShortPath( const E src, const E snk, vector< vector<E> > & paths ) const{
+      
       assert( src< vertex_num && snk < vertex_num );
       assert( src!=snk );
-      assert( path.empty(  ) );
-
+      assert( paths.empty(  ) );
+      size_t i;
+      bool re=false;
+      unsigned char pid;
+      E link;
+            
       const size_t shift= src*vertex_num;
-      if(shortPaths[ shift +snk ].link> link_num )
-        return  false;
-  
-      E  current =snk;
-      while( current!=src ){
-        //        path.push_back( current );
-        path.push_back( shortPaths[ shift +current ].link   );
-        _findSrc( shortPaths[ shift +current ].link, current );
+
+      for( i=0; i < ksp_k; i++ ){
         
-        //        current=shortPaths[ shift +current ].vertex;
+        if(shortPaths[ (shift +snk)*ksp_k +i].link> link_num )
+          return  re;
+        
+        re=true;
+        pid=i;
+        E  current =snk;
+        vector<E> path;
+        
+        while( current!=src ){
+          link=(shift +current)*ksp_k+pid;
+          path.push_back( shortPaths[link ].link   );
+          _findSrc( shortPaths[ link ].link, current );
+          pid=shortPaths[ link].pid;
+
+        }
+
+        std::reverse(path.begin(  ), path.end(  ) );
+        paths.push_back( path );
+        
       }
-      //      path.push_back( current );
-      std::reverse(path.begin(  ), path.end(  ) );
+      
       return true;
 
     }
 
-    /** 
-     * have bug when there have circle
-     * 
-     * @param link 
-     * @param inc 
-     * 
-     * @return 
-     */
 
-//     bool _increaseLinkWeight(const  E link, const W inc ){
-    
-//       assert( link< link_num );
-//       assert( inc>=0 );
-//       if( 0==inc ) return false;
-
-//       link_ends[ link ].weight+=inc;
-
-//       size_t i;
-//       size_t src, snk;
-//       double orignalW, weight;
-//       _getSrcSnk( link, src, snk );
-
-// #pragma omp parallel for 
-
-//       for (i = 0; i < vertex_num; i++) {
-//         size_t j, current, inDegree, outDegree;
-
-//         const  size_t shift=i*vertex_num;
-
-//         if(link==shortPaths[ shift+snk ].link  ){
-//           queue<size_t>  wait;
-//           set<size_t> pass;
-//           pass.insert( i );
-//           wait.push(snk );
-//           pass.insert( snk );
-//           while (!wait.empty(  )) {
-//             current=wait.front(  );
-//             wait.pop(  );
-//             orignalW=shortPaths[shift+snk].weight;
-//             shortPaths[shift+snk].weight=infi_value;
-//             precedence &dummy_current=shortPaths[shift + current];
-
-//             inDegree=getInDegree( current );
-//             for( j=0; j< inDegree; j++ ){
-//               const startElement &neighbour=link_starts[ inIndex[ current ]+j ];
-
-//               weight=shortPaths[ shift+ neighbour.src ].weight+ link_ends[ neighbour.link ].weight;
-//               if( weight< dummy_current.weight ){
-//                 dummy_current.link=  neighbour.link;
-//                 dummy_current.weight=weight;
-//                 dummy_current.vertex=neighbour.src;
-            
-//               }
-//             }
-//             if( dummy_current.weight> orignalW ){
-//               outDegree=getOutDegree( current );
-//               for( j=0; j< outDegree; j++ ){
-//                 if(  pass.find(link_ends[outIndex[ current ]+j].snk)== pass.end(  )  ){
-//                   pass.insert( link_ends[outIndex[ current ]+j ].snk );
-//                   wait.push( link_ends[outIndex[ current ]+j ].snk );
-              
-//                 }
-            
-//               }
-
-//             }
-        
-//           }
-
-//         }
-    
-//       }
-
-//       return true;
-//     }
 
 
   public:
     
-    compressed_sparse_row_graph( ): infi_value(numeric_limits<W>::max( ) /10e10),vertex_num( 0 ), link_num( 0 ){
+    compressed_sparse_row_graph( ): infi_value(numeric_limits<W>::max( ) /10e10), ksp_k( 1 ), vertex_num( 0 ), link_num( 0 ){
 
+    }
+
+    compressed_sparse_row_graph( int k): infi_value(numeric_limits<W>::max( ) /10e10), ksp_k( k ), vertex_num( 0 ), link_num( 0 ){
+      assert(k>0);
     }
 
     void initial(vector<E> &srcs, vector<E> &snks, vector<W> &weights  ){
@@ -293,8 +246,8 @@ namespace fast_graph{
       precedence inifPre;
       inifPre.link=link_num+1;
       inifPre.weight=infi_value;
-      //      inifPre.vertex=vertex_num+10;      
-      shortPaths.resize(  vertex_num*vertex_num, inifPre);
+
+      shortPaths.resize(  ksp_k*vertex_num*vertex_num, inifPre);
 
       for(i=0 ; i< srcs.size( ) ; i++ ){
         dummy_pred.id=i;
@@ -378,7 +331,7 @@ namespace fast_graph{
       for( j=tContian[ i-1 ].src; j< vertex_num; j++ ){
         inIndex.push_back(link_starts.size( ) );
       }
-      //      compute_allPair_shortest_path(  );
+
     }
     
     inline size_t getVertex_num( void  )const{
@@ -389,15 +342,16 @@ namespace fast_graph{
       infi_value=infi;
     }
 
-    inline size_t getLink_num ( void  ) const{
+    inline E getLink_num ( void  ) const{
       return link_num;
     }
 
-    inline int getOutDegree(E vertex) const{
+    inline E getOutDegree(E vertex) const{
       assert( vertex< vertex_num );
       return outIndex[ vertex+1 ]-outIndex[ vertex ];
     }
-    inline int getInDegree( E vertex) const {
+    
+    inline E getInDegree( E vertex) const {
       assert( vertex< vertex_num );
       return inIndex[vertex+1 ]-inIndex[ vertex ];
 
@@ -424,33 +378,6 @@ namespace fast_graph{
       return _getSrcSnk(reLink_map[link], src, snk  );
     }
 
-    
-    /** 
-     * have bug when there have circle
-     * 
-     * @param link 
-     * @param inc 
-     * 
-     * @return 
-     */
-
-    // inline bool increaseLinkWeight(const  size_t link, const W inc ){
-    
-    //   bool re=_increaseLinkWeight(reLink_map[link], inc ) ;
-    //   vector<precedence > temps=  shortPaths;
-
-    //   compute_allPair_shortest_path(  );
-
-    //   for( size_t i=0; i<shortPaths.size(  ); i++  ){
-
-    //     if(temps[ i ].link != shortPaths[ i ].link || temps[ i ].weight!=shortPaths[ i ].weight  ){
-    //       assert( 0 );
-    //       std::cout << "error" << std::endl;
-    //     }
-        
-    //   }
-    //   return re;
-    // }
 
     
     inline void setLinkWeight( const E link, const E weight ){
@@ -462,90 +389,97 @@ namespace fast_graph{
     }
 
   
-    void  compute_sourceallPair_shortest_path_dijkstra(const E src ,   bool resize=true ){
+    void  compute_sourceallPair_shortest_path_dijkstra(const E src ,   bool reset=true ){
 
-      typedef pair<W ,E> PII;
-      const  size_t shift=src*vertex_num;
-      size_t j, current, outDegree ;
+
+      const  size_t shift=ksp_k*src*vertex_num;
+      
+      size_t i, j, k, h,  current, outDegree, link, next ;
       W weight;
-      //    Q.clear(  );
-      if( resize ){
+
+      
+      /**
+       * reset the memmory have relation with src
+       * 
+       */
+
+      if( reset ){
 
         precedence inifPre;
         inifPre.link=link_num+1;
         inifPre.weight=infi_value;
-        //        inifPre.vertex=vertex_num+10;  
-        fill( shortPaths.begin(  ), shortPaths.begin(  )+vertex_num , inifPre);
+        
+        fill( shortPaths.begin(  )+shift, shortPaths.begin(  )+shift+ksp_k*vertex_num , inifPre);
 
       }
 
-      shortPaths[shift+src].weight=0;
-      //    vector<precedence > tempshortPaths(shortPaths);
-
+      shortPaths[shift+ksp_k*src].weight=0;
+      
 
       LESSOR<PII> order;
-      Fixed_heap<W,E , LESSOR<PII> > Q( order, vertex_num );
-      //    Q.setCap(vertex_num  );
-      //priority_queue<PII, vector<PII>, greater<PII> >Q;
-    
-      Q.push( make_pair( 0.0, src ) );
-      while( !Q.empty(  ) ){
-        PII p=Q.top(  );
-        Q.pop(  );
-        current=p.second;
-        outDegree=getOutDegree( current );
 
-        for(j=0; j< outDegree; j++  ){
-          const endElement &neighbour=link_ends[outIndex[current]+j];
-          precedence &dummy_pred=shortPaths[shift + neighbour.snk];
-          weight=shortPaths[ shift+current ].weight+ neighbour.weight;
-          if( weight <dummy_pred.weight   ){
-            dummy_pred.link= outIndex[current]+j;
-            dummy_pred.weight =weight;
-            //            dummy_pred.vertex=current;
-            Q.push(make_pair(weight,  neighbour.snk) );
-
-
+      Fixed_heap< W, E, LESSOR<PII> > Q( order, vertex_num );
+      
+      Q.push(make_pair( 0.0, src )  );
+      for (i = 0; i < ksp_k; i++) {
+        
+        if( i>0 ){
+          Q.clear(  );
+          for( j=0; j< vertex_num; j++ ){
+            if(shortPaths[ shift+j*ksp_k+i ].link< link_num  ){
+              Q.push( make_pair( shortPaths[ shift+j*ksp_k+i ].weight, j ) );            
+            }
           }
-
+          
         }
-      }    
+
+
+        
+        while( !Q.empty(  ) ){
+          PII p=Q.top(  );
+          Q.pop(  );
+          current=p.second;
+          outDegree=getOutDegree( current );
+
+          W current_weight=p.first;
+          //            shortPaths[ shift+ksp_k*current+i ].weight;
+          
+          for(j=0; j< outDegree; j++  ){
+            
+            link=outIndex[current]+j;
+            const endElement &neighbour=link_ends[link];
+
+            for( k=i; k< ksp_k; k++ ){
+              next=shift + ksp_k*neighbour.snk+ k;
+              precedence &dummy_pred=shortPaths[next];
+              weight=current_weight + neighbour.weight;
+              if( weight <dummy_pred.weight   ){
+                
+                if( dummy_pred.link< link_num ){
+
+                  for( h=ksp_k-1; h>k ; h-- ){
+                    shortPaths[shift + ksp_k*neighbour.snk+h  ]=
+                      shortPaths[shift + ksp_k*neighbour.snk+h-1  ];
+                  }
+                }
+                
+                shortPaths[next].link= link;
+                shortPaths[next].pid=i;
+                shortPaths[next].weight =weight;
+                if( k==i )
+                  Q.push(make_pair(   weight, neighbour.snk) );
+                break;
+
+              }
+              
+            }
+            
+          }
+        }    
+      }
     }
 
 
-    // priority_queue<PII, vector<PII>, greater<PII> >Q1;
-    // Q1.push( make_pair( 0.0, src ) );
-
-    // while( !Q1.empty(  ) ){
-    //   PII p=Q1.top(  );
-    //   Q1.pop(  );
-    //   current=p.second;
-    //   outDegree=getOutDegree( current );
-
-    //   for(j=0; j< outDegree; j++  ){
-    //     const endElement<E,W,C> &neighbour=link_ends[outIndex[current]+j];
-    //     precedence &dummy_pred=tempshortPaths[shift + neighbour.snk];
-    //     weight=tempshortPaths[ shift+current ].weight+ neighbour.weight;
-    //     if( weight <dummy_pred.weight   ){
-    //       dummy_pred.link= outIndex[current]+j;
-    //       dummy_pred.weight =weight;
-    //       dummy_pred.vertex=current;
-    //       Q1.push(make_pair(weight,  neighbour.snk) );
-
-
-    //     }
-
-    //   }
-    // }    
-
-    // for (j = 0; j < vertex_num; j++) {
-      
-    //   if( shortPaths[ shift+j ].link!= tempshortPaths[ shift+j ].link ||  shortPaths[ shift+j ].vertex!= tempshortPaths[ shift+j ].vertex)  
-    //     std::cout << "error" << std::endl;
-  
-    // }
-
-    //}
     /** 
      * http://en.wikipedia.org/wiki/Suurballe%27s_algorithm
      * 
@@ -566,9 +500,12 @@ namespace fast_graph{
       compute_sourceallPair_shortest_path_dijkstra(src  );
 
       vector<E> path1link;
-      if(!_getShortPath( src, snk, path1link )  ){
+      vector< vector<E> > path1links;
+      if(!_getShortPath( src, snk, path1links )  ){
         return ;
       }
+      path1link=path1links[ 0 ];
+      
       vector<W>  newWeight(link_num  );
       E i;
       E srcc, snkk;
@@ -579,23 +516,19 @@ namespace fast_graph{
 
       for( i=0; i< link_num; i++ ) {
         _getSrcSnk(  i, srcc, snkk);
-        newWeight[ i ]=link_ends[ i ].weight+shortPaths[ shift+srcc ].weight-shortPaths[ shift+snkk ].weight;
+        newWeight[ i ]=link_ends[ i ].weight+shortPaths[ shift+srcc ].weight
+          -shortPaths[ shift+snkk ].weight;
         assert( newWeight[ i ] >=0);
       }
 
-      //      vector<E> path1link(tempp);
-      // i=0;
-      // while (i< tempp.size(  ) -1) {
-      //   path1link.push_back(tempp[ i+1 ]  );
-      //   i+=2;
-      // }
+
 
       /**
        *  second dijkstra shortest path
        * 
        */
 
-      typedef pair<W ,E> PII;
+
 
       E link;
       size_t j, current, outDegree ;
@@ -683,7 +616,8 @@ namespace fast_graph{
         sort(path2link.begin(  ) , path2link.end(  )  );
         sort( path1link.begin(  ), path1link.end(  ) );
         vector<E> sameLink( path1link.size(  ) );
-        typename vector<E>::iterator it=set_intersection( path1link.begin(  ), path1link.end(  ), path2link.begin(  ), path2link.end(  ), sameLink.begin(  ) );
+        typename vector<E>::iterator it=set_intersection( path1link.begin(  ), path1link.end(  ),
+                                                          path2link.begin(  ), path2link.end(  ), sameLink.begin(  ) );
         sameLink.resize( it-sameLink.begin(  ) );
     
         for( j=0; j< sameLink.size(  ); j++ ){
@@ -754,26 +688,7 @@ namespace fast_graph{
     }
 
 
-    /** 
-     * 
-     * http://en.wikipedia.org/wiki/Yen%27s_algorithm
-     * @param src 
-     * @param snk 
-     * @param k 
-     * @param paths 
-     * 
-     * @return 
-     */
-    int k_shortest_path( const size_t src, const size_t snk, const int  k, vector<vector< size_t> > &paths    ){
 
-      assert( paths.empty(  ) );
-      assert( src!=snk );
-      assert( src<vertex_num&& snk< vertex_num );
-      assert( k>0 );
-
-
-    
-    }
 
     void compute_sourceallPair_shortest_path(const E src  ){
 
@@ -795,7 +710,7 @@ namespace fast_graph{
           if( weight <dummy_pred.weight   ){
             dummy_pred.link= outIndex[current]+j;
             dummy_pred.weight =weight;
-            //            dummy_pred.vertex=current;
+
             wait.push( neighbour.snk );
           }
         }
@@ -807,11 +722,11 @@ namespace fast_graph{
     void compute_allPair_shortest_path(  ){
     
       E i;
-      typedef pair<W ,E> PII;
+
       precedence inifPre;
       inifPre.link=link_num+1;
       inifPre.weight= infi_value;
-      //      inifPre.vertex=vertex_num+10;
+
 
       fill( shortPaths.begin(  ), shortPaths.end(  ) , inifPre);
       
@@ -832,37 +747,54 @@ namespace fast_graph{
      * empty vector
      */
   
-    bool  getShortPath( const E src, const E snk, vector<E> & path ) const {
+    bool  getShortPath( const E src, const E snk, vector< vector<E> > & paths ) const {
       
       assert( src< vertex_num && snk < vertex_num );
       assert( src!=snk );
-      
-      if( _getShortPath( src, snk, path) ){
-        size_t i=0;
-        while( i< path.size(  ) ){
-          path[ i ]=link_map[path[ i ]  ];
-          i++;
+      assert( paths.empty(  ) );
+          
+      if( _getShortPath( src, snk, paths) ){
+        size_t i,j;
+        for( i=0; i< paths.size(  ); i++ ){
+          for( j=0; j< paths[ i ].size(  ); j++ ){
+            paths[ i ][ j ]=link_map[ paths[ i ][ j ] ];
+          }
         }
+
         return true;
       }
 
       return false;
     
     }
+
+    bool isValidatePath(const E & src, const size_t &snk, const vector<E> &path ) const{
+      E current=src;
+      E next=src;
+      E next1;        
+      for( typename vector<E>::const_iterator it=path.begin(  ); it!= path.end(  ); it++){
+        
+        if(!getSrcSnk( *it, current, next1 ))
+          return false;
+        
+        if(current!=next  ) return false;
+        next=next1;
+        
+      }
+
+      return next==snk;
+      
+    }
  
 
-    static void printPath( vector<E>&path ){
+    static void printPath(const  vector<E>&path ){
       if(0== path.size(  ) ) return;
     
       size_t i=0;
       string ss;
 
-      std::cout<<path[ 0 ]<<std::endl;
-      i++;
       while( i<path.size(  ) ){
         std::cout<<"by " << path[ i ]<<std::endl;
-        i++;
-        std::cout<<path[ i ]<<std::endl;
         i++;
       }
     }

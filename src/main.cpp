@@ -56,7 +56,7 @@ using namespace fast_graph;
 
 void case2( void ){
 
-  compressed_sparse_row_graph<size_t, float,float > graph;
+  compressed_sparse_row_graph<size_t, float,float > graph( 5 );
 
   vector<size_t> srcs;
   vector<size_t> snks;
@@ -106,6 +106,16 @@ void case2( void ){
   weights.push_back( 2 );
 
   graph.initial( srcs, snks, weights );
+  graph.compute_allPair_shortest_path(  );
+  vector< vector<size_t> > paths;
+  graph.getShortPath( 0, 3 , paths );
+
+  for( size_t i=0; i< paths.size(  ); i++ ){
+    graph.printPath( paths[ i ] );
+    std::cout << std::endl;
+    
+  }
+
   
   //  graph.increaseLinkWeight( 2, 3);
   
@@ -114,12 +124,13 @@ void case2( void ){
 void randGraph( const int V , const  int E , const double W){
 
 
-  compressed_sparse_row_graph<size_t, float,float > graph;
+  compressed_sparse_row_graph<size_t, int, int > graph(5);
+  graph.setInfi( 1000000000 );
 
   set< pair<size_t, size_t> > hasSet;
   vector<size_t> srcs;
   vector<size_t> snks;
-  vector<float> weights;
+  vector<int> weights;
 
   int i=0;
   size_t src, snk;
@@ -145,14 +156,27 @@ void randGraph( const int V , const  int E , const double W){
   graph.initial( srcs, snks, weights );
 
   graph.compute_allPair_shortest_path(  );
-  
-  // for (i = 0; i < 1000; i++) {
-  //   std::cout << i << std::endl;
-  //   size_t link=rand( )% E;
-  //   float f= rand( ) %100;
-  //   graph.increaseLinkWeight( link, f);
-  
-  // }
+
+  vector< vector< size_t> > paths;
+  for (i = 0; i < 1000; i++) {
+    src=rand( )% V;
+    snk=rand( ) %V;
+    while( src==snk ){
+      snk=rand( ) %V;  
+    }
+    
+    paths.clear(  );
+    graph.getShortPath( src, snk , paths );
+
+    for( size_t i=0; i< paths.size(  ); i++ ){
+      if( !  graph.isValidatePath(src, snk,  paths[ i ])  )
+        std::cout << "error" << std::endl;
+      //graph.printPath( paths[ i ] );
+      //       std::cout << std::endl;
+    
+    }
+    
+  }
 
   
   // graph.increaseLinkWeight( V/2, 10 );
@@ -168,8 +192,24 @@ void randGraph( const int V , const  int E , const double W){
 int main(int argc, char *argv[])
 {
   //  Case1(  );
-  randGraph( 1000, 30000, 10 );
-
+  randGraph( 1000, 30000, 30 );
+  //case2(  );
   
   return 0;
 }
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
