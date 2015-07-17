@@ -10,7 +10,7 @@
 
 #ifndef MULTICOMMODITYFLOW_H
 #define MULTICOMMODITYFLOW_H
-#include "composlist.h"
+#include "graph.h"
 #include <cmath>
 
 using namespace fast_graph;

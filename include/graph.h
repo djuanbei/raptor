@@ -74,7 +74,7 @@ class compressed_sparse_row_graph {
 
  private:
   W infi_value;
-  int ksp_k;
+  size_t ksp_k;
 
   E vertex_num;
   E link_num;
@@ -125,7 +125,7 @@ class compressed_sparse_row_graph {
     return true;
   }
 
-  inline bool _getSrcSnk(const E link, E &src, E &snk) const {
+  inline bool _findSrcSnk(const E link, E &src, E &snk) const {
     if (!_findSrc(link, src)) return false;
     _findSnk(link, snk);
     return true;
@@ -182,7 +182,7 @@ class compressed_sparse_row_graph {
         vertex_num(0),
         link_num(0) {}
 
-  compressed_sparse_row_graph(int k)
+  compressed_sparse_row_graph(const size_t k)
       : infi_value(numeric_limits<W>::max() / 10e10),
         ksp_k(k),
         vertex_num(0),
@@ -331,8 +331,8 @@ class compressed_sparse_row_graph {
     return _findSnk(reLink_map[link], snk);
   }
 
-  inline bool getSrcSnk(const E link, E &src, E &snk) const {
-    return _getSrcSnk(reLink_map[link], src, snk);
+  inline bool findSrcSnk(const E link, E &src, E &snk) const {
+    return _findSrcSnk(reLink_map[link], src, snk);
   }
 
   inline void setLinkWeight(const E link, const E weight) {
@@ -453,7 +453,7 @@ class compressed_sparse_row_graph {
      */
 
     for (i = 0; i < link_num; i++) {
-      _getSrcSnk(i, srcc, snkk);
+      _findSrcSnk(i, srcc, snkk);
       newWeight[i] = link_ends[i].weight + shortPaths[shift + srcc].weight -
                      shortPaths[shift + snkk].weight;
       assert(newWeight[i] >= 0);
@@ -512,7 +512,7 @@ class compressed_sparse_row_graph {
       // reverse all directtion of link in path1 and  cut all link direct to src
       for (j = 0; j < path1link.size(); j++) {
         link = path1link[j];
-        _getSrcSnk(link, srcc, snkk);
+        _findSrcSnk(link, srcc, snkk);
         if (current == snkk && srcc != src) {
           weight = dis[current] + newWeight[link];
           assert(0.0 == newWeight[link]);
@@ -606,6 +606,67 @@ class compressed_sparse_row_graph {
     }
   }
 
+  /**
+   *
+   *  compute two disjoint path1 path2 and the corss srlg do not have
+   *intersection
+   * @param src
+   * @param snk
+   * @param srlg map from edge to  srlg
+   * @param path1
+   * @param path2
+   *
+   * @return true if find these two paths; false otherwise
+   */
+  bool twodragonplay(const E src, const E snk, const map<E, set<int> > &srlg,
+                     vector<E> &path1, vector<E> &path2) {
+    if(0== link_num ) return true;
+    assert(src < vertex_num && snk < vertex_num);
+    compute_sourceallPair_shortest_path_dijkstra(src);
+    W totalweight = 0.0;
+    size_t i;
+    for (i = 0; i < link_num; i++) {
+      totalweight += getWeight(i);
+    }
+    double meanweight = (totalweight + 0.0) / link_num;
+    map<int, int> srlgoccurnum;
+    
+
+
+    for (map<E, set<int> >::const_iterator it = srlg.begin(); it != srlg.end();
+         it++) {
+      for (set<int>::const_iterator iter = it1->second.begin();
+           it1 != it->second.end(); it1++) {
+        if (srlgoccurnum.find(*it1) == srlgoccurnum.end()) {
+          srlgoccurnum[*it] = 1;
+        } else {
+          srlgoccurnum[*it]++;
+        }
+      }
+    }
+
+    vector<E> redq, bludq;
+    set<int> redsrlg, bluesrlg; 
+    redq.push_back( src );
+    bludq.push_back( src );
+    
+    map<int, size_t> redfirstsrlgloc;
+    map<int, size_t> bluefirstsrlgloc;
+
+    while (true) {
+
+      
+    }
+
+    return true;
+        
+  }
+
+  /**
+   * compute all shortest path start from sre
+   *
+   * @param src
+   */
   void compute_sourceallPair_shortest_path(const E src) {
     const size_t shift = src * vertex_num;
     size_t j, current, outDegree;
@@ -684,7 +745,7 @@ class compressed_sparse_row_graph {
     E next1;
     for (typename vector<E>::const_iterator it = path.begin(); it != path.end();
          it++) {
-      if (!getSrcSnk(*it, current, next1)) return false;
+      if (!findSrcSnk(*it, current, next1)) return false;
 
       if (current != next) return false;
       next = next1;
