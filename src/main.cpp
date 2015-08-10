@@ -105,8 +105,8 @@ void case2(void) {
   //  graph.increaseLinkWeight( 2, 3);
 }
 
-void randGraph(const int V, const int E, const double W) {
-  compressed_sparse_row_graph<size_t, int, int> graph(5);
+void randGraph(const int V, const int E, const double WW) {
+  compressed_sparse_row_graph<size_t, int, int> graph(10);
   graph.setInfi(1000000000);
 
   set<pair<size_t, size_t> > hasSet;
@@ -114,9 +114,10 @@ void randGraph(const int V, const int E, const double W) {
   vector<size_t> snks;
   vector<int> weights;
 
+  int W= ( int )(WW+0.1);
   int i = 0;
   size_t src, snk;
-  double weight;
+  int weight;
   pair<size_t, size_t> temp;
   while (i < E) {
     src = rand() % V;
@@ -125,7 +126,7 @@ void randGraph(const int V, const int E, const double W) {
     temp.second = snk;
     if (hasSet.find(temp) == hasSet.end()) {
       i++;
-      weight = W * (rand()) / RAND_MAX + 0.1;
+      weight =  rand()%W+1 ;
       hasSet.insert(temp);
       srcs.push_back(src);
       snks.push_back(snk);
@@ -136,7 +137,8 @@ void randGraph(const int V, const int E, const double W) {
   graph.initial(srcs, snks, weights);
 
   graph.compute_allPair_shortest_path();
-
+  size_t tlen=0;
+  size_t tnum=0;
   vector<vector<size_t> > paths;
   for (i = 0; i < 1000; i++) {
     src = rand() % V;
@@ -148,13 +150,16 @@ void randGraph(const int V, const int E, const double W) {
     paths.clear();
     graph.getShortPath(src, snk, paths);
 
+    tnum+=paths.size(  );
     for (size_t i = 0; i < paths.size(); i++) {
+      tlen+=paths[i].size(  );
       if (!graph.isValidatePath(src, snk, paths[i]))
         std::cout << "error" << std::endl;
       // graph.printPath( paths[ i ] );
       //       std::cout << std::endl;
     }
   }
+  std::cout <<tnum<<" pair "<< tlen<< " length"<<"  mean length: "<< (tlen/( tnum+0.0 )) << std::endl;
 
   // graph.increaseLinkWeight( V/2, 10 );
   // vector<int> path;
@@ -166,7 +171,7 @@ void randGraph(const int V, const int E, const double W) {
 
 int main(int argc, char *argv[]) {
   //  Case1(  );
-  randGraph(1000, 30000, 30);
+  randGraph(2000, 5000, 5);
   // case2(  );
 
   return 0;

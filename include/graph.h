@@ -19,9 +19,12 @@
 #include "heap.h"
 #include <queue>
 #include <set>
+#include<map>
 #include <limits>
 #include <iostream>
 using std::vector;
+
+
 using namespace std;
 
 namespace fast_graph {
@@ -618,7 +621,7 @@ class compressed_sparse_row_graph {
    *
    * @return true if find these two paths; false otherwise
    */
-  bool twodragonplay(const E src, const E snk, const map<E, set<int> > &srlg,
+  bool twodragonplay(const E src, const E snk, const map<E, vector<int> > &srlg,
                      vector<E> &path1, vector<E> &path2) {
     if(0== link_num ) return true;
     assert(src < vertex_num && snk < vertex_num);
@@ -633,11 +636,11 @@ class compressed_sparse_row_graph {
     
 
 
-    for (map<E, set<int> >::const_iterator it = srlg.begin(); it != srlg.end();
+    for (typename map<E, vector<int> >::const_iterator it = srlg.begin(); it != srlg.end();
          it++) {
-      for (set<int>::const_iterator iter = it1->second.begin();
-           it1 != it->second.end(); it1++) {
-        if (srlgoccurnum.find(*it1) == srlgoccurnum.end()) {
+      for (set<int>::const_iterator iter = it->second.begin();
+           it != it->second.end(); it++) {
+        if (srlgoccurnum.find(*it) == srlgoccurnum.end()) {
           srlgoccurnum[*it] = 1;
         } else {
           srlgoccurnum[*it]++;

@@ -79,6 +79,7 @@ class Fixed_heap {
   void pop() {
     indices[heap[0].second] = -1;
     heap[0] = heap[size - 1];
+    if(size>0  ) indices[ heap[ 0 ].second ]=0;
     size--;
     if (size > 1) percolateDown(0);
   }

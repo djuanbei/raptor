@@ -26,7 +26,7 @@ CCOBJS     = $(addsuffix c,  $(COBJS))
 RCOBJS     = $(addsuffix r,  $(COBJS))
 
 ifeq ($(SRCSUF),cpp)
-	CC=g++  
+	CC=g++  -fopenmp
 	CLANG=clang++
 
 	CFLAGS     =  -pedantic -W -Wall      -DHAVE_CONFIG_H -Wlong-long
@@ -48,7 +48,7 @@ endif
 
 
 COPTIMIZE	= -m64 -Ofast -flto -march=native  -funroll-loops
-COPTIMIZE ?= -O2
+COPTIMIZE ?= -O2 
 
 CFLAGS    += -I  include -I  
 
