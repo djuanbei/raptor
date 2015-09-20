@@ -54,7 +54,7 @@ class multi_commodity_flow {
  private:
   double alpha;
   double desired_cost;
-  compressed_sparse_row_graph<int, float, float>& graph;
+  compressed_sparse_row_graph<float>& graph;
   double cost;
   size_t link_num;
   vector<flow_task> tasks;
@@ -79,24 +79,24 @@ class multi_commodity_flow {
     size_t i;
     for (i = 0; i < link_num; i++) {
       linkCost[i] = graph.getWeight(i);
-      allAllow[3 * i + 1] = graph.getCapacity(i);
+
     }
   }
 
  public:
-  multi_commodity_flow(compressed_sparse_row_graph<int, float, float>& g)
+  multi_commodity_flow(compressed_sparse_row_graph<float>& g)
       : alpha(1), desired_cost(0), graph(g), cost(0) {
     initial();
   }
 
   multi_commodity_flow(const double a,
-                       compressed_sparse_row_graph<int, float, float>& g)
+                       compressed_sparse_row_graph<float>& g)
       : alpha(a), desired_cost(0), graph(g), cost(0) {
     initial();
   }
 
   multi_commodity_flow(const double a, const double cost,
-                       compressed_sparse_row_graph<int, float, float>& g)
+                       compressed_sparse_row_graph<float>& g)
       : alpha(a), desired_cost(cost), graph(g), cost(0) {
     initial();
   }

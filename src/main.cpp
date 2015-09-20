@@ -1,4 +1,5 @@
 #include "graph.h"
+#include "System.h"
 #include <set>
 #include <vector>
 #include <utility>
@@ -9,7 +10,7 @@ using namespace std;
 using namespace fast_graph;
 
 // void Case1(  ){
-//   compressed_sparse_row_graph<int,float, float> graph;
+//   compressed_sparse_row_graph<float > graph;
 
 //   vector<int> srcs;
 //   vector<int> snks;
@@ -49,11 +50,12 @@ using namespace fast_graph;
 
 // }
 
-void case2(void) {
-  compressed_sparse_row_graph<size_t, float, float> graph(5);
 
-  vector<size_t> srcs;
-  vector<size_t> snks;
+void case2(void) {
+  compressed_sparse_row_graph< float> graph(5);
+
+  vector<int> srcs;
+  vector<int> snks;
   vector<float> weights;
 
   srcs.push_back(0);
@@ -94,7 +96,7 @@ void case2(void) {
 
   graph.initial(srcs, snks, weights);
   graph.compute_allPair_shortest_path();
-  vector<vector<size_t> > paths;
+  vector<vector<int> > paths;
   graph.getShortPath(0, 3, paths);
 
   for (size_t i = 0; i < paths.size(); i++) {
@@ -106,12 +108,12 @@ void case2(void) {
 }
 
 void randGraph(const int V, const int E, const double WW) {
-  compressed_sparse_row_graph<size_t, double, int> graph(1);
+  compressed_sparse_row_graph< double> graph(1);
   graph.setInfi(1000000000);
 
   set<pair<size_t, size_t> > hasSet;
-  vector<size_t> srcs;
-  vector<size_t> snks;
+  vector<int> srcs;
+  vector<int> snks;
   vector<double> weights;
 
   int W= ( int )(WW+0.1);
@@ -135,12 +137,17 @@ void randGraph(const int V, const int E, const double WW) {
   }
 
   graph.initial(srcs, snks, weights);
+  compressed_sparse_row_graph< double>::vertex_map<double> vmap=
+      graph.get_vertex_map<double>(  );
+  vmap[ 1 ]=122.22;
+  vmap[ 2 ]=122.22;
+  
   clock_t start=clock(  );
   graph.compute_allPair_shortest_path();
   std::cout << ( (double)(clock(  )-start))/CLOCKS_PER_SEC<<"  seconds" << std::endl;
   size_t tlen=0;
   size_t tnum=0;
-  vector<vector<size_t> > paths;
+  vector<vector<int> > paths;
 
   
 
@@ -178,7 +185,11 @@ void randGraph(const int V, const int E, const double WW) {
 
 int main(int argc, char *argv[]) {
   //  Case1(  );
-  randGraph(10000, 30000, 10);
+  double start=cpuTime(  );
+  randGraph(1000, 3000, 10);
+  
+  double end=cpuTime(  );
+  std::cout << "time "<<end-start<<" seconds" << "  "<<memUsedPeak( true )<< " M  "<<memUsed(  )<<"  M" << std::endl;
   // case2(  );
 
   return 0;

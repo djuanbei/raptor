@@ -34,15 +34,14 @@ struct LESSOR {
   bool operator()(const T &x, const T &y) const { return x.first < y.first; }
 };
 
-template <class E = int, class W = float, class C = float>
+template < class W = float,  class E = int>
 class compressed_sparse_row_graph {
   typedef pair<W, E> PII;
-
+  typedef compressed_sparse_row_graph<W,E> graph_t;
   struct endElement {
-    C capacity;
     W weight;
     E snk;
-    endElement() : capacity(0), weight(0), snk(0) {}
+    endElement() :  weight(0), snk(0) {}
   };
 
   struct startElement {
@@ -54,7 +53,6 @@ class compressed_sparse_row_graph {
   struct precedence {
     E link;
     unsigned char pid;
-
     W weight;
 
     precedence() : link(0), pid(0), weight(0) {}
@@ -74,6 +72,8 @@ class compressed_sparse_row_graph {
   static bool tempElmentCmp(const tempElment &lhs, const tempElment &rhs) {
     return lhs.src < rhs.src;
   }
+
+
 
  private:
   W infi_value;
@@ -179,13 +179,90 @@ class compressed_sparse_row_graph {
   }
 
  public:
-  compressed_sparse_row_graph()
-      : infi_value(numeric_limits<W>::max() / 10e10),
-        ksp_k(1),
-        vertex_num(0),
-        link_num(0) {}
 
-  compressed_sparse_row_graph(const size_t k)
+    template<typename T>
+  class  vertex_map{
+   private:
+    graph_t & graph;
+    vector<T> values;
+   public:
+    class map_iterator{
+     private:
+      vertex_map<T> & v_map;
+      int index;
+     public:
+      map_iterator( vertex_map<T> & vv_map, int i=0 ):v_map( vv_map ), index( i ){
+      }
+      map_iterator( map_iterator & other  ):v_map( other.v_map ), index( other.index ){
+      }
+      void operator(  )( map_iterator & other  ){
+        v_map= other.v_map ;
+        index= other.index;
+      }
+      bool operator !=( const map_iterator &other ) const{
+        return index!= other.index;
+      }
+      void       operator ++(  ){
+        index++;
+      }
+      void operator --(  ){
+        index--;
+      }
+      void       operator ++(  int){
+        index++;
+      }
+      
+      void operator --( int ){
+        index--;
+      }
+      
+      T& operator* (  ){
+        static T error_return;
+        if( index<0 || index >= graph.getVertex_num(  ) ){
+          cerr<<" there are some thing wrone"<<endl;
+          return error_return;
+        }
+        return v_map.values[ index ];
+      
+      }
+    };
+    typedef map_iterator iterator;
+    
+    vertex_map( graph_t &g ):graph( g ), values( g.getVertex_num(  ) ){
+    }
+
+    T & operator[  ]( const E index ){
+      static T error_return;
+      if( index<0 || index >= graph.getVertex_num(  ) ){
+        cerr<<" there are some thing wrone"<<endl;
+        return error_return;
+      }
+      return values[ index ];
+    }
+
+    const T & operator[  ]( const E index ) const{
+      static T error_return;
+      if( index<0 || index >= graph.getVertex_num(  ) ){
+        cerr<<" there are some thing wrone"<<endl;
+        return error_return;
+      }
+      return values[ index ];
+    }
+    iterator begin(  ){
+      return map_iterator( *this );
+    }
+    iterator end(  ){
+      return map_iterator( *this, values.size(  ) );
+    }
+    
+  };
+
+  template<typename T>
+  vertex_map<T> get_vertex_map(  ){
+    return vertex_map<T>( *this );
+  }
+
+  compressed_sparse_row_graph(const size_t k=1)
       : infi_value(numeric_limits<W>::max() / 10e10),
         ksp_k(k),
         vertex_num(0),
@@ -222,7 +299,7 @@ class compressed_sparse_row_graph {
 
     shortPaths.resize(ksp_k * vertex_num * vertex_num, inifPre);
 
-    for (i = 0; i < srcs.size(); i++) {
+    for (size_t i = 0; i < srcs.size(); i++) {
       dummy_pred.id = i;
       dummy_pred.src = srcs[i];
       tContian.push_back(dummy_pred);
@@ -244,7 +321,7 @@ class compressed_sparse_row_graph {
     link_map[0] = tContian[0].id;
     reLink_map[tContian[0].id] = 0;
 
-    for (i = 1; i < tContian.size(); i++) {
+    for (size_t i = 1; i < tContian.size(); i++) {
       if (tContian[i].src != tContian[i - 1].src) {
         for (j = tContian[i - 1].src; j < tContian[i].src; j++) {
           outIndex.push_back(link_ends.size());
@@ -263,7 +340,7 @@ class compressed_sparse_row_graph {
     }
 
     tContian.clear();
-    for (i = 0; i < srcs.size(); i++) {
+    for (size_t i = 0; i < srcs.size(); i++) {
       dummy_pred.id = i;
       dummy_pred.src = snks[i];
       tContian.push_back(dummy_pred);
@@ -284,7 +361,7 @@ class compressed_sparse_row_graph {
 
     link_starts.push_back(dummy);
 
-    for (i = 1; i < tContian.size(); i++) {
+    for (size_t i = 1; i < tContian.size(); i++) {
       if (tContian[i].src != tContian[i - 1].src) {
         for (j = tContian[i - 1].src; j < tContian[i].src; j++) {
           inIndex.push_back(link_starts.size());
@@ -320,12 +397,11 @@ class compressed_sparse_row_graph {
     assert(vertex < vertex_num && k < getOutDegree(vertex));
     return link_ends[outIndex[vertex] + k];
   }
+  
   inline W getWeight(const E link) const {
     return link_ends[reLink_map[link]].weight;
   }
-  inline C getCapacity(const E link) const {
-    return link_ends[reLink_map[link]].capacity;
-  }
+
 
   inline bool findSrc(const E link, E &src) const {
     return _findSrc(reLink_map[link], src);
@@ -342,9 +418,7 @@ class compressed_sparse_row_graph {
     link_ends[reLink_map[link]].weight = weight;
   }
 
-  inline void setLinkCap(const E link, const C capacity) {
-    link_ends[reLink_map[link]].capacity = capacity;
-  }
+
 
   void compute_sourceallPair_shortest_path_dijkstra(const E src,
                                                     bool reset = true) {
@@ -377,7 +451,7 @@ class compressed_sparse_row_graph {
     for (i = 0; i < ksp_k; i++) {
       if (i > 0) {
         Q.clear();
-        for (j = 0; j < vertex_num; j++) {
+        for (int  j = 0; j < vertex_num; j++) {
           if (shortPaths[shift + j * ksp_k + i].link < link_num) {
             Q.push(make_pair(shortPaths[shift + j * ksp_k + i].weight, j));
           }
@@ -741,7 +815,7 @@ class compressed_sparse_row_graph {
     return false;
   }
 
-  bool isValidatePath(const E &src, const size_t &snk,
+  bool isValidatePath(const E &src, const E &snk,
                       const vector<E> &path) const {
     E current = src;
     E next = src;
