@@ -108,19 +108,19 @@ void case2(void) {
 }
 
 void randGraph(const int V, const int E, const double WW) {
-  compressed_sparse_row_graph< double> graph(1);
+  compressed_sparse_row_graph< double, int16_t> graph;
   graph.setInfi(1000000000);
 
-  set<pair<size_t, size_t> > hasSet;
-  vector<int> srcs;
-  vector<int> snks;
+  set<pair<int, int> > hasSet;
+  vector<int16_t> srcs;
+  vector<int16_t> snks;
   vector<double> weights;
 
   int W= ( int )(WW+0.1);
   int i = 0;
   size_t src, snk;
   int weight;
-  pair<size_t, size_t> temp;
+  pair<int, int> temp;
   while (i < E) {
     src = rand() % V;
     snk = rand() % V;
@@ -137,17 +137,17 @@ void randGraph(const int V, const int E, const double WW) {
   }
 
   graph.initial(srcs, snks, weights);
-  compressed_sparse_row_graph< double>::vertex_map<double> vmap=
-      graph.get_vertex_map<double>(  );
-  vmap[ 1 ]=122.22;
-  vmap[ 2 ]=122.22;
+  // compressed_sparse_row_graph< double>::vertex_map<double> vmap=
+  //     graph.get_vertex_map<double>(  );
+  // vmap[ 1 ]=122.22;
+  // vmap[ 2 ]=122.22;
   
   clock_t start=clock(  );
   graph.compute_allPair_shortest_path();
   std::cout << ( (double)(clock(  )-start))/CLOCKS_PER_SEC<<"  seconds" << std::endl;
   size_t tlen=0;
   size_t tnum=0;
-  vector<vector<int> > paths;
+  vector<vector<int16_t> > paths;
 
   
 
@@ -168,8 +168,7 @@ void randGraph(const int V, const int E, const double WW) {
 
       if (!graph.isValidatePath(src, snk, paths[i]))
         std::cout << "error" << std::endl;
-      // graph.printPath( paths[ i ] );
-      //       std::cout << std::endl;
+
     }
     tlen+=pset.size(  );
   }
@@ -186,7 +185,7 @@ void randGraph(const int V, const int E, const double WW) {
 int main(int argc, char *argv[]) {
   //  Case1(  );
   double start=cpuTime(  );
-  randGraph(1000, 3000, 10);
+  randGraph(10000, 30000, 10);
   
   double end=cpuTime(  );
   std::cout << "time "<<end-start<<" seconds" << "  "<<memUsedPeak( true )<< " M  "<<memUsed(  )<<"  M" << std::endl;

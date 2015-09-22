@@ -19,11 +19,10 @@
 #include "heap.h"
 #include <queue>
 #include <set>
-#include<map>
+#include <map>
 #include <limits>
 #include <iostream>
 using std::vector;
-
 
 using namespace std;
 
@@ -34,18 +33,18 @@ struct LESSOR {
   bool operator()(const T &x, const T &y) const { return x.first < y.first; }
 };
 
-template < class W = float,  class E = int>
+template <class W = float, class E = int>
 class compressed_sparse_row_graph {
   typedef pair<W, E> PII;
-  typedef compressed_sparse_row_graph<W,E> graph_t;
+  typedef compressed_sparse_row_graph<W, E> graph_t;
   struct endElement {
     W weight;
     E snk;
-    endElement() :  weight(0), snk(0) {}
+    endElement() : weight(0), snk(0) {}
   };
 
   struct startElement {
-    E link;
+    int link;
     E src;
     startElement() : link(0), src(0) {}
   };
@@ -53,19 +52,17 @@ class compressed_sparse_row_graph {
   struct precedence {
     E link;
     unsigned char pid;
-    W weight;
 
-    precedence() : link(0), pid(0), weight(0) {}
+    precedence() : link(0), pid(0) {}
     precedence &operator=(const precedence &other) {
       link = other.link;
-      weight = other.weight;
-
+      pid = other.pid;
       return *this;
     }
   };
 
   struct tempElment {
-    E id;
+    int id;
     E src;
   };
 
@@ -73,14 +70,14 @@ class compressed_sparse_row_graph {
     return lhs.src < rhs.src;
   }
 
-
-
  private:
   W infi_value;
   size_t ksp_k;
 
-  E vertex_num;
-  E link_num;
+  int vertex_num;
+  int link_num;
+
+  vector<E> _srcs;
   // out links
   vector<E> outIndex;
   vector<endElement> link_ends;
@@ -93,42 +90,22 @@ class compressed_sparse_row_graph {
 
   vector<precedence> shortPaths;  // allpair shortest path
 
-  bool _findSrc(const E link, E &src) const {
-    size_t start, end, mid;
+  bool _findSrc(const int link, E &src) const {
 
     src = vertex_num + 1;
-    if (link >= link_num) return false;
+    if (link < 0 || link >= link_num) return false;
+    src = _srcs[link];
+    return true;
 
-    start = 0;
-    end = vertex_num - 1;
-    while (end > start) {
-      mid = (start + end) / 2;
-      if (link < outIndex[mid]) {
-        end = mid - 1;
-      } else if (link >= outIndex[mid + 1]) {
-        start = mid + 1;
-      } else {
-        src = mid;
-        return true;
-      }
-    }
-
-    if (link >= outIndex[start] && link < outIndex[start + 1]) {
-      src = start;
-      return true;
-    }
-
-    src = end;
-    return false;
   }
-  inline bool _findSnk(const E link, E &snk) const {
+  inline bool _findSnk(const int link, E &snk) const {
     snk = vertex_num + 1;
     if (link >= link_num) return false;
     snk = link_ends[link].snk;
     return true;
   }
 
-  inline bool _findSrcSnk(const E link, E &src, E &snk) const {
+  inline bool _findSrcSnk(const int link, E &src, E &snk) const {
     if (!_findSrc(link, src)) return false;
     _findSnk(link, snk);
     return true;
@@ -152,7 +129,7 @@ class compressed_sparse_row_graph {
     size_t i;
     bool re = false;
     unsigned char pid;
-    E link;
+    int link;
 
     const size_t shift = src * vertex_num;
 
@@ -163,14 +140,15 @@ class compressed_sparse_row_graph {
       pid = i;
       E current = snk;
       vector<E> path;
-
-      while (current != src) {
+      int num = 0;
+      while (num < vertex_num + 2 && current != src) {
         link = (shift + current) * ksp_k + pid;
         path.push_back(shortPaths[link].link);
         _findSrc(shortPaths[link].link, current);
         pid = shortPaths[link].pid;
+        num++;
       }
-
+      assert(num < vertex_num + 1);
       std::reverse(path.begin(), path.end());
       paths.push_back(path);
     }
@@ -179,99 +157,97 @@ class compressed_sparse_row_graph {
   }
 
  public:
-
-    template<typename T>
-  class  vertex_map{
+  template <typename T>
+  class vertex_map {
    private:
-    graph_t & graph;
+    graph_t &graph;
     vector<T> values;
+
    public:
-    class map_iterator{
+    class map_iterator {
      private:
-      vertex_map<T> & v_map;
+      vertex_map<T> &v_map;
       int index;
+
      public:
-      map_iterator( vertex_map<T> & vv_map, int i=0 ):v_map( vv_map ), index( i ){
+      map_iterator(vertex_map<T> &vv_map, int i = 0)
+          : v_map(vv_map), index(i) {}
+      map_iterator(map_iterator &other)
+          : v_map(other.v_map), index(other.index) {}
+      void operator()(map_iterator &other) {
+        v_map = other.v_map;
+        index = other.index;
       }
-      map_iterator( map_iterator & other  ):v_map( other.v_map ), index( other.index ){
+      bool operator!=(const map_iterator &other) const {
+        return index != other.index;
       }
-      void operator(  )( map_iterator & other  ){
-        v_map= other.v_map ;
-        index= other.index;
-      }
-      bool operator !=( const map_iterator &other ) const{
-        return index!= other.index;
-      }
-      void       operator ++(  ){
-        index++;
-      }
-      void operator --(  ){
-        index--;
-      }
-      void       operator ++(  int){
-        index++;
-      }
-      
-      void operator --( int ){
-        index--;
-      }
-      
-      T& operator* (  ){
+      void operator++() { index++; }
+      void operator--() { index--; }
+      void operator++(int) { index++; }
+
+      void operator--(int) { index--; }
+
+      T &operator*() {
         static T error_return;
-        if( index<0 || index >= graph.getVertex_num(  ) ){
-          cerr<<" there are some thing wrone"<<endl;
+        if (index < 0 || index >= graph.getVertex_num()) {
+          cerr << " there are some thing wrone" << endl;
           return error_return;
         }
-        return v_map.values[ index ];
-      
+        return v_map.values[index];
       }
     };
     typedef map_iterator iterator;
-    
-    vertex_map( graph_t &g ):graph( g ), values( g.getVertex_num(  ) ){
-    }
 
-    T & operator[  ]( const E index ){
+    vertex_map(graph_t &g) : graph(g), values(g.getVertex_num()) {}
+
+    T &operator[](const int index) {
       static T error_return;
-      if( index<0 || index >= graph.getVertex_num(  ) ){
-        cerr<<" there are some thing wrone"<<endl;
+      if (index < 0 || index >= graph.getVertex_num()) {
+        cerr << " there are some thing wrone" << endl;
         return error_return;
       }
-      return values[ index ];
+      return values[index];
     }
 
-    const T & operator[  ]( const E index ) const{
+    const T &operator[](const int index) const {
       static T error_return;
-      if( index<0 || index >= graph.getVertex_num(  ) ){
-        cerr<<" there are some thing wrone"<<endl;
+      if (index < 0 || index >= graph.getVertex_num()) {
+        cerr << " there are some thing wrone" << endl;
         return error_return;
       }
-      return values[ index ];
+      return values[index];
     }
-    iterator begin(  ){
-      return map_iterator( *this );
-    }
-    iterator end(  ){
-      return map_iterator( *this, values.size(  ) );
-    }
-    
+    iterator begin() { return map_iterator(*this); }
+    iterator end() { return map_iterator(*this, values.size()); }
   };
 
-  template<typename T>
-  vertex_map<T> get_vertex_map(  ){
-    return vertex_map<T>( *this );
+  template <typename T>
+  vertex_map<T> get_vertex_map() {
+    return vertex_map<T>(*this);
   }
 
-  compressed_sparse_row_graph(const size_t k=1)
+  compressed_sparse_row_graph(const size_t k = 1)
       : infi_value(numeric_limits<W>::max() / 10e10),
         ksp_k(k),
         vertex_num(0),
         link_num(0) {
     assert(k > 0);
   }
+  void clear() {
+    vertex_num = link_num = 0;
+    _srcs.clear();
+    outIndex.clear();
+    link_ends.clear();
+    inIndex.clear();
+    link_starts.clear();
+    link_map.clear();
+    reLink_map.clear();
+    shortPaths.clear();
+  }
 
   void initial(vector<E> &srcs, vector<E> &snks, vector<W> &weights) {
     assert(srcs.size() == snks.size() && srcs.size() == weights.size());
+    clear();
     if (0 == srcs.size()) return;
     link_num = srcs.size();
     link_map.resize(link_num);
@@ -279,7 +255,7 @@ class compressed_sparse_row_graph {
 
     vector<tempElment> tContian;
 
-    E i, j, ver_max;
+    int i, j, ver_max;
     tempElment dummy_pred;
 
     ver_max = srcs[0];
@@ -295,7 +271,6 @@ class compressed_sparse_row_graph {
     vertex_num = ver_max + 1;
     precedence inifPre;
     inifPre.link = link_num + 1;
-    inifPre.weight = infi_value;
 
     shortPaths.resize(ksp_k * vertex_num * vertex_num, inifPre);
 
@@ -317,6 +292,7 @@ class compressed_sparse_row_graph {
     temp.weight = weights[tContian[0].id];
     temp.snk = snks[tContian[0].id];
 
+    _srcs.push_back(srcs[tContian[0].id]);
     link_ends.push_back(temp);
     link_map[0] = tContian[0].id;
     reLink_map[tContian[0].id] = 0;
@@ -330,6 +306,7 @@ class compressed_sparse_row_graph {
       temp.weight = weights[tContian[i].id];
       temp.snk = snks[tContian[i].id];
 
+      _srcs.push_back(srcs[tContian[i].id]);
       link_ends.push_back(temp);
       link_map[i] = tContian[i].id;
       reLink_map[tContian[i].id] = i;
@@ -382,14 +359,14 @@ class compressed_sparse_row_graph {
 
   void setInfi(const W infi) { infi_value = infi; }
 
-  inline E getLink_num(void) const { return link_num; }
+  inline int getLink_num(void) const { return link_num; }
 
-  inline E getOutDegree(E vertex) const {
+  inline int getOutDegree(E vertex) const {
     assert(vertex < vertex_num);
     return outIndex[vertex + 1] - outIndex[vertex];
   }
 
-  inline E getInDegree(E vertex) const {
+  inline int getInDegree(E vertex) const {
     assert(vertex < vertex_num);
     return inIndex[vertex + 1] - inIndex[vertex];
   }
@@ -397,34 +374,31 @@ class compressed_sparse_row_graph {
     assert(vertex < vertex_num && k < getOutDegree(vertex));
     return link_ends[outIndex[vertex] + k];
   }
-  
-  inline W getWeight(const E link) const {
+
+  inline W getWeight(const int link) const {
     return link_ends[reLink_map[link]].weight;
   }
 
-
-  inline bool findSrc(const E link, E &src) const {
+  inline bool findSrc(const int link, E &src) const {
     return _findSrc(reLink_map[link], src);
   }
-  inline bool findSnk(const E link, E &snk) const {
+  inline bool findSnk(const int link, E &snk) const {
     return _findSnk(reLink_map[link], snk);
   }
 
-  inline bool findSrcSnk(const E link, E &src, E &snk) const {
+  inline bool findSrcSnk(const int link, E &src, E &snk) const {
     return _findSrcSnk(reLink_map[link], src, snk);
   }
 
-  inline void setLinkWeight(const E link, const E weight) {
+  inline void setLinkWeight(const int link, const E weight) {
     link_ends[reLink_map[link]].weight = weight;
   }
-
-
 
   void compute_sourceallPair_shortest_path_dijkstra(const E src,
                                                     bool reset = true) {
     const size_t shift = ksp_k * src * vertex_num;
 
-    size_t i, j, k, h, current, outDegree, link, next;
+    size_t i, j, k, h, current, outDegree, link, next, next1;
     W weight;
 
     /**
@@ -435,13 +409,13 @@ class compressed_sparse_row_graph {
     if (reset) {
       precedence inifPre;
       inifPre.link = link_num + 1;
-      inifPre.weight = infi_value;
 
       fill(shortPaths.begin() + shift,
            shortPaths.begin() + shift + ksp_k * vertex_num, inifPre);
     }
 
-    shortPaths[shift + ksp_k * src].weight = 0;
+    vector<W> dis(ksp_k * vertex_num, infi_value);
+    dis[ksp_k * src] = 0;
 
     LESSOR<PII> order;
 
@@ -451,9 +425,9 @@ class compressed_sparse_row_graph {
     for (i = 0; i < ksp_k; i++) {
       if (i > 0) {
         Q.clear();
-        for (int  j = 0; j < vertex_num; j++) {
+        for (int j = 0; j < vertex_num; j++) {
           if (shortPaths[shift + j * ksp_k + i].link < link_num) {
-            Q.push(make_pair(shortPaths[shift + j * ksp_k + i].weight, j));
+            Q.push(make_pair(dis[j * ksp_k + i], j));
           }
         }
       }
@@ -472,10 +446,11 @@ class compressed_sparse_row_graph {
           const endElement &neighbour = link_ends[link];
 
           for (k = i; k < ksp_k; k++) {
-            next = shift + ksp_k * neighbour.snk + k;
+            next1 = ksp_k * neighbour.snk + k;
+            next = shift + next1;
             precedence &dummy_pred = shortPaths[next];
             weight = current_weight + neighbour.weight;
-            if (weight < dummy_pred.weight) {
+            if (weight < dis[next1]) {
               if (dummy_pred.link < link_num) {
                 for (h = ksp_k - 1; h > k; h--) {
                   shortPaths[shift + ksp_k * neighbour.snk + h] =
@@ -485,7 +460,7 @@ class compressed_sparse_row_graph {
 
               shortPaths[next].link = link;
               shortPaths[next].pid = i;
-              shortPaths[next].weight = weight;
+              dis[next1] = weight;
               if (k == i) Q.push(make_pair(weight, neighbour.snk));
               break;
             }
@@ -522,7 +497,7 @@ class compressed_sparse_row_graph {
     path1link = path1links[0];
 
     vector<W> newWeight(link_num);
-    E i;
+    int i;
     E srcc, snkk;
     /**
      *  new edge weight
@@ -541,7 +516,7 @@ class compressed_sparse_row_graph {
      *
      */
 
-    E link;
+    int link;
     size_t j, current, outDegree;
     W weight;
 
@@ -697,7 +672,7 @@ class compressed_sparse_row_graph {
    */
   bool twodragonplay(const E src, const E snk, const map<E, vector<int> > &srlg,
                      vector<E> &path1, vector<E> &path2) {
-    if(0== link_num ) return true;
+    if (0 == link_num) return true;
     assert(src < vertex_num && snk < vertex_num);
     compute_sourceallPair_shortest_path_dijkstra(src);
     W totalweight = 0.0;
@@ -707,11 +682,9 @@ class compressed_sparse_row_graph {
     }
     double meanweight = (totalweight + 0.0) / link_num;
     map<int, int> srlgoccurnum;
-    
 
-
-    for (typename map<E, vector<int> >::const_iterator it = srlg.begin(); it != srlg.end();
-         it++) {
+    for (typename map<E, vector<int> >::const_iterator it = srlg.begin();
+         it != srlg.end(); it++) {
       for (set<int>::const_iterator iter = it->second.begin();
            it != it->second.end(); it++) {
         if (srlgoccurnum.find(*it) == srlgoccurnum.end()) {
@@ -723,59 +696,26 @@ class compressed_sparse_row_graph {
     }
 
     vector<E> redq, bludq;
-    set<int> redsrlg, bluesrlg; 
-    redq.push_back( src );
-    bludq.push_back( src );
-    
+    set<int> redsrlg, bluesrlg;
+    redq.push_back(src);
+    bludq.push_back(src);
+
     map<int, size_t> redfirstsrlgloc;
     map<int, size_t> bluefirstsrlgloc;
 
     while (true) {
-
-      
     }
 
     return true;
-        
   }
 
-  /**
-   * compute all shortest path start from sre
-   *
-   * @param src
-   */
-  void compute_sourceallPair_shortest_path(const E src) {
-    const size_t shift = src * vertex_num;
-    size_t j, current, outDegree;
-    W weight;
-    shortPaths[shift + src].weight = 0;
-    queue<E> wait;
-    wait.push(src);
-    while (!wait.empty()) {
-      current = wait.front();
-      wait.pop();
-      outDegree = getOutDegree(current);
-      for (j = 0; j < outDegree; j++) {
-        const endElement &neighbour = link_ends[outIndex[current] + j];
-        precedence &dummy_pred = shortPaths[shift + neighbour.snk];
-        weight = shortPaths[shift + current].weight + neighbour.weight;
 
-        if (weight < dummy_pred.weight) {
-          dummy_pred.link = outIndex[current] + j;
-          dummy_pred.weight = weight;
-
-          wait.push(neighbour.snk);
-        }
-      }
-    }
-  }
 
   void compute_allPair_shortest_path() {
-    E i;
+    int i;
 
     precedence inifPre;
     inifPre.link = link_num + 1;
-    inifPre.weight = infi_value;
 
     fill(shortPaths.begin(), shortPaths.end(), inifPre);
 
@@ -815,8 +755,7 @@ class compressed_sparse_row_graph {
     return false;
   }
 
-  bool isValidatePath(const E &src, const E &snk,
-                      const vector<E> &path) const {
+  bool isValidatePath(const E &src, const E &snk, const vector<E> &path) const {
     E current = src;
     E next = src;
     E next1;
