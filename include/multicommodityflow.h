@@ -79,7 +79,6 @@ class multi_commodity_flow {
     size_t i;
     for (i = 0; i < link_num; i++) {
       linkCost[i] = graph.getWeight(i);
-
     }
   }
 
@@ -89,8 +88,7 @@ class multi_commodity_flow {
     initial();
   }
 
-  multi_commodity_flow(const double a,
-                       compressed_sparse_row_graph<float>& g)
+  multi_commodity_flow(const double a, compressed_sparse_row_graph<float>& g)
       : alpha(a), desired_cost(0), graph(g), cost(0) {
     initial();
   }

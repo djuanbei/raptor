@@ -108,12 +108,12 @@ void case2(void) {
 }
 
 void randGraph(const int V, const int E, const double WW) {
-  compressed_sparse_row_graph< double, int16_t> graph;
+  compressed_sparse_row_graph< double, int> graph;
   graph.setInfi(1000000000);
 
   set<pair<int, int> > hasSet;
-  vector<int16_t> srcs;
-  vector<int16_t> snks;
+  vector<int> srcs;
+  vector<int> snks;
   vector<double> weights;
 
   int W= ( int )(WW+0.1);
@@ -143,12 +143,11 @@ void randGraph(const int V, const int E, const double WW) {
   // vmap[ 2 ]=122.22;
   
   clock_t start=clock(  );
-  graph.compute_allPair_shortest_path();
+  // graph.compute_allPair_shortest_path();
   std::cout << ( (double)(clock(  )-start))/CLOCKS_PER_SEC<<"  seconds" << std::endl;
   size_t tlen=0;
   size_t tnum=0;
-  vector<vector<int16_t> > paths;
-
+  vector<vector<int> > paths;
   
 
   for (i = 0; i < 1000; i++) {
@@ -158,21 +157,27 @@ void randGraph(const int V, const int E, const double WW) {
     while (src == snk) {
       snk = rand() % V;
     }
-
     paths.clear();
-    graph.getShortPath(src, snk, paths);
-
-    tnum++;
-    for (size_t i = 0; i < paths.size(); i++) {
-      pset.insert(paths[ i ].begin(  ), paths[ i ].end(  )  );
-
-      if (!graph.isValidatePath(src, snk, paths[i]))
+    vector<int> path;
+    if(graph.compute_shortest_path_dijkstra( src, snk, path )){
+      if (!graph.isValidatePath(src, snk, path))
         std::cout << "error" << std::endl;
-
     }
-    tlen+=pset.size(  );
+    
+    
+    // graph.getShortPath(src, snk, paths);
+
+    // tnum++;
+    // for (size_t i = 0; i < paths.size(); i++) {
+    //   pset.insert(paths[ i ].begin(  ), paths[ i ].end(  )  );
+
+    //   if (!graph.isValidatePath(src, snk, paths[i]))
+    //     std::cout << "error" << std::endl;
+
+    // }
+    // tlen+=pset.size(  );
   }
-  std::cout <<tnum<<" pair "<< tlen<< " length"<<"  mean length: "<< (tlen/( tnum+0.0 )) << std::endl;
+  std::cout <<tnum<<" pair "<< tlen<< " length"<<"  mean length: "<< (tlen/( tnum+0.01 )) << std::endl;
 
   // graph.increaseLinkWeight( V/2, 10 );
   // vector<int> path;
@@ -185,7 +190,7 @@ void randGraph(const int V, const int E, const double WW) {
 int main(int argc, char *argv[]) {
   //  Case1(  );
   double start=cpuTime(  );
-  randGraph(10000, 30000, 10);
+  randGraph(100000, 300000, 10);
   
   double end=cpuTime(  );
   std::cout << "time "<<end-start<<" seconds" << "  "<<memUsedPeak( true )<< " M  "<<memUsed(  )<<"  M" << std::endl;
