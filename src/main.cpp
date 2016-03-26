@@ -1,5 +1,6 @@
 #include "graph.h"
 #include "System.h"
+#include "graphalg.hpp"
 #include <set>
 #include <vector>
 #include <utility>
@@ -187,10 +188,112 @@ void randGraph(const int V, const int E, const double WW) {
   // }
 }
 
+void randbiGraph( const int V, const int E, const double WW ){
+
+  compressed_sparse_row_graph< double, int> graph;
+  graph.setInfi(100000);
+
+  set<pair<int, int> > hasSet;
+  vector<int> srcs;
+  vector<int> snks;
+  vector<double> weights;
+
+  int W= ( int )(WW+0.1);
+  int i = 0;
+  int src, snk;
+  int weight;
+  pair<int, int> temp;
+  while (i < E) {
+    src = rand() % V;
+    snk = rand() % V;       
+    while (src==snk) {
+      snk = rand() % V;       
+    }
+    temp.first = src;
+    temp.second = snk;
+    if (hasSet.find(temp) == hasSet.end()) {
+      i++;
+      weight =  rand()%W+1 ;
+      hasSet.insert(temp);
+      srcs.push_back(src);
+      snks.push_back(snk);
+      weights.push_back(weight);
+
+
+    }
+  }
+
+  graph.initial(srcs, snks, weights, false);
+
+  
+  clock_t start=clock(  );
+
+  std::cout << ( (double)(clock(  )-start))/CLOCKS_PER_SEC<<"  seconds" << std::endl;
+  size_t tlen=0;
+  size_t tnum=0;
+  vector<vector<int> > paths;
+  int bsucc=0;
+  int succ=0;
+  double bsumdis=0;
+  double sumdis=0;
+  vector<pair<int, int> >task;
+  vector<int> all_dis( 1000 );
+  
+  for (i = 0; i < 1000; i++) {
+    set<int> pset;
+    src = rand() % V;
+    snk = rand() % V;
+    while (src == snk) {
+      snk = rand() % V;
+    }
+    task.push_back( make_pair( src, snk ) );
+ 
+    vector<int> path;
+
+    if(graph.bicompute_shortest_path_dijkstra( src, snk, path )){
+      all_dis[ i ]=graph.path_cost( path );
+      bsumdis+=graph.path_cost( path );
+      bsucc++;
+      
+      if (!graph.isValidatePath(src, snk, path))
+        std::cout << "error" << std::endl;
+    }
+
+  }
+  
+  std::cout <<tnum<<" pair "<< tlen<< " length"<<"  mean length: "<< (tlen/( tnum+0.01 )) << std::endl;
+  std::cout << "bi method success  "<<bsucc << std::endl;
+  i=0;  
+  for( vector<pair<int, int> > ::iterator it =task.begin( ); it!= task.end(  ); it++  ){
+    vector<int> path, path1, path2;
+    src=it->first;
+    snk=it->second;
+    if(graph.compute_shortest_path_dijkstra( src, snk, path )){
+      graph.compute_shortest_path_dijkstra1( src, snk, path1 );
+      dijkstra_shortest_path( graph, weights, 10000, src, snk, path2  );
+      int temp=graph.path_cost( path );
+      int temp1=graph.path_cost( path1 );
+      int temp2=graph.path_cost( path2 );
+      assert( temp==temp1 );
+      assert( temp2==temp1 );
+      sumdis+=graph.path_cost( path );
+      succ++;
+      assert( graph.isValidatePath(src, snk, path) );
+      assert( graph.isValidatePath(src, snk, path1) );
+      if (!graph.isValidatePath(src, snk, path))
+        std::cout << "error" << std::endl;
+    }
+    i++;
+    
+  }
+  std::cout << " method success  "<<succ << std::endl;
+  std::cout << bsumdis/sumdis << std::endl;
+}
+
 int main(int argc, char *argv[]) {
   //  Case1(  );
   double start=cpuTime(  );
-  randGraph(100000, 300000, 10);
+  randbiGraph(100, 500, 10);
   
   double end=cpuTime(  );
   std::cout << "time "<<end-start<<" seconds" << "  "<<memUsedPeak( true )<< " M  "<<memUsed(  )<<"  M" << std::endl;
