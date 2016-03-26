@@ -191,12 +191,17 @@ void randGraph(const int V, const int E, const double WW) {
 void randbiGraph( const int V, const int E, const double WW ){
 
   compressed_sparse_row_graph< double, int> graph;
+  undir_graph< double, int> bgraph;
   graph.setInfi(100000);
 
   set<pair<int, int> > hasSet;
   vector<int> srcs;
   vector<int> snks;
   vector<double> weights;
+
+  vector<int> bsrcs;
+  vector<int> bsnks;
+  vector<double> bweights;
 
   int W= ( int )(WW+0.1);
   int i = 0;
@@ -219,12 +224,19 @@ void randbiGraph( const int V, const int E, const double WW ){
       snks.push_back(snk);
       weights.push_back(weight);
 
+      bsrcs.push_back(src);
+      bsnks.push_back(snk);
+      bweights.push_back(weight);
+
+      bsrcs.push_back(snk);
+      bsnks.push_back(src);
+      bweights.push_back(weight);
 
     }
   }
 
-  graph.initial(srcs, snks, weights, false);
-
+  graph.initial(bsrcs, bsnks, bweights, false);
+  bgraph.initial(srcs, snks  );
   
   clock_t start=clock(  );
 
@@ -238,7 +250,7 @@ void randbiGraph( const int V, const int E, const double WW ){
   double sumdis=0;
   vector<pair<int, int> >task;
   vector<int> all_dis( 1000 );
-  
+  double start1=cpuTime(  )  ;
   for (i = 0; i < 1000; i++) {
     set<int> pset;
     src = rand() % V;
@@ -249,8 +261,8 @@ void randbiGraph( const int V, const int E, const double WW ){
     task.push_back( make_pair( src, snk ) );
  
     vector<int> path;
-
-    if(graph.bicompute_shortest_path_dijkstra( src, snk, path )){
+    if( bidijkstra_shortest_path( graph, bweights, 10000, src, snk, path  )){
+    // if(graph.bicompute_shortest_path_dijkstra( src, snk, path )){
       all_dis[ i ]=graph.path_cost( path );
       bsumdis+=graph.path_cost( path );
       bsucc++;
@@ -263,37 +275,45 @@ void randbiGraph( const int V, const int E, const double WW ){
   
   std::cout <<tnum<<" pair "<< tlen<< " length"<<"  mean length: "<< (tlen/( tnum+0.01 )) << std::endl;
   std::cout << "bi method success  "<<bsucc << std::endl;
+  std::cout << "bi method time  "<<cpuTime(  )-start1 << std::endl;
+  start1=cpuTime(  )  ;
   i=0;  
   for( vector<pair<int, int> > ::iterator it =task.begin( ); it!= task.end(  ); it++  ){
-    vector<int> path, path1, path2;
+    vector<int> path, path1, path2, path3;
     src=it->first;
     snk=it->second;
-    if(graph.compute_shortest_path_dijkstra( src, snk, path )){
-      graph.compute_shortest_path_dijkstra1( src, snk, path1 );
-      dijkstra_shortest_path( graph, weights, 10000, src, snk, path2  );
-      int temp=graph.path_cost( path );
-      int temp1=graph.path_cost( path1 );
-      int temp2=graph.path_cost( path2 );
-      assert( temp==temp1 );
-      assert( temp2==temp1 );
-      sumdis+=graph.path_cost( path );
+    if( bidijkstra_shortest_path( bgraph, weights, 10000, src, snk, path  )){
+      // graph.compute_shortest_path_dijkstra1( src, snk, path1 );
+      // dijkstra_shortest_path( bgraph, weights, 10000, src, snk, path2  );
+      // bidijkstra_shortest_path( graph, bweights, 10000, src, snk, path3  );
+
+      // int temp=graph.path_cost( path );
+      // // int temp1=graph.path_cost( path1 );
+      
+      int temp=path_cost(weights, path, 1 );
+      // int temp3=graph.path_cost( path3);
+      // assert( temp==temp1 );
+      // assert( temp2==temp1 );
+      // assert( temp2==temp3 );
+      sumdis+=temp;
       succ++;
-      assert( graph.isValidatePath(src, snk, path) );
-      assert( graph.isValidatePath(src, snk, path1) );
-      if (!graph.isValidatePath(src, snk, path))
-        std::cout << "error" << std::endl;
+      // assert( graph.isValidatePath(src, snk, path) );
+      // assert( graph.isValidatePath(src, snk, path1) );
+      // if (!graph.isValidatePath(src, snk, path))
+      //   std::cout << "error" << std::endl;
     }
     i++;
     
   }
   std::cout << " method success  "<<succ << std::endl;
   std::cout << bsumdis/sumdis << std::endl;
+  std::cout << "bi method time  "<<cpuTime(  )-start1 << std::endl;
 }
 
 int main(int argc, char *argv[]) {
   //  Case1(  );
   double start=cpuTime(  );
-  randbiGraph(100, 500, 10);
+  randbiGraph(20000, 100000, 20);
   
   double end=cpuTime(  );
   std::cout << "time "<<end-start<<" seconds" << "  "<<memUsedPeak( true )<< " M  "<<memUsed(  )<<"  M" << std::endl;
