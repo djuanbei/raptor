@@ -29,7 +29,7 @@ ifeq ($(SRCSUF),cpp)
 	CC=g++  -fopenmp
 	CLANG=clang++
 
-	CFLAGS     =  -pedantic -W -Wall      -DHAVE_CONFIG_H -Wlong-long
+	CFLAGS     =  -pedantic -W -Wall   -std=c++11    -DHAVE_CONFIG_H -Wlong-long
 	LFLAGS    =   -pedantic -W -Wall 
 else
 	CC=gcc
@@ -52,8 +52,8 @@ COPTIMIZE ?= -O2
 
 CFLAGS    += -I  include -I  
 
-LFLAGS    +=  
-  
+LFLAGS    +=   -llapack  
+
 
 
 .PHONY : all s p d r c rs clean 

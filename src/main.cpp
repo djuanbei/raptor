@@ -6,9 +6,78 @@
 #include <utility>
 #include <cstdlib>
 #include <iostream>
+#include <random>
+
+#include "mcfcg.h"
+
 
 using namespace std;
+using namespace mcmcf;
+
 using namespace fast_graph;
+
+void randMCF( const int V, const int E, const double bw_B, const double w_B,  const int d_num, const double dBWB  ){
+  
+  compressed_sparse_row_graph<double,int> graph;
+  set<pair<int, int> > hasSet;
+  vector<int> srcs;
+  vector<int> snks;
+  vector<double> weights, caps;
+
+  std::default_random_engine generator;
+  std::uniform_real_distribution<double> disBW(0.0,bw_B);
+  
+  std::uniform_real_distribution<double> disWS(0.0,w_B);
+
+  std::uniform_real_distribution<double> disDBW(0.0, dBWB);
+
+
+  int i = 0;
+  int src, snk;
+  double weight, bw;
+  pair<int, int> temp;
+  while (i < E) {
+    src = rand() % V;
+    snk = rand() % V;       
+    while (src==snk) {
+      snk = rand() % V;       
+    }
+    temp.first = src;
+    temp.second = snk;
+    if (hasSet.find(temp) == hasSet.end()) {
+      i++;
+
+      bw=disBW( generator );
+      weight = disWS(generator);
+
+      hasSet.insert(temp);
+      srcs.push_back(src);
+      snks.push_back(snk);
+      weights.push_back(weight);
+      caps.push_back( bw );
+
+    }
+  }
+  i=0;
+
+  typedef CG<compressed_sparse_row_graph<double, int>, double, double> CG_T;
+  vector<CG_T::Demand> demands;
+  while (i< d_num) {
+    src = rand() % V;
+    snk = rand() % V;
+    bw=disDBW( generator );
+    CG_T::Demand d;
+    d.src=src;
+    d.snk=snk;
+    d.bandwith=bw;
+    demands.push_back( d );
+    i++;
+  }
+  graph.initial( srcs, snks , weights);
+  CG_T cg( graph,weights, caps, demands );
+  cg.solve(  );
+  
+}
 
 // void Case1(  ){
 //   compressed_sparse_row_graph<float > graph;
@@ -262,7 +331,7 @@ void randbiGraph( const int V, const int E, const double WW ){
  
     vector<int> path;
     if( bidijkstra_shortest_path( graph, bweights, 10000, src, snk, path  )){
-    // if(graph.bicompute_shortest_path_dijkstra( src, snk, path )){
+      // if(graph.bicompute_shortest_path_dijkstra( src, snk, path )){
       all_dis[ i ]=graph.path_cost( path );
       bsumdis+=graph.path_cost( path );
       bsucc++;
@@ -311,13 +380,15 @@ void randbiGraph( const int V, const int E, const double WW ){
 }
 
 int main(int argc, char *argv[]) {
-  //  Case1(  );
-  double start=cpuTime(  );
-  randbiGraph(20000, 100000, 20);
+  randMCF( 10, 30, 1000, 20, 30, 50  );
   
-  double end=cpuTime(  );
-  std::cout << "time "<<end-start<<" seconds" << "  "<<memUsedPeak( true )<< " M  "<<memUsed(  )<<"  M" << std::endl;
-  // case2(  );
+  // //  Case1(  );
+  // double start=cpuTime(  );
+  // randbiGraph(20000, 100000, 20);
+  
+  // double end=cpuTime(  );
+  // std::cout << "time "<<end-start<<" seconds" << "  "<<memUsedPeak( true )<< " M  "<<memUsed(  )<<"  M" << std::endl;
+  // // case2(  );
 
   return 0;
 }

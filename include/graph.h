@@ -32,7 +32,8 @@ template <class T> struct LESSOR {
   bool operator()(const T &x, const T &y) const { return x.first < y.first; }
 };
 
-template <class W = float, class E = int> class compressed_sparse_row_graph {
+template <typename W = float, typename E = int>
+class compressed_sparse_row_graph {
   typedef pair<W, E> PII;
   typedef compressed_sparse_row_graph<W, E> graph_t;
   struct endElement {

@@ -10,6 +10,12 @@
 
 #ifndef __GRAPH_ALG_H
 #define __GRAPH_ALG_H
+#include<vector>
+#include <algorithm>
+
+#include "heap.h"
+
+using namespace std;
 
 namespace fast_graph {
 template <typename T>
@@ -288,6 +294,8 @@ bool bidijkstra_shortest_path(const G &g, const WV &NW, const W inif,
   }
   return re;
 }
+
+
 
 
 }
