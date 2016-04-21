@@ -12,7 +12,9 @@
 #include <limits>
 #include <set>
 #include <map>
-
+#include <cstring>
+#include <cassert>
+#include <limits>
 #include <algorithm>
 
 #include "graphalg.hpp"
@@ -21,11 +23,23 @@ using namespace std;
 
 /* DGESV prototype */
 extern "C" {
-void dgesv_(int* n, int* nrhs, double* a, int* lda, int* ipiv, double* b,
-            int* ldb, int* info);
+void dgesv_(int* N, int* nrhs, double* a, int* lda, int* ipiv,
+            double* b, int* ldb, int* info);
 }
 
 namespace mcmcf {
+enum ENTER_BASE_TYPE{
+  PATH_T=0,
+  LINK_T=1
+  
+};
+
+enum EXIT_BASE_TYPE{
+  DEMAND_T=0,
+  STATUS_LINK=1,
+  OTHER_LINK=2
+  
+};
 
 template <typename G, typename W, typename C>
 class CG {
@@ -62,16 +76,18 @@ class CG {
   map<int, C> dual_solution;
 
   vector<int> status_links;
+  vector<int> un_status_links;
 
-  vector<set<int> > demand_sec_paths;
+  vector<set<int> > demand_second_paths; // belong to fixed demands' second paths
 
-  vector<set<int> > status_primary_paths;
+  vector<set<int> > status_primary_paths; // primary path which corross conresponse status link
 
   vector<int> primary_paths;
 
   map<int, int> second_paths;
 
   C CZERO;
+  int K, N, J;
 
  public:
   CG(const G& g, const vector<W>& ws, const vector<C>& caps,
@@ -80,15 +96,18 @@ class CG {
     origLink_num = graph.getLink_num();
 
     CZERO = ((C)1e-6);
+    N=demands.size(  );
+    
   }
 
-  int getIndex( int i ) const{
-    int re=i;
-    for( vector<int>::const_iterator it=status_links.begin(  ); it!= status_links.end(  ); it++ ){
-      if( *it>i )  re++;
+  int getJIndex(int i) const {
+    assert(find(status_links.begin(  ), status_links.end(  ), i)==status_links.end(  ) );
+    int re = i;
+    for (vector<int>::const_iterator it = status_links.begin();
+         it != status_links.end(); it++) {
+      if (*it > i) re++;
     }
     return re;
-    
   }
 
   bool solve() {
@@ -172,7 +191,7 @@ class CG {
         return;
       }
 
-      int exit_base = getExitBase(enter_commodity);
+      pair< int, EXIT_BASE_TYPE> exit_base = getExitBase(enter_commodity);
 
       devote(enter_commodity, exit_base);
 
@@ -216,45 +235,53 @@ class CG {
    * [  B         I_{N*N}      0       ]  [ a_N ] = [ b_N ]
    * [  C         D            I_{J*J} ]  [ a_J ] = [ b_J ]
    * a_N=(B b_K-b_N) /( BA-I )
+   *
+   * [  I_{K*K}   A            0       ]  [ y_K ] = [ d_K ]  bandwidth  envery  demand   
+   * [  B         I_{N*N}      0       ]  [ y_N ] = [ c_N ]  capacity of status links
+   * [  C         D            I_{J*J} ]  [ y_J ] = [ c_J ]  capacity of other links
+   * y_N=( B d_K -c_N )/(BA-I)
    * @param k
    *
    * @return
    */
 
-  int getExitBase(const int k) {
+  pair< int, EXIT_BASE_TYPE>  getExitBase(const int enterCommodity) {
+    
     vector<int> path;
-    int src = demands[k].src;
-    int snk = demands[k].snk;
+    int src = demands[enterCommodity].src;
+    int snk = demands[enterCommodity].snk;
     bidijkstra_shortest_path(newGraph, update_weights, inif_weight, src, snk,
                              path);
-    int K = demands.size();
 
-    int n = status_links.size();
-    if (n > 0) {
+
+    N = status_links.size();
+    J= newGraph.getLink_num(  )-N;
+    
+    if (N > 0) {
       int nrhs = 1;
-      int lda = n;
-      int* ipiv = new int[n];
-      int ldb = n, info;
+      int lda = N;
+      int* ipiv = new int[N];
+      int ldb = N, info;
 
       /**
        * S=BA-I
        *
        */
 
-      double* S = new double[n * n];
+      double* S = new double[N * N];
 
-      fill(S, S + n * n, 0.0);
-      for (int i = 0; i < n; i++) {
-        S[i * n + i] = -1.0;
+      fill(S, S + N * N, 0.0);
+      for (int i = 0; i < N; i++) {
+        S[i * N + i] = -1.0;
       }
-      for (int i = 0; i < n; i++) {
+      for (int i = 0; i < N; i++) {
         if (status_primary_paths[i].empty()) continue;
 
-        for (int j = 0; j < n; j++) {
+        for (int j = 0; j < N; j++) {
           int oindex = owner[K + j];
           if (status_primary_paths[i].find(oindex) !=
               status_primary_paths[i].end())
-            S[i * n + j] += 1.0;
+            S[i * N + j] += 1.0;
         }
       }
 
@@ -262,11 +289,11 @@ class CG {
        * b=B b_K -b_N
        *
        */
-      double* b = new double[n];
+      double* b = new double[N];
 
-      fill(b, b + n, 0.0);
-      for (vector<int>::iterator it = paths[k].begin(); it != paths[k].end();
-           it++) {
+      fill(b, b + N, 0.0);
+      for (vector<int>::iterator it = paths[enterCommodity].begin();
+           it != paths[enterCommodity].end(); it++) {
         vector<int>::iterator fid =
             find(status_links.begin(), status_links.end(), *it);
         if (fid != status_links.end()) {
@@ -286,15 +313,19 @@ class CG {
        *
        */
 
-      double* a_N = new double[n];
+      double* a_N = new double[N];
 
-      dgesv_(&n, &nrhs, S, &lda, ipiv, b, &ldb, &info);
+      dgesv_(&N, &nrhs, S, &lda, ipiv, b, &ldb, &info);
       if (info > 0) {
-        printf("The diagonal element of the triangular factor of A,\n");
-        printf("U(%i,%i) is zero, so that A is singular;\n", info, info);
-        printf("the solution could not be computed.\n");
+        printf(
+            "The diagonal element of the triangular factor of "
+            "A,\N");
+        printf("U(%i,%i) is zero, so that A is singular;\N", info,
+               info);
+        printf("the solution could not be computed.\N");
         exit(1);
       }
+      memcpy( a_N, b, N*sizeof( double )  );
 
       /**
        * a_K=b_K-A a_N
@@ -304,24 +335,230 @@ class CG {
       double* a_K = new double[K];
 
       fill(a_K, a_K + K, 0.0);
-      a_K[k] = 1.0;
+      a_K[enterCommodity] = 1.0;
       for (int i = 0; i < K; i++) {
-        for (set<int>::iterator it = demand_sec_paths[i].begin();
-             it != demand_sec_paths[i].end(); it++) {
+        for (set<int>::iterator it = demand_second_paths[i].begin();
+             it != demand_second_paths[i].end(); it++) {
           a_K[i] -= a_N[*it - K];
         }
       }
       /**
-       * a_J=b_J-C a_K-D a_K
+       * a_J=b_J-C a_K-D a_N
        *
        */
-      double* a_J=new double [ newGraph.getLink_num(  )-n ];
-      fill(a_J,a_J+ newGraph.getLink_num(  )-n , 0.0 );
-      for( vector<int>::iterator it=path.begin(  ); it!= path.end(  ); it++  ){
-        a_J[ getIndex( *it )-n ]=1.0;
+      double* a_J = new double[J];
+      fill(a_J, a_J + J, 0.0);
+      
+      for (vector<int>::iterator it = path.begin(); it != path.end(); it++) {
+        a_J[getJIndex(*it)-N ] = 1.0;
+      }
+      
+      vector<int> left_AK;
+      for (int i = 0; i < K; i++) {
+        if (a_K[i] != 0.0) {
+          left_AK.push_back(i);
+        }
       }
 
+      for( size_t i=0; i< un_status_links.size(  ); i++ ){
+        for (int k = 0; k < left_AK.size(); k++) {
+          int pid = left_AK[k];
+          if (find(paths[pid].begin(), paths[pid].end(), un_status_links[i]) !=
+              paths[pid].end())
+            a_J[i] -= a_K[pid];
+        }        
+      }
+
+
+      vector<int> left_AN;
+
+      for (int i = 0; i < N; i++) {
+        if (a_N[i] != 0.0) {
+          left_AN.push_back(i);
+        }
+      }
       
+
+      for( size_t i=0; i< un_status_links.size(  ); i++ ){
+
+        for (int k = 0; k < left_AN.size(); k++) {
+          int pid = left_AN[k];
+          if (find(paths[pid + K].begin(), paths[pid + K].end(), un_status_links[i]) !=
+              paths[pid + K].end())
+            a_J[i] -= a_N[pid];
+        }
+      }
+
+      /**
+       *  right side
+       * 
+       */
+
+
+
+      
+      fill( b, b+N, 0.0 );
+
+      for( size_t i=0; i< N; i++ ){
+        
+        b[ i ]=-update_caps[ status_links[ i ] ];
+      }
+
+      for( int i=0; i< N; i++ ){
+        for(set<int>::iterator it=status_primary_paths[ i ].begin(  ); it!= status_primary_paths[ i ].end(  ); it++){
+
+          b[ i ]+=demands[ i ].bandwith;
+        }
+      }
+
+      double *y_N=new double[ N ];
+
+      dgesv_(&N, &nrhs, S, &lda, ipiv, b, &ldb, &info);
+      if (info > 0) {
+        printf(
+            "The diagonal element of the triangular factor of "
+            "A,\N");
+        printf("U(%i,%i) is zero, so that A is singular;\N", info,
+               info);
+        printf("the solution could not be computed.\N");
+        exit(1);
+      }
+      memcpy( y_N, b, N*sizeof( double )  );
+
+
+      /**
+       * y_K=d_K-A c_N
+       *
+       */
+      double* y_K=new double[ K ];
+      fill(y_K, y_K+K, 0.0  ) ;
+      for( int i=0; i< K ; i++ ){
+        y_K[ i ]=demands[ i ].bandwith;
+      }
+
+      for (int i = 0; i < K; i++) {
+        for (set<int>::iterator it = demand_second_paths[i].begin();
+             it != demand_second_paths[i].end(); it++) {
+          y_K[i] -= y_N[*it - K];
+        }
+      }
+
+
+      /**
+       * y_J=c_J-C y_K-D y_N
+       *
+       */
+
+      double* y_J = new double[J];
+      fill(y_J, y_J + J, 0.0);
+
+      for( size_t i=0; i< un_status_links.size(  ); i++ ){
+        y_J[ i ]=update_caps[ un_status_links[ i ] ];
+      }
+
+      vector<int> left_YK;
+      for (int i = 0; i < K; i++) {
+        if (y_K[i] != 0.0) {
+          left_YK.push_back( i );
+        }
+      }
+
+      for( size_t i=0; i< un_status_links.size(  ); i++ ){
+        for (int k = 0; k < left_YK.size(); k++) {
+          int pid = left_YK[k];
+          if (find(paths[pid].begin(), paths[pid].end(), un_status_links[i]) !=
+              paths[pid].end())
+            a_J[i] -= y_K[pid];
+        }        
+      }
+
+      vector<int> left_YN;
+
+      for (int i = 0; i < N; i++) {
+        if (y_N[i] != 0.0) {
+          left_YN.push_back(i);
+        }
+      }
+
+      for( size_t i=0; i< un_status_links.size(  ); i++ ){
+
+        for (int k = 0; k < left_YN.size(); k++) {
+          int pid = left_YN[k];
+          if (find(paths[pid + K].begin(), paths[pid + K].end(), un_status_links[i]) !=
+              paths[pid + K].end())
+            y_J[i] -= y_N[pid];
+        }
+      }
+
+      int reK=-1;
+      double minK=numeric_limits<double>::max(  );
+      double temp;
+      int i=0;
+      while (i<K ) {
+        if(a_K[ i ]>0  ) {
+          reK=i;
+          minK=y_K[ i ]/a_K[ i ];
+          break;
+        }
+        i++;
+      }
+      while(i<K){
+        if( a_K[ i ]>0 ){
+          temp=y_K[ i ]/a_K[ i ];
+          if( temp<minK ){
+            reK=i;
+            minK=temp;
+          }
+        }
+      }
+
+      int reN=-1;
+      double minN=numeric_limits<double>::max(  );
+      i=0;
+      while (i<N ) {
+        if(a_N[ i ]>0  ) {
+          reN=i;
+          minN=y_N[ i ]/a_N[ i ];
+          break;
+        }
+        i++;
+      }
+
+      while(i<N){
+        if( a_N[ i ]>0 ){
+          temp=y_N[ i ]/a_N[ i ];
+          if( temp<minN ){
+            reN=i;
+            minN=temp;
+          }
+        }
+      }
+      
+
+      int reJ=-1;
+      double minJ=numeric_limits<double>::max(  );
+
+      i=0;
+      while (i<J ) {
+        if(a_J[ i ]>0  ) {
+          reJ=i;
+          minJ=y_J[ i ]/a_J[ i ];
+          break;
+        }
+        i++;
+      }
+
+      while(i<J){
+        if( a_J[ i ]>0 ){
+          temp=y_J[ i ]/a_J[ i ];
+          if( temp<minJ ){
+            reJ=i;
+            minJ=temp;
+          }
+        }
+      }
+
+
       
       delete[] ipiv;
       delete[] S;
@@ -329,11 +566,23 @@ class CG {
       delete[] a_N;
       delete[] a_K;
       delete[] a_J;
+      delete[] y_N;
+      delete[] y_K;
+      delete[] y_J;
+
+      if( minK<=minN && minK<=minJ ){
+        return make_pair(reK, DEMAND_T);
+      }
+      if( minN<=minJ ){
+        return make_pair(reN, STATUS_LINK);
+      }
+      return make_pair(reJ, OTHER_LINK);
     }
   }
 
-  void devote(int enter_commodity, int exit_base) {}
+  void devote(int enter_commodity, pair< int, EXIT_BASE_TYPE>& exit_base) {}
 
+  
   void update_edge_left_bandwith() {
     edgeLeftBandwith = update_caps;
     size_t i = 0;
