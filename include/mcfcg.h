@@ -34,10 +34,29 @@ enum ENTER_BASE_TYPE{
   
 };
 
+struct ENTER_VARIABLE
+{
+  ENTER_BASE_TYPE type;
+  int id;
+  vector<int> path;
+  ENTER_VARIABLE(  ):type( PATH_T ),id( 0 ){
+    
+  }
+};
+
 enum EXIT_BASE_TYPE{
   DEMAND_T=0,
   STATUS_LINK=1,
   OTHER_LINK=2
+  
+};
+struct EXIT_VARIABLE
+{
+  EXIT_BASE_TYPE type;
+  int id;
+  EXIT_VARIABLE(  ):type( DEMAND_T ), id( 0 ){
+    
+  }
   
 };
 
@@ -85,9 +104,12 @@ class CG {
   vector<int> primary_paths;
 
   map<int, int> second_paths;
+  
+  vector<C> rhs;
 
   C CZERO;
   int K, N, J;
+  W EPS;
 
  public:
   CG(const G& g, const vector<W>& ws, const vector<C>& caps,
@@ -96,7 +118,9 @@ class CG {
     origLink_num = graph.getLink_num();
 
     CZERO = ((C)1e-6);
-    N=demands.size(  );
+    EPS=( ( W )1e-6 );
+    
+    K=demands.size(  );
     
   }
 
@@ -118,9 +142,11 @@ class CG {
   }
 
   bool initial_solution() {
+    
     paths.resize(demands.size());
+    
     primal_solution.resize(demands.size());
-
+    
     vector<bool> succ_sate(demands.size(), false);
     vector<double> temp_cap(orignal_caps);
     inif_weight = 0;
@@ -157,6 +183,7 @@ class CG {
       srcs.push_back(src);
       snks.push_back(snk);
     }
+    
     update_weights = orignal_weights;
     update_caps = orignal_caps;
     bool re = true;
@@ -178,6 +205,18 @@ class CG {
       }
     }
     if (!re) {
+      N=0;
+      J=srcs.size(  );
+      
+      rhs.resize(demands.size()+srcs.size(  ), (C)0.0  );
+      for( size_t i=0; i< demands.size( ); i++ ) {
+        rhs[ i ]=demands[ i ].bandwith;
+      }
+      
+      for( size_t i=0; i<update_caps.size(  ); i++  ){
+        rhs[ i+K ]=update_caps[ i ];
+      }
+      
       newGraph.initial(srcs, snks, update_weights);
       status_links.resize(srcs.size(), -1);  // no status links
     }
@@ -186,13 +225,28 @@ class CG {
 
   void iteration() {
     while (true) {
-      int enter_commodity = chooseEnterPath();
-      if (enter_commodity < 0) {
+      /**
+       *  enter variable choose
+       * 
+       */
+
+      ENTER_VARIABLE enter_commodity = chooseEnterPath(); 
+      if (enter_commodity.id < 0) {
         return;
       }
+      EXIT_VARIABLE exit_base;
 
-      pair< int, EXIT_BASE_TYPE> exit_base = getExitBase(enter_commodity);
-
+      if( PATH_T ==enter_commodity.type ){
+        /**
+         *  exit base  choose
+         * 
+         */
+        exit_base = getExitBasebyPath(enter_commodity);        
+      }
+      else{
+        exit_base = getExitBasebyLink(enter_commodity);
+      }
+      
       devote(enter_commodity, exit_base);
 
       update_edge_left_bandwith();
@@ -207,27 +261,44 @@ class CG {
    *
    * @return
    */
-  int chooseEnterPath() {
-    int enter_commodity = -1;
-    W best_diff = 0;
+  ENTER_VARIABLE chooseEnterPath() {
+
+    W min_diff =0.0;
     vector<int> path;
+    ENTER_VARIABLE  enter_variable;
+    enter_variable.type=PATH_T;
+    enter_variable.id=-1;
+    
     for (size_t i = 0; i < demands.size(); i++) {
+      
       int src = demands[i].src;
       int snk = demands[i].snk;
+      
       W old_cost = path_cost(update_weights, paths[i], ((W)0.0));
 
       if (bidijkstra_shortest_path(newGraph, update_weights, inif_weight, src,
                                    snk, path)) {
         W new_cost = path_cost(update_weights, path, ((W)0.0));
-        W temp_diff = old_cost - new_cost;
-        if (temp_diff > best_diff) {
-          best_diff = temp_diff;
-          enter_commodity = i;
+        W temp_diff =  new_cost-old_cost;
+        if (temp_diff < min_diff) {
+          min_diff = temp_diff;
+          
+          enter_variable.id = i;
+          enter_variable.path=path;
         }
       }
     }
 
-    return enter_commodity;
+    for(int i=0; i< J; i++  ){
+      if(dual_solution[ K+N+i ]< min_diff  ){
+        min_diff = dual_solution[ K+N+i ];
+        enter_variable.id = i;
+        enter_variable.type=LINK_T;
+        enter_variable.path.clear(  );
+      }
+    }
+
+    return enter_variable;
   }
 
   /**
@@ -245,19 +316,25 @@ class CG {
    * @return
    */
 
-  pair< int, EXIT_BASE_TYPE>  getExitBase(const int enterCommodity) {
+  EXIT_VARIABLE  getExitBasebyPath(const ENTER_VARIABLE& enterCommodity) {
     
-    vector<int> path;
-    int src = demands[enterCommodity].src;
-    int snk = demands[enterCommodity].snk;
-    bidijkstra_shortest_path(newGraph, update_weights, inif_weight, src, snk,
-                             path);
-
+    const vector<int> &path=enterCommodity.path;
+    
+    int src = demands[enterCommodity.id].src;
+    int snk = demands[enterCommodity.id].snk;
 
     N = status_links.size();
     J= newGraph.getLink_num(  )-N;
-    
-    if (N > 0) {
+
+    /**
+     *  status links are  empty
+     * 
+     */
+    if ( 0==N ){
+
+      
+    }
+    else {
       int nrhs = 1;
       int lda = N;
       int* ipiv = new int[N];
@@ -292,8 +369,8 @@ class CG {
       double* b = new double[N];
 
       fill(b, b + N, 0.0);
-      for (vector<int>::iterator it = paths[enterCommodity].begin();
-           it != paths[enterCommodity].end(); it++) {
+      for (vector<int>::iterator it = paths[enterCommodity.id].begin();
+           it != paths[enterCommodity.id].end(); it++) {
         vector<int>::iterator fid =
             find(status_links.begin(), status_links.end(), *it);
         if (fid != status_links.end()) {
@@ -301,7 +378,7 @@ class CG {
         }
       }
 
-      for (vector<int>::iterator it = path.begin(); it != path.end(); it++) {
+      for (vector<int>::const_iterator it = path.begin(); it != path.end(); it++) {
         vector<int>::iterator fid =
             find(status_links.begin(), status_links.end(), *it);
         if (fid != status_links.end()) {
@@ -335,7 +412,7 @@ class CG {
       double* a_K = new double[K];
 
       fill(a_K, a_K + K, 0.0);
-      a_K[enterCommodity] = 1.0;
+      a_K[enterCommodity.id] = 1.0;
       for (int i = 0; i < K; i++) {
         for (set<int>::iterator it = demand_second_paths[i].begin();
              it != demand_second_paths[i].end(); it++) {
@@ -349,7 +426,7 @@ class CG {
       double* a_J = new double[J];
       fill(a_J, a_J + J, 0.0);
       
-      for (vector<int>::iterator it = path.begin(); it != path.end(); it++) {
+      for (vector<int>::const_iterator it = path.begin(); it != path.end(); it++) {
         a_J[getJIndex(*it)-N ] = 1.0;
       }
       
@@ -389,106 +466,14 @@ class CG {
         }
       }
 
-      /**
-       *  right side
-       * 
-       */
-
-
+      
+      // /**
+      //  *  choose enter base as i which a[ i]>0 and rhs[ i ]/a[ i ]= min rhs/a
+      //  * 
+      //  */
 
       
-      fill( b, b+N, 0.0 );
 
-      for( size_t i=0; i< N; i++ ){
-        
-        b[ i ]=-update_caps[ status_links[ i ] ];
-      }
-
-      for( int i=0; i< N; i++ ){
-        for(set<int>::iterator it=status_primary_paths[ i ].begin(  ); it!= status_primary_paths[ i ].end(  ); it++){
-
-          b[ i ]+=demands[ i ].bandwith;
-        }
-      }
-
-      double *y_N=new double[ N ];
-
-      dgesv_(&N, &nrhs, S, &lda, ipiv, b, &ldb, &info);
-      if (info > 0) {
-        printf(
-            "The diagonal element of the triangular factor of "
-            "A,\N");
-        printf("U(%i,%i) is zero, so that A is singular;\N", info,
-               info);
-        printf("the solution could not be computed.\N");
-        exit(1);
-      }
-      memcpy( y_N, b, N*sizeof( double )  );
-
-
-      /**
-       * y_K=d_K-A c_N
-       *
-       */
-      double* y_K=new double[ K ];
-      fill(y_K, y_K+K, 0.0  ) ;
-      for( int i=0; i< K ; i++ ){
-        y_K[ i ]=demands[ i ].bandwith;
-      }
-
-      for (int i = 0; i < K; i++) {
-        for (set<int>::iterator it = demand_second_paths[i].begin();
-             it != demand_second_paths[i].end(); it++) {
-          y_K[i] -= y_N[*it - K];
-        }
-      }
-
-
-      /**
-       * y_J=c_J-C y_K-D y_N
-       *
-       */
-
-      double* y_J = new double[J];
-      fill(y_J, y_J + J, 0.0);
-
-      for( size_t i=0; i< un_status_links.size(  ); i++ ){
-        y_J[ i ]=update_caps[ un_status_links[ i ] ];
-      }
-
-      vector<int> left_YK;
-      for (int i = 0; i < K; i++) {
-        if (y_K[i] != 0.0) {
-          left_YK.push_back( i );
-        }
-      }
-
-      for( size_t i=0; i< un_status_links.size(  ); i++ ){
-        for (int k = 0; k < left_YK.size(); k++) {
-          int pid = left_YK[k];
-          if (find(paths[pid].begin(), paths[pid].end(), un_status_links[i]) !=
-              paths[pid].end())
-            a_J[i] -= y_K[pid];
-        }        
-      }
-
-      vector<int> left_YN;
-
-      for (int i = 0; i < N; i++) {
-        if (y_N[i] != 0.0) {
-          left_YN.push_back(i);
-        }
-      }
-
-      for( size_t i=0; i< un_status_links.size(  ); i++ ){
-
-        for (int k = 0; k < left_YN.size(); k++) {
-          int pid = left_YN[k];
-          if (find(paths[pid + K].begin(), paths[pid + K].end(), un_status_links[i]) !=
-              paths[pid + K].end())
-            y_J[i] -= y_N[pid];
-        }
-      }
 
       int reK=-1;
       double minK=numeric_limits<double>::max(  );
@@ -497,14 +482,14 @@ class CG {
       while (i<K ) {
         if(a_K[ i ]>0  ) {
           reK=i;
-          minK=y_K[ i ]/a_K[ i ];
+          minK=rhs[ i ]/a_K[ i ];
           break;
         }
         i++;
       }
       while(i<K){
         if( a_K[ i ]>0 ){
-          temp=y_K[ i ]/a_K[ i ];
+          temp=rhs[ i ]/a_K[ i ];
           if( temp<minK ){
             reK=i;
             minK=temp;
@@ -518,7 +503,7 @@ class CG {
       while (i<N ) {
         if(a_N[ i ]>0  ) {
           reN=i;
-          minN=y_N[ i ]/a_N[ i ];
+          minN= rhs[K+ status_links[i] ]/a_N[ i ];
           break;
         }
         i++;
@@ -526,7 +511,7 @@ class CG {
 
       while(i<N){
         if( a_N[ i ]>0 ){
-          temp=y_N[ i ]/a_N[ i ];
+          temp=rhs[K+ status_links[i] ]/a_N[ i ];
           if( temp<minN ){
             reN=i;
             minN=temp;
@@ -542,7 +527,7 @@ class CG {
       while (i<J ) {
         if(a_J[ i ]>0  ) {
           reJ=i;
-          minJ=y_J[ i ]/a_J[ i ];
+          minJ=rhs[ K+un_status_links[ i ] ]/a_J[ i ];
           break;
         }
         i++;
@@ -550,7 +535,7 @@ class CG {
 
       while(i<J){
         if( a_J[ i ]>0 ){
-          temp=y_J[ i ]/a_J[ i ];
+          temp=rhs[ K+un_status_links[ i ] ]/a_J[ i ];
           if( temp<minJ ){
             reJ=i;
             minJ=temp;
@@ -566,22 +551,39 @@ class CG {
       delete[] a_N;
       delete[] a_K;
       delete[] a_J;
-      delete[] y_N;
-      delete[] y_K;
-      delete[] y_J;
+
+      EXIT_VARIABLE re;
 
       if( minK<=minN && minK<=minJ ){
-        return make_pair(reK, DEMAND_T);
+        re.id=reK;
+        re.type=DEMAND_T;
+        return re;
+
       }
       if( minN<=minJ ){
-        return make_pair(reN, STATUS_LINK);
+        re.id=reN;
+        re.type=STATUS_LINK;
+        return re;
       }
-      return make_pair(reJ, OTHER_LINK);
+      re.id=reJ;
+      re.type=OTHER_LINK;
+      return re;
+
     }
   }
 
-  void devote(int enter_commodity, pair< int, EXIT_BASE_TYPE>& exit_base) {}
+  EXIT_VARIABLE  getExitBasebyLink(const ENTER_VARIABLE& enterLink) {
 
+    EXIT_VARIABLE re;
+    return re;
+    
+  }
+
+  void devote(ENTER_VARIABLE& enter_commodity,  EXIT_VARIABLE& exit_base) {
+    
+  }
+
+  
   
   void update_edge_left_bandwith() {
     edgeLeftBandwith = update_caps;
