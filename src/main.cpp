@@ -16,6 +16,61 @@ using namespace mcmcf;
 
 using namespace fast_graph;
 
+void MCFexample1(  ){
+  vector<int> srcs;
+  vector<int> snks;
+  vector<double> weights, caps;
+  srcs.push_back( 0 );
+  snks.push_back( 1 );
+  weights.push_back( 2 );
+  caps.push_back( 1 );
+
+  srcs.push_back( 0 );
+  snks.push_back( 1 );
+  weights.push_back( 1 );
+  caps.push_back( 2 );
+
+
+  srcs.push_back( 2 );
+  snks.push_back( 0 );
+  weights.push_back( 1 );
+  caps.push_back( 2 );
+
+
+  srcs.push_back( 2 );
+  snks.push_back( 1 );
+  weights.push_back( 4 );
+  caps.push_back( 2 );
+
+
+  // srcs.push_back( 0 );
+  // snks.push_back( 1 );
+  // weights.push_back( 1 );
+  // caps.push_back( 2 );
+  
+  compressed_sparse_row_graph<double,int> graph;
+
+  typedef CG<compressed_sparse_row_graph<double, int>, double, double> CG_T;
+  vector<CG_T::Demand> demands;
+  CG_T::Demand d1;
+  d1.src=0;
+  d1.snk=1;
+  d1.bandwith=1;
+  demands.push_back( d1 );
+  CG_T::Demand d2;
+  d2.src=2;
+  d2.snk=1;
+  d2.bandwith=2;
+
+  demands.push_back( d2 );
+
+  graph.initial( srcs, snks, weights);
+  CG_T cg( graph,weights, caps, demands );
+  cg.solve(  );
+  
+      
+}
+
 void randMCF( const int V, const int E, const double bw_B, const double w_B,  const int d_num, const double dBWB  ){
   
   compressed_sparse_row_graph<double,int> graph;
@@ -380,7 +435,8 @@ void randbiGraph( const int V, const int E, const double WW ){
 }
 
 int main(int argc, char *argv[]) {
-  randMCF( 10, 30, 1000, 20, 30, 50  );
+  MCFexample1(  );
+  // randMCF( 10, 30, 1000, 20, 30, 50  );
   
   // //  Case1(  );
   // double start=cpuTime(  );
