@@ -94,11 +94,11 @@ class CG {
   vector<int> empty_paths; // the location which  is delete path
   vector<int> owner; // every path has over demand
   vector<int> link_of_path;
-
-
+  
   
   vector<C> primal_solution;
-  
+
+    
   vector<C> dual_solution;
 
 
@@ -115,7 +115,7 @@ class CG {
 
   vector<int> primary_path_loc; // every demands have a primary path
 
-  vector<int> status_link_path_loc; //  the path corresponding status link
+  map<int, int> status_link_path_loc; //  the path corresponding status link
 
   vector<vector< int> > second_path_locs; // every demand has some second paths
   
@@ -154,6 +154,7 @@ class CG {
     
   }
   void computeS(  ){
+    if( 0==N ) return;
     /**
      * S=BA-I
      *
@@ -175,6 +176,17 @@ class CG {
         if (status_primary_path_locs[i].find(oindex) !=
             status_primary_path_locs[i].end())
           S[i * N + j] += 1.0;
+      }
+    }
+  }
+
+  void transposeS(  ){
+    double temp=0.0;
+    for( int i=0; i< N-1; i++ ){
+      for( int j=i+1; j< N; j++ ){
+        temp=S[ i*N+j ];
+        S[ i*N+j ]= S[ j*N+i ];
+        S[ j*N+i ]=temp;
       }
     }
   }
@@ -388,6 +400,7 @@ class CG {
     EPS=( ( W )1e-6 );
     
     K=demands.size(  );
+
     A=NULL;
 
     ipiv= new int[ K ];
@@ -455,6 +468,33 @@ class CG {
     
   }
 
+  double getOrigCost ( const vector<int> &path ) const{
+    double re=0.0;
+    for( vector<int>::const_iterator it=path.begin(  ); it!= path.end(  ); it++ ){
+      re+=orignal_weights[ *it ];
+    }
+    return re;
+  }
+
+  void computIndexofLinks(  ){
+    
+    stable_sort(status_links.begin(  ), status_links.end(  )  );
+    un_status_links.clear(  );
+
+    size_t    i=0;
+    for(int j=0; j< N+J; j++ ){
+      if(i>=status_links.size(  )){
+        un_status_links.push_back( j );
+      }else {
+       if (j< status_links[ i ]  ){
+         un_status_links.push_back( j );
+       }else{
+         i++;
+       }
+      }
+    }
+  }
+
   bool solve() {
     initial_solution();
 
@@ -465,10 +505,12 @@ class CG {
   void initial_solution() {
     
     paths.resize(K);
-    
+    owner.resize( K,-1 );
+
     primal_solution.resize(K);
     
     primary_path_loc.resize(K, 0  );
+    
     
     vector<bool> succ_sate(K, false);
     vector<double> temp_cap(orignal_caps);
@@ -496,8 +538,11 @@ class CG {
           temp_cap[*it] -= bw;
         }
         paths[i] = path;
+        
+        owner[ i ]=i;
         primary_path_loc[ i ]=i;
         primal_solution[i] = bw;
+
       }
     }
     vector<int> srcs, snks;
@@ -525,8 +570,11 @@ class CG {
         vector<int> path;
         path.push_back(srcs.size() - 1);
         paths[i] = path;
+        owner[ i ]=i;
         primary_path_loc[ i ]=i;
         primal_solution[i] = bw;
+
+        
       }
     }
 
@@ -550,7 +598,7 @@ class CG {
       
     newGraph.initial(srcs, snks, update_weights);
 
-    status_link_path_loc.resize( J,-1 );
+    // status_link_path_loc.resize( J,-1 );
     
     dual_solution.resize( K+J,0 ) ;
     b=new double[ J ];
@@ -563,8 +611,6 @@ class CG {
   void iteration() {
     while (true) {
 
-      N = status_links.size();
-      J= un_status_links.size(  );
       fill( A, A+N+J, 0.0 );
       a_K=A;
       a_N=A+K;
@@ -574,9 +620,7 @@ class CG {
       y_K=Y;
       y_N=Y+K;
       y_J=Y+K+N;
-      
-      stable_sort(status_links.begin(  ), status_links.end(  )  );
-      stable_sort( un_status_links.begin(  ), un_status_links.end(  ) );
+
       
       update_edge_left_bandwith();
       /**
@@ -603,8 +647,11 @@ class CG {
       
       devote(enter_commodity, exit_base);
 
-      update_edge_left_bandwith();
-
+      N = status_links.size();
+      J=newGraph.getLink_num(  )-N;
+      computIndexofLinks(  );
+      
+      computeS(  );
       update_edge_cost();
     }
   }
@@ -628,7 +675,9 @@ class CG {
       int src = demands[i].src;
       int snk = demands[i].snk;
       
-      W old_cost = path_cost(update_weights, paths[primary_path_loc[i]], ((W)0.0));
+      W old_cost =
+          path_cost(update_weights, paths[primary_path_loc[i]], ((W)0.0));
+
 
       if (bidijkstra_shortest_path(newGraph, update_weights, inif_weight, src,
                                    snk, path)) {
@@ -742,12 +791,6 @@ class CG {
 
       int ldb = N;
       int info;
-
-      /**
-       * S=BA-I
-       *
-       */
-      computeS(  );
 
       /**
        * b=B b_K -b_N
@@ -867,7 +910,7 @@ class CG {
     int ldb = N;
     int info;
       
-    computeS(  );
+    // computeS(  );
     fill(b, b+N, 0.0  );
 
     b[getNindex( enterLink.id )-K]=-1.0;
@@ -952,18 +995,76 @@ class CG {
   }
 
   void devote(ENTER_VARIABLE& enter_commodity,  EXIT_VARIABLE& exit_base) {
+    if(PATH_T==enter_commodity.type  ){
+      
+      if(DEMAND_T== exit_base.type ){
+
+        if(enter_commodity.id==exit_base.id  ){
+          int pid=primary_path_loc[enter_commodity.id  ];
+          paths[ pid ]=enter_commodity.path;
+          
+        }else{
+          
+        }
+        
+      }else if(STATUS_LINK==exit_base.type  ){
+        
+        int pid=status_link_path_loc[ exit_base.id ];
+
+        if(enter_commodity.id==  owner[ pid ]  ){
+
+          paths[ pid ]=enter_commodity.path;
+          
+        }else{
+
+          
+        }
+        
+      }else {
+
+        if(empty_paths.empty(  )  ){
+          paths.push_back( enter_commodity.path );
+          owner.push_back( enter_commodity.id );
+          link_of_path.push_back(exit_base.id  );
+          status_links.push_back( exit_base.id );
+          status_link_path_loc[exit_base.id  ]=paths.size(  )-1;
+                    
+        }else{
+          int pid=empty_paths.back(  );
+          paths[ pid ]= enter_commodity.path ;
+          owner[pid]= enter_commodity.id ;
+          link_of_path[ pid ]=exit_base.id;
+          empty_paths.pop_back(  );
+          status_links.push_back( exit_base.id );
+          status_link_path_loc[exit_base.id  ]=pid;
+          
+        }
+        
+      }
+      
+    }else{
+      
+      if(DEMAND_T== exit_base.type ){
+        
+        
+      }else if(STATUS_LINK==exit_base.type  ){
+        
+        
+      }else {
+        
+      }
+      
+    }
     
   }
-
-  
   
   void update_edge_left_bandwith() {
     edgeLeftBandwith = update_caps;
     size_t i = 0;
     for (i = 0; i < paths.size(); i++) {
+      if(owner[ i ]<0  ) continue;
       for (vector<int>::iterator lit = paths[i].begin(); lit != paths[i].end();
-           lit++) {
-        edgeLeftBandwith[*lit] -= primal_solution[i];
+           lit++) {        edgeLeftBandwith[*lit] -= primal_solution[i];
       }
     }
   }
@@ -979,6 +1080,66 @@ class CG {
     return re;
   }
 
-  void update_edge_cost() {}
+  /**
+   *[ Z_K  Z_N  0 ]  [  I_{K*K}   A            0       ]   =  [ C_K C_N 0 ]
+   *                 [  B         I_{N*N}      0       ]   
+   *                 [  C         D            I_{J*J} ]
+   *
+   * Z_K+Z_N B=C_K
+   * Z_K A + Z_N =C_N
+   * Z_N( BA-I ) = C_K A - C_N
+   *
+   * Z_K= C_K -Z_N B
+   */
+  void update_edge_cost() {
+    int nrhs = 1;
+    int lda = N;
+
+    int ldb = N;
+    int info;
+    
+    transposeS(  );
+    
+    fill( b, b+N, 0.0 );
+    for( int i=0; i< N; i++ ){
+      int linkid=status_links[ i ];
+      int pid=status_link_path_loc[ linkid ];
+      b[ i ]=-getOrigCost ( paths[ pid ] );
+    }
+
+    fill( A, A+K, 0.0 ) ;
+    for( int i=0; i< K; i++ ){
+      int pid=primary_path_loc[ i ];
+      A[ i ]=getOrigCost ( paths[ pid ] );
+    }
+    for( int i=0; i< N; i++ ){
+      int linkid=status_links[ i ];
+      int pid=status_link_path_loc[ linkid ];
+      int oindex=owner[ pid ];
+      b[ i]+=A[ oindex ];
+    }
+
+    dgesv_(&N, &nrhs, S, &lda, ipiv, b, &ldb, &info);
+    if (info > 0) {
+      printf(
+          "The diagonal element of the triangular factor of "
+          "A,\n");
+      printf("U(%i,%i) is zero, so that A is singular;\n", info,
+             info);
+      printf("the solution could not be computed.\n");
+      exit(1);
+    }
+    transposeS(  );
+    update_weights=orignal_weights;
+    fill(dual_solution.begin(  ), dual_solution.end(  ), 0.0);
+
+    for( int i=0; i< N; i++ ){
+      dual_solution[ status_links[ i ] ]=-b[ i ];
+      update_weights[ status_links[ i ] ]-=b[ i ];
+    }
+
+    
+    
+  }
 };
 }
