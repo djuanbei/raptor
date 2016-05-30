@@ -94,13 +94,8 @@ class CG {
   vector<int> empty_paths; // the location which  is delete path
   vector<int> owner; // every path has over demand
   vector<int> link_of_path;
-  
-  
-  vector<C> primal_solution;
-
     
   vector<C> dual_solution;
-
 
   vector<bool> is_status_link;
   
@@ -112,12 +107,11 @@ class CG {
 
   map<int, set<int> > status_primary_path_locs; // primary paths which corross the status link
 
-
   vector<int> primary_path_loc; // every demands have a primary path
 
   map<int, int> status_link_path_loc; //  the path corresponding status link
 
-  vector<vector< int> > second_path_locs; // every demand has some second paths
+
   
   vector<C> rhs;
   double *A;
@@ -128,6 +122,7 @@ class CG {
   double *Y;
 
   double *S;
+  double* workS;
   int S_maxdim;
 
   double* a_K=A;
@@ -148,11 +143,17 @@ class CG {
     if( NULL!=S ){
       delete[  ] S;
       S=NULL;
+      delete[  ] workS;
     }
     S_maxdim=1.3*N+1;
     S=new double[S_maxdim*S_maxdim  ];
+    workS=new double[S_maxdim*S_maxdim  ];
     
   }
+  /** 
+   * row primary
+   * 
+   */
   void computeS(  ){
     if( 0==N ) return;
     /**
@@ -218,7 +219,8 @@ class CG {
         }
       }
     }
-    dgesv_(&N, &nrhs, S, &lda, ipiv, b, &ldb, &info);
+    copy( S, S+N*N, workS );
+    dgesv_(&N, &nrhs, workS, &lda, ipiv, b, &ldb, &info);
     if (info > 0) {
       printf(
           "The diagonal element of the triangular factor of "
@@ -229,6 +231,8 @@ class CG {
       exit(1);
     }
     memcpy( y_N, b, N*sizeof( double )  );
+
+
 
     /**
      * y_K=d_K-A y_N
@@ -244,6 +248,9 @@ class CG {
         y_K[ i ]-=y_N[getNindex(link_of_path[ *it ]  ) -K ];
       }
     }
+
+
+    
 
     /**
      * y_J=c_J -C y_K -D y_N
@@ -407,7 +414,9 @@ class CG {
     b=NULL;
     
     S=NULL;
+    workS=NULL;
     S_maxdim=0;
+    
     
   }
   ~CG(  ){
@@ -431,6 +440,8 @@ class CG {
     if( NULL !=S ){
       delete[  ] S;
       S=NULL;
+      delete[  ] workS;
+      workS=NULL;
     }
 
   }
@@ -506,8 +517,6 @@ class CG {
     
     paths.resize(K);
     owner.resize( K,-1 );
-
-    primal_solution.resize(K);
     
     primary_path_loc.resize(K, 0  );
     
@@ -537,11 +546,13 @@ class CG {
         for (vector<int>::iterator it = path.begin(); it != path.end(); it++) {
           temp_cap[*it] -= bw;
         }
+        sort( path.begin(  ), path.end(  ) );
         paths[i] = path;
         
         owner[ i ]=i;
         primary_path_loc[ i ]=i;
-        primal_solution[i] = bw;
+        Y[ i]= bw;
+
 
       }
     }
@@ -572,7 +583,7 @@ class CG {
         paths[i] = path;
         owner[ i ]=i;
         primary_path_loc[ i ]=i;
-        primal_solution[i] = bw;
+        Y[ i]=bw;
 
         
       }
@@ -653,6 +664,13 @@ class CG {
       
       computeS(  );
       update_edge_cost();
+      
+      /**
+       * column primary
+       * 
+       */
+
+      transposeS(  );
     }
   }
   /**
@@ -705,7 +723,8 @@ class CG {
         enter_variable.path.clear(  );
       }
     }
-
+    sort(enter_variable.path.begin(  ), enter_variable.path.end(  )  );
+    
     return enter_variable;
   }
 
@@ -820,8 +839,8 @@ class CG {
        *
        */
 
-
-      dgesv_(&N, &nrhs, S, &lda, ipiv, b, &ldb, &info);
+      copy( S, S+N*N, workS );
+      dgesv_(&N, &nrhs, workS, &lda, ipiv, b, &ldb, &info);
       if (info > 0) {
         printf(
             "The diagonal element of the triangular factor of "
@@ -919,8 +938,8 @@ class CG {
      * a_N=( Bb_K-b_N)/( BA-I )=b/S
      *
      */
-
-    dgesv_(&N, &nrhs, S, &lda, ipiv, b, &ldb, &info);
+    copy( S, S+N*N, workS );
+    dgesv_(&N, &nrhs, workS, &lda, ipiv, b, &ldb, &info);
     if (info > 0) {
       printf(
           "The diagonal element of the triangular factor of "
@@ -995,33 +1014,85 @@ class CG {
   }
 
   void devote(ENTER_VARIABLE& enter_commodity,  EXIT_VARIABLE& exit_base) {
+    
     if(PATH_T==enter_commodity.type  ){
       
       if(DEMAND_T== exit_base.type ){
 
-        if(enter_commodity.id==exit_base.id  ){
-          int pid=primary_path_loc[enter_commodity.id  ];
-          paths[ pid ]=enter_commodity.path;
+        const vector<int>& orig_path=paths[ primary_path_loc[enter_commodity.id  ] ];
+        for( vector<int>::const_iterator it=orig_path.begin(  ); it!= orig_path.end(  ); it++ ){
+          if(find( status_links.begin(  ), status_links.end(  ), *it )!= status_links.end(  )){
+            status_primary_path_locs[ *it ].erase( primary_path_loc[enter_commodity.id  ] );
+          }
+        }
+
+        /**
+         * when enter commodity and exit commodity are same then replace the commodity primary path with  enter path
+         * 
+         */
+        
+        paths[ primary_path_loc[enter_commodity.id  ] ]=enter_commodity.path;
+
+
+        if(enter_commodity.id!=exit_base.id  ){
+
+          /**
+           * when enter commodity and exit commodity are diff then replace the commodity primary path with the second path of the commodity which
+           * crossponding status link cross enter path and make enter path as path coreesponding status link
+           * 
+           */
+          bool state=false;
+
           
-        }else{
-          
+          for( set<int>::const_iterator it= demand_second_path_locs[ exit_base.id ].begin(  );  it!= demand_second_path_locs[ exit_base.id ].end(  ); it++ ){
+            int pid=*it;
+            int link=link_of_path[ pid ];
+
+            assert( link>=0 );
+            
+            if( find(enter_commodity.path.begin(  ), enter_commodity.path.end(  ), link  )!=enter_commodity.path.end(  ) ){
+              demand_second_path_locs[ exit_base.id ].erase( it );
+              state=true;
+              link_of_path[ primary_path_loc[enter_commodity.id  ] ]= link ;
+              primary_path_loc[enter_commodity.id  ]=pid;
+            }
+          }
+          assert( state );
+        }
+
+        
+        const vector<int>& new_path=paths[ primary_path_loc[enter_commodity.id  ] ];
+        for( vector<int>::const_iterator it=new_path.begin(  ); it!= new_path.end(  ); it++ ){
+          if(find( status_links.begin(  ), status_links.end(  ), *it )!= status_links.end(  )){
+            status_primary_path_locs[ *it ].insert( primary_path_loc[enter_commodity.id  ] );
+          }
         }
         
       }else if(STATUS_LINK==exit_base.type  ){
+
+        /**
+         * the exit status link must cross the enter path
+         * 
+         */
+
+        assert( find(enter_commodity.path.begin(  ), enter_commodity.path.end(  ),  exit_base.id  )!= enter_commodity.path.end(  ) );
         
         int pid=status_link_path_loc[ exit_base.id ];
+        paths[ pid ]=enter_commodity.path;
 
-        if(enter_commodity.id==  owner[ pid ]  ){
-
-          paths[ pid ]=enter_commodity.path;
-          
-        }else{
-
-          
+        /**
+         * when the owner of the exit path is not owner of enter path
+         * 
+         */
+        
+        if(enter_commodity.id!=  owner[ pid ]  ){
+          demand_second_path_locs[owner[ pid ]  ].erase( pid );
+          demand_second_path_locs[ enter_commodity.id ].insert( pid );
         }
+        owner[ pid ]=enter_commodity.id;
         
       }else {
-
+        // exit is un status link
         if(empty_paths.empty(  )  ){
           paths.push_back( enter_commodity.path );
           owner.push_back( enter_commodity.id );
@@ -1037,20 +1108,68 @@ class CG {
           empty_paths.pop_back(  );
           status_links.push_back( exit_base.id );
           status_link_path_loc[exit_base.id  ]=pid;
-          
         }
-        
+        for( int i=0; i< K; i++ ) {
+          int pid=primary_path_loc[ i ];
+          if( find(paths[ pid ].begin(  ), paths[ pid ].end(  ),  exit_base.id )!= paths[ pid ].end(  )){
+            status_primary_path_locs[ exit_base.id ].insert( pid );
+          }
+        }
       }
       
     }else{
+      /**
+       * enter a status link
+       * 
+       */
+      int spid=status_link_path_loc[ enter_commodity.id ];
+      status_link_path_loc.erase( enter_commodity.id );
+      
+      status_primary_path_locs.erase( enter_commodity.id );
+      vector<int>::iterator it= find(status_links.begin(), status_links.end(), enter_commodity.id  );
+      assert( it!= status_links.end() );
+      status_links.erase( it );
+      
+      is_status_link[enter_commodity.id  ]=false;
+      
       
       if(DEMAND_T== exit_base.type ){
-        
+
+        if( owner[ spid ]== exit_base.id ){
+          primary_path_loc[exit_base.id  ]=spid;
+          demand_second_path_locs[exit_base.id   ].erase( spid );
+        }else{
+
+          bool state=false;
+          
+          
+          for( set<int>::const_iterator it= demand_second_path_locs[ exit_base.id ].begin(  );  it!= demand_second_path_locs[ exit_base.id ].end(  ); it++ ){
+            int pid=*it;
+            int link=link_of_path[ pid ];
+
+            assert( link>=0 );
+            
+            if( find(paths[ spid ].begin(  ), paths[ spid ].end(  ), link  )!=paths[ pid ].end(  ) ){
+              demand_second_path_locs[ exit_base.id ].erase( it );
+              state=true;
+              link_of_path[ spid ]= link ;
+              primary_path_loc[exit_base.id  ]=pid;
+            }
+          }
+          assert( state );
+          
+        }
         
       }else if(STATUS_LINK==exit_base.type  ){
-        
+
+        assert(exit_base.id== enter_commodity.id  );
+                
         
       }else {
+        status_links.push_back( exit_base.id );
+        is_status_link[exit_base.id  ]=true;
+        status_link_path_loc[ exit_base.id ]=spid;
+
         
       }
       
@@ -1060,11 +1179,23 @@ class CG {
   
   void update_edge_left_bandwith() {
     edgeLeftBandwith = update_caps;
-    size_t i = 0;
-    for (i = 0; i < paths.size(); i++) {
-      if(owner[ i ]<0  ) continue;
+
+    for( int i=0; i< K; i++ ){
+      int pid=primary_path_loc[ i ];
+      const vector<int> &path=paths[ pid ];
       for (vector<int>::iterator lit = paths[i].begin(); lit != paths[i].end();
-           lit++) {        edgeLeftBandwith[*lit] -= primal_solution[i];
+           lit++) {
+        edgeLeftBandwith[*lit] -= Y[i];
+      }
+    }
+
+    for( int i=0; i< N; i++ ){
+      int link=status_links[ i ];
+      int pid=status_link_path_loc[ link ];
+      const vector<int> &path=paths[ pid ];
+      for (vector<int>::iterator lit = paths[i].begin(); lit != paths[i].end();
+           lit++) {
+        edgeLeftBandwith[*lit] -= Y[i];
       }
     }
   }
@@ -1098,8 +1229,6 @@ class CG {
     int ldb = N;
     int info;
     
-    transposeS(  );
-    
     fill( b, b+N, 0.0 );
     for( int i=0; i< N; i++ ){
       int linkid=status_links[ i ];
@@ -1118,8 +1247,8 @@ class CG {
       int oindex=owner[ pid ];
       b[ i]+=A[ oindex ];
     }
-
-    dgesv_(&N, &nrhs, S, &lda, ipiv, b, &ldb, &info);
+    copy( S, S+N*N, workS );
+    dgesv_(&N, &nrhs, workS, &lda, ipiv, b, &ldb, &info);
     if (info > 0) {
       printf(
           "The diagonal element of the triangular factor of "
@@ -1129,7 +1258,7 @@ class CG {
       printf("the solution could not be computed.\n");
       exit(1);
     }
-    transposeS(  );
+
     update_weights=orignal_weights;
     fill(dual_solution.begin(  ), dual_solution.end(  ), 0.0);
 
@@ -1137,8 +1266,6 @@ class CG {
       dual_solution[ status_links[ i ] ]=-b[ i ];
       update_weights[ status_links[ i ] ]-=b[ i ];
     }
-
-    
     
   }
 };
