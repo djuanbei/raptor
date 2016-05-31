@@ -206,33 +206,36 @@ class CG {
      *set S=BA-I, b= B d_K -c_N
      *y_N = b/S
      */
-    fill( b, b+N, 0.0 );
+    if( N>0 ){
+      
 
-    for( int i=0; i< N; i++ ){
-      b[ i ]=-rhs[ status_links[ i ] ];
-    }
-    for( int i=0; i< N; i++ ){
-      if( status_primary_path_locs.find( status_links[ i ] )!= status_primary_path_locs.end(  )){
-        const set<int>& pathindices=status_primary_path_locs.at( i );
-        for( set<int>::const_iterator it=pathindices.begin(  ); it!= pathindices.end(  ); it++ ){
-          b[ i ]+=rhs[ *it ];
+      fill( b, b+N, 0.0 );
+
+      for( int i=0; i< N; i++ ){
+        b[ i ]=-rhs[ status_links[ i ] ];
+      }
+      for( int i=0; i< N; i++ ){
+        if( status_primary_path_locs.find( status_links[ i ] )!= status_primary_path_locs.end(  )){
+          const set<int>& pathindices=status_primary_path_locs.at( i );
+          for( set<int>::const_iterator it=pathindices.begin(  ); it!= pathindices.end(  ); it++ ){
+            b[ i ]+=rhs[ *it ];
+          }
         }
       }
-    }
-    copy( S, S+N*N, workS );
-    dgesv_(&N, &nrhs, workS, &lda, ipiv, b, &ldb, &info);
-    if (info > 0) {
-      printf(
-          "The diagonal element of the triangular factor of "
-          "A,\n");
-      printf("U(%i,%i) is zero, so that A is singular;\n", info,
-             info);
-      printf("the solution could not be computed.\n");
-      exit(1);
-    }
-    memcpy( y_N, b, N*sizeof( double )  );
+      copy( S, S+N*N, workS );
+      dgesv_(&N, &nrhs, workS, &lda, ipiv, b, &ldb, &info);
+      if (info > 0) {
+        printf(
+            "The diagonal element of the triangular factor of "
+            "A,\n");
+        printf("U(%i,%i) is zero, so that A is singular;\n", info,
+               info);
+        printf("the solution could not be computed.\n");
+        exit(1);
+      }
+      memcpy( y_N, b, N*sizeof( double )  );
 
-
+    }
 
     /**
      * y_K=d_K-A y_N
@@ -248,8 +251,6 @@ class CG {
         y_K[ i ]-=y_N[getNindex(link_of_path[ *it ]  ) -K ];
       }
     }
-
-
     
 
     /**
@@ -306,7 +307,7 @@ class CG {
      * 
      */
 
-
+    computeRHS(  );
     int reK=-1;
     double minK=numeric_limits<double>::max(  );
     double temp;
@@ -407,7 +408,8 @@ class CG {
     EPS=( ( W )1e-6 );
     
     K=demands.size(  );
-
+    demand_second_path_locs.resize( K );
+    
     A=NULL;
 
     ipiv= new int[ K ];
@@ -912,7 +914,7 @@ class CG {
         }
       }
       
-      computeRHS(  );
+
     }
     
 
