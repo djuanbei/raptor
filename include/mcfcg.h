@@ -96,8 +96,6 @@ class CG {
   vector<int> link_of_path;
     
   vector<C> dual_solution;
-
-  vector<bool> is_status_link;
   
   vector<int> status_links; // contain the index of status links
   
@@ -215,12 +213,18 @@ class CG {
         b[ i ]=-rhs[ status_links[ i ] ];
       }
       for( int i=0; i< N; i++ ){
-        if( status_primary_path_locs.find( status_links[ i ] )!= status_primary_path_locs.end(  )){
-          const set<int>& pathindices=status_primary_path_locs.at( i );
-          for( set<int>::const_iterator it=pathindices.begin(  ); it!= pathindices.end(  ); it++ ){
-            b[ i ]+=rhs[ *it ];
-          }
+        int link=status_links[ i ];
+        
+        const set<int>& pps= status_primary_path_locs[ link ];
+        for(set<int>::const_iterator it=pps.begin(  ); it!= pps.end(  ) ; it++ ){
+          b[ i ]+=rhs[owner[ *it ] ];
         }
+        // if( status_primary_path_locs.find( status_links[ i ] )!= status_primary_path_locs.end(  )){
+        //   const set<int>& pathindices=status_primary_path_locs.at( i );
+        //   for( set<int>::const_iterator it=pathindices.begin(  ); it!= pathindices.end(  ); it++ ){
+        //     b[ i ]+=rhs[ *it ];
+        //   }
+        // }
       }
       copy( S, S+N*N, workS );
       dgesv_(&N, &nrhs, workS, &lda, ipiv, b, &ldb, &info);
@@ -307,7 +311,7 @@ class CG {
      * 
      */
 
-    computeRHS(  );
+
     int reK=-1;
     double minK=numeric_limits<double>::max(  );
     double temp;
@@ -447,6 +451,9 @@ class CG {
     }
 
   }
+  bool is_status_link( const int link ) const{
+    return find( status_links.begin(  ), status_links.end(  ), link )!= status_links.end(  );
+  }
   /** 
    * 
    * 
@@ -521,7 +528,7 @@ class CG {
     owner.resize( K,-1 );
     
     primary_path_loc.resize(K, 0  );
-    
+    vector<C> temp_p( K );
     
     vector<bool> succ_sate(K, false);
     vector<double> temp_cap(orignal_caps);
@@ -553,8 +560,7 @@ class CG {
         
         owner[ i ]=i;
         primary_path_loc[ i ]=i;
-        Y[ i]= bw;
-
+        temp_p[ i]= bw;
 
       }
     }
@@ -585,16 +591,14 @@ class CG {
         paths[i] = path;
         owner[ i ]=i;
         primary_path_loc[ i ]=i;
-        Y[ i]=bw;
-
-        
+        temp_p[ i]= bw;
       }
     }
 
     N=0;
     J=srcs.size(  );
 
-    is_status_link.resize( J, false );
+
     for( int i=0; i< J; i++ ){
       un_status_links.push_back( i);
     }
@@ -611,13 +615,15 @@ class CG {
       
     newGraph.initial(srcs, snks, update_weights);
 
-    // status_link_path_loc.resize( J,-1 );
     
     dual_solution.resize( K+J,0 ) ;
     b=new double[ J ];
     A=new double[ K+J ];
     Y=new double[ K+J ];
 
+    for( int i=0; i< K;i++ ){
+      Y[ i]= temp_p[ i ];
+    }
 
   }
 
@@ -629,13 +635,11 @@ class CG {
       a_N=A+K;
       a_J=A+K+N;
       
+      update_edge_left_bandwith();
       fill( Y, Y+N+J, 0.0 );
       y_K=Y;
       y_N=Y+K;
       y_J=Y+K+N;
-
-      
-      update_edge_left_bandwith();
       /**
        *  enter variable choose
        * 
@@ -673,6 +677,11 @@ class CG {
        */
 
       transposeS(  );
+      fill( Y, Y+N+J, 0.0 );
+      y_K=Y;
+      y_N=Y+K;
+      y_J=Y+K+N;
+      computeRHS(  );
     }
   }
   /**
@@ -874,7 +883,7 @@ class CG {
        */
       
       for (vector<int>::const_iterator it = path.begin(); it != path.end(); it++) {
-        if(is_status_link[ *it ])
+        if(is_status_link(*it))
           a_J[getJIndex(*it)-N-K ] = 1.0;
       }
       
@@ -1021,10 +1030,18 @@ class CG {
       
       if(DEMAND_T== exit_base.type ){
 
-        const vector<int>& orig_path=paths[ primary_path_loc[enter_commodity.id  ] ];
+        int exit_commodity_id=exit_base.id;
+        int primary_pid=primary_path_loc[exit_commodity_id  ];
+
+        /**
+         * exit primary will been deleted from base matrix
+         * 
+         */
+
+        const vector<int>& orig_path=paths[ primary_pid ];
         for( vector<int>::const_iterator it=orig_path.begin(  ); it!= orig_path.end(  ); it++ ){
           if(find( status_links.begin(  ), status_links.end(  ), *it )!= status_links.end(  )){
-            status_primary_path_locs[ *it ].erase( primary_path_loc[enter_commodity.id  ] );
+            status_primary_path_locs[ *it ].erase( primary_pid );
           }
         }
 
@@ -1033,8 +1050,8 @@ class CG {
          * 
          */
         
-        paths[ primary_path_loc[enter_commodity.id  ] ]=enter_commodity.path;
-
+        paths[ primary_pid ]=enter_commodity.path;
+        owner[primary_pid  ]=enter_commodity.id;
 
         if(enter_commodity.id!=exit_base.id  ){
 
@@ -1046,27 +1063,40 @@ class CG {
           bool state=false;
 
           
-          for( set<int>::const_iterator it= demand_second_path_locs[ exit_base.id ].begin(  );  it!= demand_second_path_locs[ exit_base.id ].end(  ); it++ ){
+          for( set<int>::const_iterator it= demand_second_path_locs[ exit_commodity_id ].begin(  );
+               it!= demand_second_path_locs[ exit_commodity_id ].end(  ); it++ ){
+            
             int pid=*it;
             int link=link_of_path[ pid ];
 
             assert( link>=0 );
             
             if( find(enter_commodity.path.begin(  ), enter_commodity.path.end(  ), link  )!=enter_commodity.path.end(  ) ){
-              demand_second_path_locs[ exit_base.id ].erase( it );
+
+              /**
+               * from second paths to primary path
+               * 
+               */
+
+              demand_second_path_locs[ exit_commodity_id].erase( it );
+              primary_path_loc[exit_commodity_id  ]=pid;
+              
+              demand_second_path_locs[ enter_commodity.id ].insert( primary_pid );
+              link_of_path[ primary_pid ]= link;
+
+
               state=true;
-              link_of_path[ primary_path_loc[enter_commodity.id  ] ]= link ;
-              primary_path_loc[enter_commodity.id  ]=pid;
+              break;
             }
           }
           assert( state );
-        }
 
+        }
         
-        const vector<int>& new_path=paths[ primary_path_loc[enter_commodity.id  ] ];
+        const vector<int>& new_path=paths[ primary_path_loc[exit_commodity_id  ] ];
         for( vector<int>::const_iterator it=new_path.begin(  ); it!= new_path.end(  ); it++ ){
           if(find( status_links.begin(  ), status_links.end(  ), *it )!= status_links.end(  )){
-            status_primary_path_locs[ *it ].insert( primary_path_loc[enter_commodity.id  ] );
+            status_primary_path_locs[ *it ].insert( primary_path_loc[exit_commodity_id  ] );
           }
         }
         
@@ -1082,6 +1112,7 @@ class CG {
         int pid=status_link_path_loc[ exit_base.id ];
         paths[ pid ]=enter_commodity.path;
 
+
         /**
          * when the owner of the exit path is not owner of enter path
          * 
@@ -1094,27 +1125,37 @@ class CG {
         owner[ pid ]=enter_commodity.id;
         
       }else {
-        // exit is un status link
+        // exit is un status link then from un_status link to status link
         if(empty_paths.empty(  )  ){
+          
           paths.push_back( enter_commodity.path );
           owner.push_back( enter_commodity.id );
           link_of_path.push_back(exit_base.id  );
+          
           status_links.push_back( exit_base.id );
           status_link_path_loc[exit_base.id  ]=paths.size(  )-1;
+          
+          demand_second_path_locs[enter_commodity.id  ].insert( paths.size(  )-1 );
                     
         }else{
           int pid=empty_paths.back(  );
+          empty_paths.pop_back(  );
+          
           paths[ pid ]= enter_commodity.path ;
           owner[pid]= enter_commodity.id ;
           link_of_path[ pid ]=exit_base.id;
-          empty_paths.pop_back(  );
+
           status_links.push_back( exit_base.id );
+          
           status_link_path_loc[exit_base.id  ]=pid;
+          demand_second_path_locs[enter_commodity.id  ].insert( pid );
         }
+        
+        int link=exit_base.id;
         for( int i=0; i< K; i++ ) {
           int pid=primary_path_loc[ i ];
-          if( find(paths[ pid ].begin(  ), paths[ pid ].end(  ),  exit_base.id )!= paths[ pid ].end(  )){
-            status_primary_path_locs[ exit_base.id ].insert( pid );
+          if( find(paths[ pid ].begin(  ), paths[ pid ].end(  ),  link )!= paths[ pid ].end(  )){
+            status_primary_path_locs[ link ].insert( pid );
           }
         }
       }
@@ -1124,16 +1165,17 @@ class CG {
        * enter a status link
        * 
        */
-      int spid=status_link_path_loc[ enter_commodity.id ];
-      status_link_path_loc.erase( enter_commodity.id );
+      int enter_status_link=enter_commodity.id;
+      int spid=status_link_path_loc[ enter_status_link ];
+      link_of_path[ spid ]=-1;
       
-      status_primary_path_locs.erase( enter_commodity.id );
+      status_link_path_loc.erase( enter_status_link );
+      
+      status_primary_path_locs.erase( enter_status_link );
+      
       vector<int>::iterator it= find(status_links.begin(), status_links.end(), enter_commodity.id  );
       assert( it!= status_links.end() );
       status_links.erase( it );
-      
-      is_status_link[enter_commodity.id  ]=false;
-      
       
       if(DEMAND_T== exit_base.type ){
 
@@ -1143,9 +1185,10 @@ class CG {
         }else{
 
           bool state=false;
-          
-          
-          for( set<int>::const_iterator it= demand_second_path_locs[ exit_base.id ].begin(  );  it!= demand_second_path_locs[ exit_base.id ].end(  ); it++ ){
+                    
+          for( set<int>::const_iterator it= demand_second_path_locs[ exit_base.id ].begin(  );
+               it!= demand_second_path_locs[ exit_base.id ].end(  ); it++ ){
+            
             int pid=*it;
             int link=link_of_path[ pid ];
 
@@ -1153,9 +1196,14 @@ class CG {
             
             if( find(paths[ spid ].begin(  ), paths[ spid ].end(  ), link  )!=paths[ pid ].end(  ) ){
               demand_second_path_locs[ exit_base.id ].erase( it );
-              state=true;
-              link_of_path[ spid ]= link ;
               primary_path_loc[exit_base.id  ]=pid;
+
+              
+              link_of_path[ spid ]= link ;
+              status_link_path_loc[ link ]=spid;
+              
+              state=true;
+              break;
             }
           }
           assert( state );
@@ -1165,13 +1213,22 @@ class CG {
       }else if(STATUS_LINK==exit_base.type  ){
 
         assert(exit_base.id== enter_commodity.id  );
-                
+        empty_paths.push_back( spid );
+        owner[spid  ]=-1;
         
       }else {
         status_links.push_back( exit_base.id );
-        is_status_link[exit_base.id  ]=true;
+
+        assert( find( paths[ spid ].begin(  ), paths[ spid ].end(  ), exit_base.id )!= paths[ spid ].end(  ) );
         status_link_path_loc[ exit_base.id ]=spid;
 
+        int link=exit_base.id;
+        for( int i=0; i< K; i++ ) {
+          int pid=primary_path_loc[ i ];
+          if( find(paths[ pid ].begin(  ), paths[ pid ].end(  ),  link )!= paths[ pid ].end(  )){
+            status_primary_path_locs[ link ].insert( pid );
+          }
+        }        
         
       }
       
@@ -1185,7 +1242,7 @@ class CG {
     for( int i=0; i< K; i++ ){
       int pid=primary_path_loc[ i ];
       const vector<int> &path=paths[ pid ];
-      for (vector<int>::iterator lit = paths[i].begin(); lit != paths[i].end();
+      for (vector<int>::const_iterator lit = path.begin(); lit != path.end();
            lit++) {
         edgeLeftBandwith[*lit] -= Y[i];
       }
@@ -1195,7 +1252,7 @@ class CG {
       int link=status_links[ i ];
       int pid=status_link_path_loc[ link ];
       const vector<int> &path=paths[ pid ];
-      for (vector<int>::iterator lit = paths[i].begin(); lit != paths[i].end();
+      for (vector<int>::const_iterator lit = path.begin(); lit != path.end();
            lit++) {
         edgeLeftBandwith[*lit] -= Y[i];
       }
@@ -1225,6 +1282,7 @@ class CG {
    * Z_K= C_K -Z_N B
    */
   void update_edge_cost() {
+
     int nrhs = 1;
     int lda = N;
 
@@ -1235,13 +1293,15 @@ class CG {
     for( int i=0; i< N; i++ ){
       int linkid=status_links[ i ];
       int pid=status_link_path_loc[ linkid ];
-      b[ i ]=-getOrigCost ( paths[ pid ] );
+      b[ i ]=-path_cost(update_weights, paths[ pid ], ((W)0.0));
+             // getOrigCost ( paths[ pid ] );
     }
 
     fill( A, A+K, 0.0 ) ;
     for( int i=0; i< K; i++ ){
       int pid=primary_path_loc[ i ];
-      A[ i ]=getOrigCost ( paths[ pid ] );
+      A[ i ]=path_cost(update_weights, paths[ pid ], ((W)0.0));
+          // getOrigCost ( paths[ pid ] );
     }
     for( int i=0; i< N; i++ ){
       int linkid=status_links[ i ];
