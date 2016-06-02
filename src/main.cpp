@@ -55,17 +55,18 @@ void MCFexample1(  ){
   CG_T::Demand d1;
   d1.src=0;
   d1.snk=1;
-  d1.bandwith=1;
+  d1.bandwidth=1;
   demands.push_back( d1 );
   CG_T::Demand d2;
   d2.src=2;
   d2.snk=1;
-  d2.bandwith=2;
+  d2.bandwidth=2;
 
   demands.push_back( d2 );
 
   graph.initial( srcs, snks, weights);
   CG_T cg( graph,weights, caps, demands );
+  cg.setInfo( 1 );
   cg.solve(  );
   
       
@@ -124,7 +125,7 @@ void randMCF( const int V, const int E, const double bw_B, const double w_B,  co
     CG_T::Demand d;
     d.src=src;
     d.snk=snk;
-    d.bandwith=bw;
+    d.bandwidth=bw;
     demands.push_back( d );
     i++;
   }
