@@ -451,12 +451,12 @@ class CG {
 
       }
       if( minN<=minJ ){
-        re.id=reN;
+        re.id=status_links[reN];
         re.type=STATUS_LINK;
         if( minN<=EPS ) sdata.empty_iterator_num++;
         return re;
       }
-      re.id=reJ;
+      re.id=un_status_links[reJ];
       re.type=OTHER_LINK;
       if( minJ<=EPS ) sdata.empty_iterator_num++;
       return re;
@@ -485,7 +485,7 @@ class CG {
     S=NULL;
     workS=NULL;
     S_maxdim=0;
-    
+    link_of_path.resize( K, -1 );
     
   }
   ~CG(  ){
@@ -547,7 +547,7 @@ class CG {
    * @return the index of the status link in smplex matrix
    */
   int getNindex( int i ) const{
-    assert(find(status_links.begin(  ), status_links.end(  ), i)==status_links.end(  ) );
+    assert(find(status_links.begin(  ), status_links.end(  ), i)!=status_links.end(  ) );
     int re=0;
     for (vector<int>::const_iterator it = status_links.begin();
          it != status_links.end(); it++) {
@@ -644,9 +644,6 @@ class CG {
       srcs.push_back(src);
       snks.push_back(snk);
     }
-    
-    update_weights = orignal_weights;
-    update_caps = orignal_caps;
 
 
     for (int i = 0; i < K; i++) {
@@ -657,8 +654,8 @@ class CG {
         C bw = demands[i].bandwidth;
         srcs.push_back(src);
         snks.push_back(snk);
-        update_weights.push_back(inif_weight / 2);
-        update_caps.push_back(bw);
+        orignal_weights.push_back(inif_weight / 2);
+        orignal_caps.push_back(bw);
         vector<int> path;
         path.push_back(srcs.size() - 1);
         paths[i] = path;
@@ -667,7 +664,8 @@ class CG {
         temp_p[ i]= bw;
       }
     }
-
+    update_weights = orignal_weights;
+    update_caps = orignal_caps;
     N=0;
     J=srcs.size(  );
 
@@ -770,7 +768,7 @@ class CG {
      *  check status link dual value
      * 
      */
-    W min_diff =0.0;
+    W min_diff =-EPS;
     for(int i=0; i< N; i++  ){
       if(dual_solution[ K+i ]< min_diff  ){
         min_diff = dual_solution[ K+i ];
@@ -781,6 +779,7 @@ class CG {
     }
 
     if( enter_variable.id>=0 ){
+      enter_variable.id=status_links[enter_variable.id  ];
       return enter_variable;
     }
     
@@ -1316,6 +1315,7 @@ class CG {
 
         assert(exit_base.id== enter_commodity.id  );
         empty_paths.push_back( spid );
+        demand_second_path_locs[owner[spid  ]  ].erase( spid );
         owner[spid  ]=-1;
         
       }else {
@@ -1379,6 +1379,7 @@ class CG {
    *
    * y_K+y_N B=C_K
    * y_K A + y_N =C_N
+   *
    * y_N( BA-I ) = C_K A - C_N
    *
    * y_K= C_K -y_N B
