@@ -273,7 +273,7 @@ class CG {
       fill( b, b+N, 0.0 );
 
       for( int i=0; i< N; i++ ){
-        b[ i ]=-rhs[ status_links[ i ] ];
+        b[ i ]=-rhs[K+ status_links[ i ] ];
       }
       for( int i=0; i< N; i++ ){
         int link=status_links[ i ];
@@ -321,8 +321,8 @@ class CG {
      */
 
     for( int i=0 ; i< J; i++ ){
-      int linkid=getJIndex( un_status_links[ i ] )-N-K;
-      x_J[ linkid ]=rhs[ un_status_links[ i ] ];
+
+      x_J[ i ]=rhs[K+ un_status_links[ i ] ];
     }
 
     vector<int> left_YK;
@@ -716,15 +716,7 @@ class CG {
         return;
 
       }
-      /**
-       * A a=d
-       * 
-       */
 
-      fill( A, A+K+N+J, 0.0 );
-      a_K=A;
-      a_N=A+K;
-      a_J=A+K+N;
       
       update_edge_left_bandwith();
       
@@ -770,12 +762,29 @@ class CG {
    * @return
    */
   ENTER_VARIABLE chooseEnterPath() {
-
-    W min_diff =0.0;
-    vector<int> path;
+    
     ENTER_VARIABLE  enter_variable;
     enter_variable.type=PATH_T;
     enter_variable.id=-1;
+    /**
+     *  check status link dual value
+     * 
+     */
+    W min_diff =0.0;
+    for(int i=0; i< N; i++  ){
+      if(dual_solution[ K+i ]< min_diff  ){
+        min_diff = dual_solution[ K+i ];
+        enter_variable.id = i;
+        enter_variable.type=LINK_T;
+        enter_variable.path.clear(  );
+      }
+    }
+
+    if( enter_variable.id>=0 ){
+      return enter_variable;
+    }
+    
+    vector<int> path;
     
     for (size_t i = 0; i < demands.size(); i++) {
       
@@ -783,12 +792,12 @@ class CG {
       int snk = demands[i].snk;
       
       W old_cost =
-          path_cost(update_weights, paths[primary_path_loc[i]], ((W)0.0));
+          path_cost(update_weights, paths[primary_path_loc[i]], ( W )0.0);
 
 
       if (bidijkstra_shortest_path(newGraph, update_weights, inif_weight, src,
                                    snk, path)) {
-        W new_cost = path_cost(update_weights, path, ((W)0.0));
+        W new_cost = path_cost(update_weights, path, ( W )0.0);
         W temp_diff =  new_cost-old_cost;
         if (temp_diff < min_diff) {
           min_diff = temp_diff;
@@ -799,19 +808,7 @@ class CG {
       }
     }
     
-    /**
-     *  check status link dual value
-     * 
-     */
 
-    for(int i=0; i< N; i++  ){
-      if(dual_solution[ K+i ]< min_diff  ){
-        min_diff = dual_solution[ K+i ];
-        enter_variable.id = i;
-        enter_variable.type=LINK_T;
-        enter_variable.path.clear(  );
-      }
-    }
     sort(enter_variable.path.begin(  ), enter_variable.path.end(  )  );
     
     return enter_variable;
@@ -833,6 +830,15 @@ class CG {
    */
 
   EXIT_VARIABLE  getExitBasebyPath(const ENTER_VARIABLE& enterCommodity) {
+    /**
+     * A a=d
+     * 
+     */
+
+    fill( A, A+K+N+J, 0.0 );
+    a_K=A;
+    a_N=A+K;
+    a_J=A+K+N;
     
     const vector<int> &path=enterCommodity.path;
 
@@ -896,7 +902,12 @@ class CG {
 
     }
     else {
-      
+      /**
+       * [  I_{K*K}   A            0       ]  [ a_K ] = [ b_K ]
+       * [  B         I_{N*N}      0       ]  [ a_N ] = [ b_N ]
+       * [  C         D            I_{J*J} ]  [ a_J ] = [ b_J ]
+       * a_N=(B b_K-b_N) /( BA-I )
+       */
       int nrhs = 1;
       int lda = N;
 
@@ -964,7 +975,7 @@ class CG {
        */
       
       for (vector<int>::const_iterator it = path.begin(); it != path.end(); it++) {
-        if(is_status_link(*it))
+        if(!is_status_link(*it))
           a_J[getJIndex(*it)-N-K ] = 1.0;
       }
       
@@ -1014,6 +1025,16 @@ class CG {
   }
 
   EXIT_VARIABLE  getExitBasebyStatusLink(const ENTER_VARIABLE& enterLink) {
+
+    /**
+     * A a=d
+     * 
+     */
+
+    fill( A, A+K+N+J, 0.0 );
+    a_K=A;
+    a_N=A+K;
+    a_J=A+K+N;
 
     int nrhs = 1;
     int lda = N;
@@ -1335,7 +1356,7 @@ class CG {
       const vector<int> &path=paths[ pid ];
       for (vector<int>::const_iterator lit = path.begin(); lit != path.end();
            lit++) {
-        edgeLeftBandwith[*lit] -= X[i];
+        edgeLeftBandwith[*lit] -= X[i+K];
       }
     }
   }

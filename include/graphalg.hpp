@@ -24,7 +24,7 @@ struct LESSOR_T {
 };
 
 template <typename WV,  typename W>
-W  path_cost( const WV& NW, const vector<int> &path, W  ){
+W  path_cost( const WV& NW, const vector<int> &path, W ){
   W re=0;
   for( vector<int>::const_iterator it=path.begin(  ); it!= path.end( ); it++ ){
     re+=NW[ *it ];
