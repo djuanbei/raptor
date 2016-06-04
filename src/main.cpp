@@ -109,7 +109,7 @@ void randMCF( const int V, const int E, const double bw_B, const double w_B,  co
       hasSet.insert(temp);
       srcs.push_back(src);
       snks.push_back(snk);
-      weights.push_back(weight);
+      weights.push_back(1);
       caps.push_back( bw );
 
     }
@@ -121,6 +121,9 @@ void randMCF( const int V, const int E, const double bw_B, const double w_B,  co
   while (i< d_num) {
     src = rand() % V;
     snk = rand() % V;
+    while(src==snk){
+      snk = rand() % V;
+    }
     bw=disDBW( generator );
     CG_T::Demand d;
     d.src=src;
@@ -131,6 +134,7 @@ void randMCF( const int V, const int E, const double bw_B, const double w_B,  co
   }
   graph.initial( srcs, snks , weights);
   CG_T cg( graph,weights, caps, demands );
+  cg.setInfo( 1 );
   cg.solve(  );
   
 }
@@ -437,7 +441,7 @@ void randbiGraph( const int V, const int E, const double WW ){
 
 int main(int argc, char *argv[]) {
   // MCFexample1(  );
-  randMCF( 10, 30, 1000, 20, 30, 50  );
+  randMCF( 100, 500, 100, 40, 50, 50 );
   
   // //  Case1(  );
   // double start=cpuTime(  );
