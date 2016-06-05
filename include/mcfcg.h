@@ -638,8 +638,6 @@ class CG {
     primary_path_loc.resize(K, 0);
     vector<C> temp_p(K);
 
-    vector<bool> succ_sate(K, false);
-    vector<double> temp_cap(orignal_caps);
     inf_weight = 0;
     for (int i = 0; i < origLink_num; i++) {
       inf_weight += orignal_weights[i];
@@ -647,6 +645,28 @@ class CG {
     inf_weight *= 2;
     inf_weight += 1;
 
+    vector<int> srcs, snks;
+    int src, snk;
+    for (int i = 0; i < origLink_num; i++) {
+      graph.findSrcSnk(i, src, snk);
+      srcs.push_back(src);
+      snks.push_back(snk);
+    }
+    
+    for (int i = 0; i < K; i++) {
+      int src = demands[i].src;
+      int snk = demands[i].snk;
+      C bw = demands[i].bandwidth;
+      srcs.push_back(src);
+      snks.push_back(snk);
+      orignal_weights.push_back(inf_weight / 2);
+      orignal_caps.push_back(bw);      
+    }
+
+    vector<double> temp_cap(orignal_caps);
+
+    newGraph.initial(srcs, snks, orignal_weights);
+    
     for (int i = 0; i < K; i++) {
       int src = demands[i].src;
       int snk = demands[i].snk;
@@ -658,45 +678,21 @@ class CG {
         }
       }
       vector<int> path;
-      if (bidijkstra_shortest_path(graph, ws, inf_weight, src, snk, path)) {
-        succ_sate[i] = true;
+      if (bidijkstra_shortest_path(newGraph, ws, inf_weight, src, snk, path)) {
+
         for (vector<int>::iterator it = path.begin(); it != path.end(); it++) {
           temp_cap[*it] -= bw;
         }
         sort(path.begin(), path.end());
         paths[i].path = path;
         paths[i].owner = i;
-
         primary_path_loc[i] = i;
         temp_p[i] = bw;
       }
     }
-    vector<int> srcs, snks;
-    int src, snk;
-    for (int i = 0; i < origLink_num; i++) {
-      graph.findSrcSnk(i, src, snk);
-      srcs.push_back(src);
-      snks.push_back(snk);
-    }
 
-    for (int i = 0; i < K; i++) {
-      if (!succ_sate[i]) {
-        int src = demands[i].src;
-        int snk = demands[i].snk;
-        C bw = demands[i].bandwidth;
-        srcs.push_back(src);
-        snks.push_back(snk);
-        orignal_weights.push_back(inf_weight / 2);
-        orignal_caps.push_back(bw);
-        vector<int> path;
-        path.push_back(srcs.size() - 1);
-        paths[i].path = path;
-        paths[i].owner = i;
 
-        primary_path_loc[i] = i;
-        temp_p[i] = bw;
-      }
-    }
+
     update_weights = orignal_weights;
     update_caps = orignal_caps;
     N = 0;
@@ -716,7 +712,7 @@ class CG {
       rhs[i + K] = update_caps[i];
     }
 
-    newGraph.initial(srcs, snks, update_weights);
+  
 
     dual_solution.resize(J, 0);
     b = new double[J];
@@ -1277,8 +1273,8 @@ class CG {
         paths[pid].owner = enter_commodity.id;
 
       } else {
-        assert(find(enter_commodity.path.begin(), enter_commodity.path.end(),
-                    exit_base.id) != enter_commodity.path.end());
+        // assert(find(enter_commodity.path.begin(), enter_commodity.path.end(),
+        //             exit_base.id) != enter_commodity.path.end());
         // exit is un status link then from un_status link to status link
         if (empty_paths.empty()) {
           Path npath(enter_commodity.path, enter_commodity.id, exit_base.id);
@@ -1469,15 +1465,13 @@ class CG {
     for (int i = 0; i < N; i++) {
       int linkid = status_links[i];
       int pid = status_link_path_loc[linkid];
-      b[i] = -path_cost(update_weights, paths[pid].path, (W)0.0);
-      // -getOrigCost ( paths[ pid ].path );
+      b[i] =  -getOrigCost ( paths[ pid ].path );
     }
 
     fill(A, A + K, 0.0);
     for (int i = 0; i < K; i++) {
       int pid = primary_path_loc[i];
-      A[i] = path_cost(update_weights, paths[pid].path, (W)0.0);
-      // getOrigCost ( paths[ pid ].path );
+      A[i] = getOrigCost ( paths[ pid ].path );
     }
     for (int i = 0; i < N; i++) {
       int linkid = status_links[i];
@@ -1496,11 +1490,11 @@ class CG {
       exit(1);
     }
 
-    // update_weights=orignal_weights;
-    // fill(dual_solution.begin(  ), dual_solution.end(  ), 0.0);
+    update_weights=orignal_weights;
+    fill(dual_solution.begin(  ), dual_solution.end(  ), 0.0);
 
     for (int i = 0; i < N; i++) {
-      dual_solution[status_links[i]] -= b[i];
+      dual_solution[status_links[i]] =- b[i];
       update_weights[status_links[i]] -= b[i];
     }
   }
