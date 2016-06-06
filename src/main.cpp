@@ -497,9 +497,8 @@ void randbiGraph( const int V, const int E, const double WW ){
 }
 
 int main(int argc, char *argv[]) {
-  MCFexample2(  );
-  // randMCF( 100, 500, 100, 40, 50, 50 );
-  
+  // MCFexample2(  );
+  randMCF( 100, 500, 100, 40, 150, 50 );
   // //  Case1(  );
   // double start=cpuTime(  );
   // randbiGraph(20000, 100000, 20);

@@ -566,6 +566,60 @@ class CG {
     return find(status_links.begin(), status_links.end(), link) !=
         status_links.end();
   }
+  
+  void setStatusLink(const int link, const int pid  ){
+    paths[ pid ].link=link;
+    status_link_path_loc[link]=pid;
+  }
+
+  void deletePrimaryPath( const int commodityID ){
+    
+    int primary_pid=primary_path_loc[ commodityID ];
+    const vector<int>& orig_path = paths[primary_pid].path;
+    for (vector<int>::const_iterator it = orig_path.begin();
+         it != orig_path.end(); it++) {
+      if (find(status_links.begin(), status_links.end(), *it) !=
+          status_links.end()) {
+        status_primary_path_locs[*it].erase(primary_pid);
+      }
+    }
+  }
+  void addPrimaryPath(const int commodityID   ){
+    int pid=primary_path_loc[commodityID];
+    const vector<int>& new_path =
+        paths[pid].path;
+    for (vector<int>::const_iterator it = new_path.begin();
+         it != new_path.end(); it++) {
+      if (find(status_links.begin(), status_links.end(), *it) !=
+          status_links.end()) {
+        status_primary_path_locs[*it].insert(pid);
+      }
+    }
+  }
+  
+  void addStatusLink( const int link ){
+    for (int i = 0; i < K; i++) {
+      int pid = primary_path_loc[i];
+      if (find(paths[pid].path.begin(), paths[pid].path.end(), link) !=
+          paths[pid].path.end()) {
+        status_primary_path_locs[link].insert(pid);
+      }
+    }    
+  }
+  void deleteStatusLink( const int link ){
+      vector<int>::iterator it =
+          find(status_links.begin(), status_links.end(), link);
+      assert(it != status_links.end());
+
+      status_links.erase(it);
+      
+      int spid = status_link_path_loc[link];
+      paths[spid].link = -1;
+
+      status_link_path_loc.erase(link);
+
+      status_primary_path_locs.erase(link);    
+  }
   /**
    *
    *
@@ -1134,24 +1188,20 @@ class CG {
   }
 
   void devote(ENTER_VARIABLE& enter_commodity, EXIT_VARIABLE& exit_base) {
+
     if (PATH_T == enter_commodity.type) {
+
       if (DEMAND_T == exit_base.type) {
+
         int exit_commodity_id = exit_base.id;
-        int primary_pid = primary_path_loc[exit_commodity_id];
+        int exit_primary_pid = primary_path_loc[exit_commodity_id];
 
         /**
          * exit primary will been deleted from base matrix
          *
          */
+        deletePrimaryPath( exit_commodity_id );
 
-        const vector<int>& orig_path = paths[primary_pid].path;
-        for (vector<int>::const_iterator it = orig_path.begin();
-             it != orig_path.end(); it++) {
-          if (find(status_links.begin(), status_links.end(), *it) !=
-              status_links.end()) {
-            status_primary_path_locs[*it].erase(primary_pid);
-          }
-        }
 
         /**
          * when enter commodity and exit commodity are same then replace the
@@ -1159,8 +1209,8 @@ class CG {
          *
          */
 
-        paths[primary_pid].path = enter_commodity.path;
-        paths[primary_pid].owner = enter_commodity.id;
+        paths[exit_primary_pid].path = enter_commodity.path;
+        paths[exit_primary_pid].owner = enter_commodity.id;
 
         if (enter_commodity.id != exit_base.id) {
           /**
@@ -1170,93 +1220,35 @@ class CG {
            *path coreesponding status link
            *
            */
-          bool state = false;
 
-          int enter_pid = primary_path_loc[exit_base.id];
-          const vector<int>& enter_primary_path = paths[enter_pid].path;
+          assert(  !demand_second_path_locs[exit_commodity_id].empty(  ));
+          set<int>::const_iterator it =
+              demand_second_path_locs[exit_commodity_id].begin();
 
-          for (set<int>::const_iterator it =
-                   demand_second_path_locs[exit_commodity_id].begin();
-               it != demand_second_path_locs[exit_commodity_id].end(); it++) {
-            int pid = *it;
-            int link = paths[pid].link;
+          int pid = *it;
+          int link = paths[pid].link;
 
-            assert(link >= 0);
+          assert(link >= 0);
 
-            if (find(enter_commodity.path.begin(), enter_commodity.path.end(),
-                     link) != enter_commodity.path.end()) {
-              /**
-               * from second paths to primary path
-               *
-               */
+          /**
+           * from second paths to primary path
+           *
+           */
 
-              demand_second_path_locs[exit_commodity_id].erase(it);
-              primary_path_loc[exit_commodity_id] = pid;
+          demand_second_path_locs[exit_commodity_id].erase(it);
+          primary_path_loc[exit_commodity_id] = pid;
+          paths[pid].link=-1;
+          
+          demand_second_path_locs[enter_commodity.id].insert(exit_primary_pid);
 
-              demand_second_path_locs[enter_commodity.id].insert(primary_pid);
-              paths[primary_pid].link = link;
+          setStatusLink(link,  exit_primary_pid );
 
-              state = true;
-              break;
-            }
-            if (find(enter_primary_path.begin(), enter_primary_path.end(),
-                     link) != enter_primary_path.end()) {
-              /**
-               * from second paths to primary path
-               *
-               */
-
-              demand_second_path_locs[exit_commodity_id].erase(it);
-              primary_path_loc[exit_commodity_id] = pid;
-
-              demand_second_path_locs[enter_commodity.id].insert(enter_pid);
-              paths[enter_pid].link = link;
-
-              for (vector<int>::const_iterator it = enter_primary_path.begin();
-                   it != enter_primary_path.end(); it++) {
-                if (find(status_links.begin(), status_links.end(), *it) !=
-                    status_links.end()) {
-                  status_primary_path_locs[*it].erase(enter_pid);
-                }
-              }
-
-              primary_path_loc[enter_commodity.id] = primary_pid;
-
-              for (vector<int>::const_iterator it =
-                       enter_commodity.path.begin();
-                   it != enter_commodity.path.end(); it++) {
-                if (find(status_links.begin(), status_links.end(), *it) !=
-                    status_links.end()) {
-                  status_primary_path_locs[*it].insert(primary_pid);
-                }
-              }
-
-              state = true;
-              break;
-            }
-          }
-          assert(state);
         }
 
-        const vector<int>& new_path =
-            paths[primary_path_loc[exit_commodity_id]].path;
-        for (vector<int>::const_iterator it = new_path.begin();
-             it != new_path.end(); it++) {
-          if (find(status_links.begin(), status_links.end(), *it) !=
-              status_links.end()) {
-            status_primary_path_locs[*it].insert(
-                primary_path_loc[exit_commodity_id]);
-          }
-        }
+        addPrimaryPath( exit_commodity_id );
 
       } else if (STATUS_LINK == exit_base.type) {
-        /**
-         * the exit status link must cross the enter path
-         *
-         */
 
-        assert(find(enter_commodity.path.begin(), enter_commodity.path.end(),
-                    exit_base.id) != enter_commodity.path.end());
 
         int pid = status_link_path_loc[exit_base.id];
         paths[pid].path = enter_commodity.path;
@@ -1273,8 +1265,8 @@ class CG {
         paths[pid].owner = enter_commodity.id;
 
       } else {
-        // assert(find(enter_commodity.path.begin(), enter_commodity.path.end(),
-        //             exit_base.id) != enter_commodity.path.end());
+        
+
         // exit is un status link then from un_status link to status link
         if (empty_paths.empty()) {
           Path npath(enter_commodity.path, enter_commodity.id, exit_base.id);
@@ -1301,109 +1293,77 @@ class CG {
         }
 
         int link = exit_base.id;
-        for (int i = 0; i < K; i++) {
-          int pid = primary_path_loc[i];
-          if (find(paths[pid].path.begin(), paths[pid].path.end(), link) !=
-              paths[pid].path.end()) {
-            status_primary_path_locs[link].insert(pid);
-          }
-        }
+        addStatusLink( link );
+
       }
 
     } else {
+
+
       /**
        * enter a status link
        *
        */
       int enter_status_link = enter_commodity.id;
+      
       int spid = status_link_path_loc[enter_status_link];
-      paths[spid].link = -1;
-
-      status_link_path_loc.erase(enter_status_link);
-
-      status_primary_path_locs.erase(enter_status_link);
-
-      vector<int>::iterator it =
-          find(status_links.begin(), status_links.end(), enter_commodity.id);
-      assert(it != status_links.end());
-      status_links.erase(it);
+      deleteStatusLink( enter_status_link );
+      
 
       if (DEMAND_T == exit_base.type) {
+
+        int exit_commodity_id = exit_base.id;
+        
+        deletePrimaryPath( exit_commodity_id );
+        
         if (paths[spid].owner == exit_base.id) {
           primary_path_loc[exit_base.id] = spid;
           demand_second_path_locs[exit_base.id].erase(spid);
         } else {
-          bool state = false;
 
-          for (set<int>::const_iterator it =
-                   demand_second_path_locs[exit_base.id].begin();
-               it != demand_second_path_locs[exit_base.id].end(); it++) {
-            int pid = *it;
-            int link = paths[pid].link;
+          assert( !demand_second_path_locs[exit_base.id].empty(  ) );
+          set<int>::const_iterator it =
+              demand_second_path_locs[exit_base.id].begin();
 
-            assert(link >= 0);
+          int pid = *it;
+          int link = paths[pid].link;
 
-            if (find(paths[spid].path.begin(), paths[spid].path.end(), link) !=
-                paths[pid].path.end()) {
-              demand_second_path_locs[exit_base.id].erase(it);
-              primary_path_loc[exit_base.id] = pid;
+          assert(link >= 0);
 
-              paths[spid].link = link;
+          demand_second_path_locs[exit_base.id].erase(it);
+          primary_path_loc[exit_base.id] = pid;
 
-              status_link_path_loc[link] = spid;
-
-              state = true;
-              break;
-            }
-          }
-          assert(state);
+          setStatusLink( link, spid );
         }
-
+        
+        addPrimaryPath( exit_commodity_id );
       } else if (STATUS_LINK == exit_base.type) {
-        assert(exit_base.id == enter_commodity.id);
-        empty_paths.push_back(spid);
-        demand_second_path_locs[paths[spid].owner].erase(spid);
-        paths[spid].owner = -1;
 
-      } else {
-        status_links.push_back(exit_base.id);
-        bool state = false;
-        int oindex = paths[spid].owner;
-        const vector<int>& ppath = paths[primary_path_loc[oindex]].path;
-
-        if (find(paths[spid].path.begin(), paths[spid].path.end(),
-                 exit_base.id) != paths[spid].path.end()) {
-          status_link_path_loc[exit_base.id] = spid;
-          state = true;
-        } else if (find(ppath.begin(), ppath.end(), exit_base.id) !=
-                   ppath.end()) {
-          assert(false);
-        } else {
-          for (set<int>::const_iterator it =
-                   demand_second_path_locs[oindex].begin();
-               it != demand_second_path_locs[oindex].end(); it++) {
-            const vector<int>& path = paths[*it].path;
-            int slink = paths[*it].link;
-            if (find(path.begin(), path.end(), exit_base.id) != path.end() &&
-                find(paths[spid].path.begin(),
-                     paths[spid].path.end(), slink)!= paths[ spid ].path.end(  ) ){
-              paths[*it].link = exit_base.id;
-              paths[spid].link = slink;
-              state = true;
-              break;
-            }
-          }
-          assert(state);
-
-          int link = exit_base.id;
-          for (int i = 0; i < K; i++) {
-            int pid = primary_path_loc[i];
-            if (find(paths[pid].path.begin(), paths[pid].path.end(), link) !=
-                paths[pid].path.end()) {
-              status_primary_path_locs[link].insert(pid);
-            }
-          }
+        
+        
+        if(exit_base.id == enter_commodity.id  ){
+          empty_paths.push_back(spid);
+          demand_second_path_locs[paths[spid].owner].erase(spid);
+          paths[spid].owner = -1;          
+        }else{
+          int pid=status_link_path_loc[exit_base.id  ];
+          empty_paths.push_back( pid );
+          demand_second_path_locs[ paths[ pid ].owner ].erase( pid );
+          paths[ pid ].owner=-1;
+          setStatusLink( exit_base.id, spid );
         }
+
+        
+      } else {
+
+        status_links.push_back(exit_base.id);
+        
+        int link = exit_base.id;
+        
+        setStatusLink( link, spid );
+        
+        addStatusLink( link );
+
       }
     }
   }
