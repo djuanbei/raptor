@@ -8,7 +8,7 @@
 #include <iostream>
 #include <random>
 
-#include "mcfcg.h"
+#include "mcfcg.hpp"
 
 
 using namespace std;
@@ -147,7 +147,8 @@ void randMCF( const int V, const int E, const double bw_B, const double w_B,  co
 
   int i = 0;
   int src, snk;
-  double weight, bw;
+  // double weight,
+  double bw;
   pair<int, int> temp;
   while (i < E) {
     src = rand() % V;
@@ -161,7 +162,7 @@ void randMCF( const int V, const int E, const double bw_B, const double w_B,  co
       i++;
 
       bw=disBW( generator );
-      weight = disWS(generator);
+      // weight = disWS(generator);
 
       hasSet.insert(temp);
       srcs.push_back(src);
@@ -498,7 +499,7 @@ void randbiGraph( const int V, const int E, const double WW ){
 
 int main(int argc, char *argv[]) {
   // MCFexample2(  );
-  randMCF( 100, 500, 100, 40, 150, 50 );
+  randMCF( 3000, 20000, 100, 40, 3000, 40 );
   // //  Case1(  );
   // double start=cpuTime(  );
   // randbiGraph(20000, 100000, 20);

@@ -587,9 +587,9 @@ class compressed_sparse_row_graph {
       if (current == snk) {
         while (current != src) {
           path.push_back(in2outLink_map[preLink[current]]);
-          int temp=parent[ current ];
+
           current = _srcs[preLink[current]];
-          assert( temp==current );
+
         }
         reverse(path.begin(), path.end());
         return true;
