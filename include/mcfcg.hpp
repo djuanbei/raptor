@@ -28,6 +28,9 @@ using namespace std;
 extern "C" {
   void dgesv_(int* N, int* nrhs, double* a, int* lda, int* ipiv, double* b,
               int* ldb, int* info);
+  
+  void sgesv_(int* N, int* nrhs, double* a, int* lda, int* ipiv, double* b,
+                int* ldb, int* info);
 }
 
 namespace mcmcf {
@@ -68,7 +71,8 @@ class CG {
   struct Statistics_data {
     int iterator_num;
     int empty_iterator_num;
-    Statistics_data() : iterator_num(0), empty_iterator_num(0) {}
+    W estimee_opt_diff;
+    Statistics_data() : iterator_num(0), empty_iterator_num(0),estimee_opt_diff( numeric_limits<W>::max(  ) ) {}
   };
 
   struct Path {
@@ -95,6 +99,8 @@ class CG {
   vector<W> update_weights;
   vector<C> update_caps;
   vector<C> edgeLeftBandwith;
+
+  C totalB;
 
   vector<Path> paths;  // all the paths save in this vector
   vector<int> empty_paths;  // the location which  is delete path
@@ -193,7 +199,7 @@ class CG {
     for (int i = 0; i < N; i++) {
       int link = status_links[i];
       int pid = status_link_path_loc[link];
-
+2
       W p_cost = 0;
       for (vector<int>::const_iterator it = paths[pid].path.begin();
            it != paths[pid].path.end(); it++) {
@@ -330,6 +336,7 @@ class CG {
       copy(S, S + N * N, workS);
       dgesv_(&N, &nrhs, workS, &lda, ipiv, b, &ldb, &info);
       if (info > 0) {
+        assert( false );
         printf(
             "The diagonal element of the triangular factor of "
             "A,\n");
@@ -370,7 +377,7 @@ class CG {
     double temp;
     int i = 0;
     while (i < K) {
-      if (a_K[i] > 0) {
+      if (a_K[i] > EPS) {
         reK = i;
         minK = x_K[i] / a_K[i];
         break;
@@ -378,7 +385,7 @@ class CG {
       i++;
     }
     while (i < K) {
-      if (a_K[i] > 0) {
+      if (a_K[i] > EPS) {
         temp = x_K[i] / a_K[i];
         if (temp < minK) {
           reK = i;
@@ -392,7 +399,7 @@ class CG {
     double minN = numeric_limits<double>::max();
     i = 0;
     while (i < N) {
-      if (a_N[i] > 0) {
+      if (a_N[i] > EPS) {
         reN = i;
         minN = x_N[i] / a_N[i];
         break;
@@ -401,7 +408,7 @@ class CG {
     }
 
     while (i < N) {
-      if (a_N[i] > 0) {
+      if (a_N[i] > EPS) {
         temp = x_N[i] / a_N[i];
         if (temp < minN) {
           reN = i;
@@ -416,7 +423,7 @@ class CG {
 
     i = 0;
     while (i < J) {
-      if (a_J[i] > 0) {
+      if (a_J[i] > EPS) {
         reJ = i;
         minJ = x_J[i] / a_J[i];
         break;
@@ -425,7 +432,7 @@ class CG {
     }
 
     while (i < J) {
-      if (a_J[i] > 0) {
+      if (a_J[i] > EPS) {
         temp = x_J[i] / a_J[i];
         if (temp < minJ) {
           reJ = i;
@@ -488,6 +495,14 @@ class CG {
     S = NULL;
     workS = NULL;
     S_maxdim = 0;
+
+
+    totalB = 0;
+    for (typename vector<Demand>::const_iterator it = demands.begin();
+         it != demands.end(); it++) {
+      totalB += it->bandwidth;
+    }
+
   }
   ~CG() {
     if (NULL != A) {
@@ -766,10 +781,10 @@ class CG {
     while (true) {
       sdata.iterator_num++;
       if (info > 0) {
-        std::cout << sdata.iterator_num << " objvalue: " << computeOBJ()<<" success fractional bw: "<<success_obj() << std::endl;
+        C sobj=success_obj(  );
+        std::cout << sdata.iterator_num <<" status link num: "<<N<<  " objvalue: " << computeOBJ()<<" success fractional bw: "<<sobj<<" success rat: "
+                  <<sobj/(totalB+0.01  )<<"  the obj gap from opt is: "<<sdata.estimee_opt_diff<< std::endl;
       }
-      if(sdata.iterator_num>1000  )
-        return ;
 
       /**
        *  enter variable choose
@@ -843,7 +858,8 @@ class CG {
     if (enter_variable.id >= 0) {
       return enter_variable;
     }
-
+    sdata.estimee_opt_diff=0;
+    vector<W> opt_gap( thread_num, 0 );
     vector<W> min_diffs( thread_num, -EPS );
     vector<vector<int>> path( thread_num );
     vector<ENTER_VARIABLE> enter_variables( thread_num );
@@ -864,12 +880,19 @@ class CG {
       if (bidijkstra_shortest_path(newGraph, update_weights, inf_weight, src,
                                    snk, path[ tid ])) {
         W new_cost = path_cost(update_weights, path[ tid ], (W)0.0);
-        W temp_diff = new_cost - old_cost;
-        if (temp_diff < min_diffs[ tid ]) {
-          min_diffs[ tid ] = temp_diff;
+        
+        W temp_diff = (new_cost - old_cost);
+        if( temp_diff<-EPS ){
+          opt_gap[ tid ]-=temp_diff*demands[ i ].bandwidth;
 
-          enter_variables[ tid ].id = i;
-          enter_variables[ tid ].path = path[ tid ];
+          temp_diff       *=leftBandwith(path[ tid ]  ) +EPS ;
+        
+          if (temp_diff < min_diffs[ tid ]) {
+            min_diffs[ tid ] = temp_diff;
+
+            enter_variables[ tid ].id = i;
+            enter_variables[ tid ].path = path[ tid ];
+          }          
         }
       }
     }
@@ -882,6 +905,9 @@ class CG {
         chid=i;
       }
     }
+    for( int i=0;i< thread_num; i++ ){
+      sdata.estimee_opt_diff+=opt_gap[ i ];
+    }
 
     sort(enter_variables[ chid ].path.begin(), enter_variables[ chid ].path.end());
 
@@ -891,7 +917,7 @@ class CG {
 
   /**
    * [  I_{K*K}   A            0       ]  [ a_K ] = [ b_K ]
-   * [  B         I_{N*N}      0       ]  [ a_N ] = [ b_N ]
+   * [  B         E            0       ]  [ a_N ] = [ b_N ]
    * [  C         D            I_{J*J} ]  [ a_J ] = [ b_J ]
    * a_N=(B b_K-b_N) /( BA-I )
    *
@@ -1020,6 +1046,7 @@ class CG {
       copy(S, S + N * N, workS);
       dgesv_(&N, &nrhs, workS, &lda, ipiv, b, &ldb, &info);
       if (info > 0) {
+        assert( false );
         printf(
             "The diagonal element of the triangular factor of "
             "A,\n");
@@ -1055,7 +1082,7 @@ class CG {
 
       vector<int> left_AK;
       for (int i = 0; i < K; i++) {
-        if (a_K[i] != 0.0) {
+        if (fabs(a_K[i])>EPS) {
           left_AK.push_back(i);
         }
       }
@@ -1073,7 +1100,7 @@ class CG {
       vector<int> left_AN;
 
       for (int i = 0; i < N; i++) {
-        if (a_N[i] != 0.0) {
+        if (fabs(a_N[i]) >EPS) {
           left_AN.push_back(i);
         }
       }
@@ -1109,7 +1136,10 @@ class CG {
     int ldb = N;
     int info;
 
-    // computeS(  );
+    /**
+     * b= -b_N
+     *
+     */
     fill(b, b + N, 0.0);
 
     b[getNindex(enterLink.id) - K] = -1.0;
@@ -1121,6 +1151,7 @@ class CG {
     copy(S, S + N * N, workS);
     dgesv_(&N, &nrhs, workS, &lda, ipiv, b, &ldb, &info);
     if (info > 0) {
+      assert( false );
       printf(
           "The diagonal element of the triangular factor of "
           "A,\n");
@@ -1140,6 +1171,7 @@ class CG {
            it != demand_second_path_locs[i].end(); it++) {
         int pindex = *it;
         int link = paths[pindex].link;
+        assert( link>=0 );
         a_K[i] -= a_N[getNindex(link) - K];
       }
     }
@@ -1151,7 +1183,7 @@ class CG {
 
     vector<int> left_AK;
     for (int i = 0; i < K; i++) {
-      if (a_K[i] != 0.0) {
+      if (fabs(a_K[i]) > EPS) {
         left_AK.push_back(i);
       }
     }
@@ -1160,7 +1192,8 @@ class CG {
       for (int k = 0; k < left_AK.size(); k++) {
         int pid = left_AK[k];
         int ppid = primary_path_loc[pid];
-        if (find(paths[ppid].path.begin(), paths[ppid].path.end(),
+        
+        if (!paths[ppid].path.empty()&&find(paths[ppid].path.begin(), paths[ppid].path.end(),
                  un_status_links[i]) != paths[ppid].path.end())
           a_J[i] -= a_K[pid];
       }
@@ -1169,7 +1202,7 @@ class CG {
     vector<int> left_AN;
 
     for (int i = 0; i < N; i++) {
-      if (a_N[i] != 0.0) {
+      if (fabs(a_N[i]) >EPS) {
         left_AN.push_back(i);
       }
     }
@@ -1178,7 +1211,7 @@ class CG {
       for (int k = 0; k < left_AN.size(); k++) {
         int pid = left_AN[k];
         int ppid = status_link_path_loc[status_links[pid]];
-        if (find(paths[ppid].path.begin(), paths[ppid].path.end(),
+        if (!paths[ppid].path.empty()&&find(paths[ppid].path.begin(), paths[ppid].path.end(),
                  un_status_links[i]) != paths[ppid].path.end())
           a_J[i] -= a_N[pid];
       }
@@ -1351,7 +1384,10 @@ class CG {
           int pid=status_link_path_loc[exit_base.id  ];
           empty_paths.push_back( pid );
           demand_second_path_locs[ paths[ pid ].owner ].erase( pid );
+          
           paths[ pid ].owner=-1;
+          paths[ pid ].link=-1;
+          
           setStatusLink( exit_base.id, spid );
         }
 
@@ -1372,9 +1408,12 @@ class CG {
 
   void update_edge_left_bandwith() {
     edgeLeftBandwith = update_caps;
+    vector<C> allow( K, 0.0 );
 
     for (int i = 0; i < K; i++) {
+
       int pid = primary_path_loc[i];
+      allow[paths[pid].owner ]+=X[i];
       const vector<int>& path = paths[pid].path;
       for (vector<int>::const_iterator lit = path.begin(); lit != path.end();
            lit++) {
@@ -1385,12 +1424,21 @@ class CG {
     for (int i = 0; i < N; i++) {
       int link = status_links[i];
       int pid = status_link_path_loc[link];
+      allow[paths[pid].owner ]+=X[i + K];
       const vector<int>& path = paths[pid].path;
       for (vector<int>::const_iterator lit = path.begin(); lit != path.end();
            lit++) {
         edgeLeftBandwith[*lit] -= X[i + K];
       }
     }
+    
+    for( int i=0; i< N+J; i++ ){
+      assert(edgeLeftBandwith[ i ]> -EPS  );
+    }
+    for( int i=0; i< K; i++ ){
+      assert( allow[ i ]-demands[ i ].bandwidth >-EPS && allow[ i ]-demands[ i ].bandwidth <EPS );
+    }
+    
     x_J=X+N+K;
     for( int i=0; i<J; i++ ){
       int link=un_status_links[ i ];
@@ -1450,6 +1498,7 @@ class CG {
     copy(S, S + N * N, workS);
     dgesv_(&N, &nrhs, workS, &lda, ipiv, b, &ldb, &info);
     if (info > 0) {
+      assert( false );
       printf(
           "The diagonal element of the triangular factor of "
           "A,\n");
@@ -1473,11 +1522,7 @@ class CG {
               << std::endl;
 
     C sobj = success_obj();
-    C totalB = 0;
-    for (typename vector<Demand>::const_iterator it = demands.begin();
-         it != demands.end(); it++) {
-      totalB += it->bandwidth;
-    }
+
     std::cout << "success fractional bandwidth: " << sobj << std::endl;
     std::cout << "success fractional bandwidth rat in total demand: "
               << sobj / (totalB + 0.0) << std::endl;
