@@ -131,18 +131,18 @@ void MCFexample2(  ){
 
 void randMCF( const int V, const int E, const double bw_B, const double w_B,  const int d_num, const double dBWB  ){
   
-  compressed_sparse_row_graph<double,int> graph;
+  compressed_sparse_row_graph<float,int> graph;
   set<pair<int, int> > hasSet;
   vector<int> srcs;
   vector<int> snks;
-  vector<double> weights, caps;
+  vector<float> weights, caps;
 
   std::default_random_engine generator;
-  std::uniform_real_distribution<double> disBW(0.0,bw_B);
+  std::uniform_real_distribution<float> disBW(0.0,bw_B);
   
-  std::uniform_real_distribution<double> disWS(0.0,w_B);
+  std::uniform_real_distribution<float> disWS(0.0,w_B);
 
-  std::uniform_real_distribution<double> disDBW(0.0, dBWB);
+  std::uniform_real_distribution<float> disDBW(0.0, dBWB);
 
 
   int i = 0;
@@ -174,7 +174,7 @@ void randMCF( const int V, const int E, const double bw_B, const double w_B,  co
   }
   i=0;
 
-  typedef CG<compressed_sparse_row_graph<double, int>, double, double> CG_T;
+  typedef CG<compressed_sparse_row_graph<float, int>, float, float> CG_T;
   vector<CG_T::Demand> demands;
   while (i< d_num) {
     src = rand() % V;

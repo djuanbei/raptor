@@ -45,14 +45,15 @@ endif
 #CLANG     =clang
 #CLANGXX   =clang++
 #CFLAGS     = -fomit-frame-pointer -fno-rtti -fno-exceptions  -DHAVE_CONFIG_H
-
+# include ~/demo/SuiteSparse/SuiteSparse_config/SuiteSparse_config.mk
 
 COPTIMIZE	= -m64 -Ofast -flto -march=native  -funroll-loops
 COPTIMIZE ?= -O2 
 
-CFLAGS    += -I  include -I  
+CFLAGS    += -I  include # -I  ~/demo/SuiteSparse/include
 
-LFLAGS    +=   -llapack  
+ # -L ~/demo/SuiteSparse/  -lklu -lbtf -lamd -lcolamd -lsuitesparseconfig # $(LIB_WITH_PARTITION) $(LDLIBS)
+LFLAGS    +=-llapack   
 
 
 

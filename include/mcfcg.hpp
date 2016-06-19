@@ -19,7 +19,7 @@
 #include <algorithm>
 #include <iostream>
 #include<omp.h>
-
+// #include "klu.h"
 #include "graphalg.hpp"
 using namespace fast_graph;
 using namespace std;
@@ -29,8 +29,23 @@ extern "C" {
   void dgesv_(int* N, int* nrhs, double* a, int* lda, int* ipiv, double* b,
               int* ldb, int* info);
   
-  void sgesv_(int* N, int* nrhs, double* a, int* lda, int* ipiv, double* b,
+  void sgesv_(int* N, int* nrhs, float* a, int* lda, int* ipiv, float* b,
                 int* ldb, int* info);
+
+  // LU decomoposition of a general matrix
+  void dgetrf_( int* M, int *N, double* A, int* lda, int* IPIV, int* INFO);
+  //// generate inverse of a matrix given its LU decomposition
+  //void dgetri_( int* N, double* A, int* lda, int* IPIV, double* WORK, int*    lwork, int* INFO);
+  void dgetrs_( char* C, int* N, int* NRHS, double* A, int* LDA, int* IPIV, double* B, int* LDB, int* INFO);
+
+
+    // LU decomoposition of a general matrix
+  void sgetrf_( int* M, int *N, float* A, int* lda, int* IPIV, int* INFO);
+  //// generate inverse of a matrix given its LU decomposition
+  //void dgetri_( int* N, double* A, int* lda, int* IPIV, double* WORK, int*    lwork, int* INFO);
+  void sgetrs_( char* C, int* N, int* NRHS, float* A, int* LDA, int* IPIV, float* B, int* LDB, int* INFO);
+
+  
 }
 
 namespace mcmcf {
@@ -126,27 +141,27 @@ class CG {
   Statistics_data sdata;
 
   vector<C> rhs;
-  double* A;
-  double* X;
+  W* A;
+  W* X;
 
   int* ipiv;
-  double* b;
+  W* b;
 
-  double* S;
-  double* workS;
+  W* S;
+  W* workS;
   int S_maxdim;
 
-  double* a_K;
-  double* a_N;
-  double* a_J;
+  W* a_K;
+  W* a_N;
+  W* a_J;
 
-  double* x_K;
-  double* x_N;
-  double* x_J;
+  W* x_K;
+  W* x_N;
+  W* x_J;
 
-  double* y_K;
-  double* y_N;
-  double* y_J;
+  W* y_K;
+  W* y_N;
+  W* y_J;
 
   C CZERO;
   int K, N, J;
@@ -164,8 +179,8 @@ class CG {
       delete[] workS;
     }
     S_maxdim = 1.3 * N + 1;
-    S = new double[S_maxdim * S_maxdim];
-    workS = new double[S_maxdim * S_maxdim];
+    S = new W[S_maxdim * S_maxdim];
+    workS = new W[S_maxdim * S_maxdim];
   }
   C success_obj() {
     C re = 0;
@@ -199,7 +214,7 @@ class CG {
     for (int i = 0; i < N; i++) {
       int link = status_links[i];
       int pid = status_link_path_loc[link];
-2
+
       W p_cost = 0;
       for (vector<int>::const_iterator it = paths[pid].path.begin();
            it != paths[pid].path.end(); it++) {
@@ -282,12 +297,10 @@ class CG {
         }
       }
     }
-
-
   }
 
   void transposeS() {
-    double temp = 0.0;
+    W temp = 0.0;
     for (int i = 0; i < N - 1; i++) {
       for (int j = i + 1; j < N; j++) {
         temp = S[i * N + j];
@@ -307,7 +320,7 @@ class CG {
     int lda = N;
 
     int ldb = N;
-    int info;
+    int info=0;
     /*
      * [  I_{K*K}   A            0       ]  [ x_K ] = [ d_K ]  bandwidth  envery
      *demand
@@ -334,7 +347,14 @@ class CG {
         }
       }
       copy(S, S + N * N, workS);
-      dgesv_(&N, &nrhs, workS, &lda, ipiv, b, &ldb, &info);
+      
+      if( sizeof( W )==sizeof( double ) ){
+        dgesv_(&N, &nrhs, (double*)workS, &lda, ipiv, (double*)b, &ldb, &info);
+        
+      }else{
+        sgesv_(&N, &nrhs, (float*)workS, &lda, ipiv, (float*)b, &ldb, &info);        
+      }
+
       if (info > 0) {
         assert( false );
         printf(
@@ -344,7 +364,7 @@ class CG {
         printf("the solution could not be computed.\n");
         exit(1);
       }
-      memcpy(x_N, b, N * sizeof(double));
+      memcpy(x_N, b, N * sizeof(W));
     }
 
     /**
@@ -373,8 +393,8 @@ class CG {
      */
 
     int reK = -1;
-    double minK = numeric_limits<double>::max();
-    double temp;
+    W minK = numeric_limits<W>::max();
+    W temp;
     int i = 0;
     while (i < K) {
       if (a_K[i] > EPS) {
@@ -396,7 +416,7 @@ class CG {
     }
 
     int reN = -1;
-    double minN = numeric_limits<double>::max();
+    W minN = numeric_limits<W>::max();
     i = 0;
     while (i < N) {
       if (a_N[i] > EPS) {
@@ -419,7 +439,7 @@ class CG {
     }
 
     int reJ = -1;
-    double minJ = numeric_limits<double>::max();
+    W minJ = numeric_limits<W>::max();
 
     i = 0;
     while (i < J) {
@@ -621,8 +641,8 @@ class CG {
     return (it - status_links.begin()) + K;
   }
 
-  double getOrigCost(const vector<int>& path) const {
-    double re = 0.0;
+  W getOrigCost(const vector<int>& path) const {
+    W re = 0.0;
     for (vector<int>::const_iterator it = path.begin(); it != path.end();
          it++) {
       re += orignal_weights[*it];
@@ -647,6 +667,52 @@ class CG {
       }
     }
   }
+  /** 
+   * 
+   * 
+   * @param M  column master
+   * @param n 
+   * @param b 
+   * 
+   * @return 
+   */
+  // bool solveLP(const W * M, const int n, W * bb   ){
+  //   if( sizeof( W )==sizeof( double ) ){
+  //     vector<int> AAp;
+  //     vector<int> AAi;
+  //     vector<W> AAx;
+  //     int nz=0;
+  //     AAp.push_back( 0 );
+  //     for( int i=0; i< n; i++ ){
+  //       for( int j=0; j< n; j++ ){
+  //         if( fabs( M[ i*n+j ])>EPS  ){
+  //           nz++;
+  //           AAi.push_back( j );
+  //           AAx.push_back( M[ i*n+j ] );
+  //         }
+  //       }
+  //       AAp.push_back( nz );
+  //     }
+
+  //     klu_symbolic *Symbolic ;
+  //     klu_numeric *Numeric ;
+  //     klu_common Common ;
+
+  //     int *Ap=&AAp[ 0 ];
+  //     int *Ai=&AAi[ 0 ];
+  //     double *Ax=&AAx[ 0 ];
+      
+  //     Symbolic = klu_analyze (n, Ap, Ai, &Common) ;
+  //     Numeric = klu_factor (Ap, Ai, Ax, Symbolic, &Common) ;
+  //     klu_solve (Symbolic, Numeric, n, 1, b, &Common) ;
+  //     klu_free_symbolic (&Symbolic, &Common) ;
+  //     klu_free_numeric (&Numeric, &Common) ;
+      
+  //   }else{
+      
+  //   }
+   
+  // }
 
   bool solve() {
     initial_solution();
@@ -690,7 +756,7 @@ class CG {
       orignal_caps.push_back(bw);      
     }
 
-    vector<double> temp_cap(orignal_caps);
+    vector<W> temp_cap(orignal_caps);
 
 
     vector<bool> success( K, false );
@@ -764,9 +830,9 @@ class CG {
     }
 
     dual_solution.resize(J, 0);
-    b = new double[J];
-    A = new double[K + J];
-    X = new double[K + J];
+    b = new W[J];
+    A = new W[K + J];
+    X = new W[K + J];
     fill( X, X+J, 0.0 );
     ipiv = new int[J];
 
@@ -781,10 +847,14 @@ class CG {
     while (true) {
       sdata.iterator_num++;
       if (info > 0) {
-        C sobj=success_obj(  );
-        std::cout << sdata.iterator_num <<" status link num: "<<N<<  " objvalue: " << computeOBJ()<<" success fractional bw: "<<sobj<<" success rat: "
-                  <<sobj/(totalB+0.01  )<<"  the obj gap from opt is: "<<sdata.estimee_opt_diff<< std::endl;
+        if(sdata.iterator_num%10==0  ){
+        
+          C sobj=success_obj(  );
+          std::cout << sdata.iterator_num <<" status link num: "<<N<<  " objvalue: " << computeOBJ()<<" success fractional bw: "<<sobj<<" success rat: "
+                    <<sobj/(totalB+0.01  )<<"  the obj gap from opt is: "<<sdata.estimee_opt_diff<< std::endl;
+        }
       }
+
 
       /**
        *  enter variable choose
@@ -1013,7 +1083,7 @@ class CG {
       int lda = N;
 
       int ldb = N;
-      int info;
+      int info=0;
 
       /**
        * b=B b_K -b_N
@@ -1044,7 +1114,17 @@ class CG {
        */
 
       copy(S, S + N * N, workS);
-      dgesv_(&N, &nrhs, workS, &lda, ipiv, b, &ldb, &info);
+      if( sizeof( W )==sizeof( double ) ){
+        char c='N';
+        // dgetrs_(&c, &N, &nrhs, (double*)workS, &lda, ipiv, (double*)b, &ldb, &info);
+        dgesv_(&N, &nrhs, (double*)workS, &lda, ipiv, (double*)b, &ldb, &info);
+        
+      }else{
+        char c='N';
+         sgesv_(&N, &nrhs, (float*)workS, &lda, ipiv, (float*)b, &ldb, &info);
+        // sgetrs_(&c, &N, &nrhs, (float*)workS, &lda, ipiv, (float*)b, &ldb, &info);        
+      }
+
       if (info > 0) {
         assert( false );
         printf(
@@ -1134,7 +1214,7 @@ class CG {
     int lda = N;
 
     int ldb = N;
-    int info;
+    int info=0;
 
     /**
      * b= -b_N
@@ -1149,7 +1229,17 @@ class CG {
      *
      */
     copy(S, S + N * N, workS);
-    dgesv_(&N, &nrhs, workS, &lda, ipiv, b, &ldb, &info);
+    if( sizeof( W )==sizeof( double ) ){
+      char c='N';
+      
+      // dgetrs_(&c, &N, &nrhs, (double*)workS, &lda, ipiv, (double*)b, &ldb, &info);        
+      dgesv_(&N, &nrhs, (double*)workS, &lda, ipiv, (double*)b, &ldb, &info);        
+    }else{
+      char c='N';
+       sgesv_(&N, &nrhs, (float*)workS, &lda, ipiv, (float*)b, &ldb, &info);
+      // sgetrs_(&c, &N, &nrhs, (float*)workS, &lda, ipiv, (float*)b, &ldb, &info);        
+    }
+
     if (info > 0) {
       assert( false );
       printf(
@@ -1159,7 +1249,7 @@ class CG {
       printf("the solution could not be computed.\n");
       exit(1);
     }
-    memcpy(a_N, b, N * sizeof(double));
+    memcpy(a_N, b, N * sizeof(W));
 
     /**
      * a_K=-A a_N
@@ -1475,7 +1565,7 @@ class CG {
     int lda = N;
 
     int ldb = N;
-    int info;
+    int info=0;
 
     fill(b, b + N, 0.0);
     for (int i = 0; i < N; i++) {
@@ -1496,7 +1586,12 @@ class CG {
       b[i] += A[oindex];
     }
     copy(S, S + N * N, workS);
-    dgesv_(&N, &nrhs, workS, &lda, ipiv, b, &ldb, &info);
+    if( sizeof( W )==sizeof( double ) ){
+      dgesv_(&N, &nrhs, (double*)workS, &lda, ipiv, (double*)b, &ldb, &info);        
+    }else{
+      sgesv_(&N, &nrhs, (float*)workS, &lda, ipiv, (float*)b, &ldb, &info);        
+    }
+
     if (info > 0) {
       assert( false );
       printf(
