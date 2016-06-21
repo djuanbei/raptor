@@ -87,7 +87,14 @@ class CG {
     int iterator_num;
     int empty_iterator_num;
     W estimee_opt_diff;
-    Statistics_data() : iterator_num(0), empty_iterator_num(0),estimee_opt_diff( numeric_limits<W>::max(  ) ) {}
+    int nzn;
+    int snzn;
+    double minLU;
+    ENTER_BASE_TYPE etype;
+    int enter;
+    EXIT_BASE_TYPE exitt;
+    int exit;
+    Statistics_data() : iterator_num(0), empty_iterator_num(0),estimee_opt_diff( numeric_limits<W>::max(  ) ), nzn( 0 ), snzn( 0 ), minLU(0  ) {}
   };
 
   struct Path {
@@ -255,6 +262,19 @@ class CG {
     return re;
   }
 
+  int nonzero(const int n, const W* data  ){
+    int re=0;
+    for( int i=0; i< n; i++ ){
+      for( int j=0; j< n; j++ ){
+        if( fabs( data[ i*n+j ] )>EPS ){
+          re++;
+        }else if( fabs( data[ i*n+j ] )>10*EPS ){
+          std::cout << "0" << std::endl;
+        }
+      }
+    }
+    return re;
+  }
   /**
    * row primary
    *
@@ -265,6 +285,7 @@ class CG {
      * S=BA-E
      *
      */
+    sdata.nzn=0;
     if (N > S_maxdim) allocateS(N);
     fill(S, S + N * N, 0.0);
 
@@ -276,6 +297,7 @@ class CG {
         int link1 = status_links[j];
         if (find(path.begin(), path.end(), link1) != path.end()) {
           S[j * N + i] = -1.0;
+          sdata.nzn++;
         }
       }
     }
@@ -294,6 +316,7 @@ class CG {
           int slink = paths[*cit].link;
           int j = getNindex(slink) - K;
           S[i * N + j] += 1.0;
+          sdata.nzn++;
         }
       }
     }
@@ -350,9 +373,11 @@ class CG {
       
       if( sizeof( W )==sizeof( double ) ){
         dgesv_(&N, &nrhs, (double*)workS, &lda, ipiv, (double*)b, &ldb, &info);
+        sdata.snzn=nonzero( N, workS );
         
       }else{
-        sgesv_(&N, &nrhs, (float*)workS, &lda, ipiv, (float*)b, &ldb, &info);        
+        sgesv_(&N, &nrhs, (float*)workS, &lda, ipiv, (float*)b, &ldb, &info);
+        sdata.snzn=nonzero( N, workS );
       }
 
       if (info > 0) {
@@ -499,7 +524,7 @@ class CG {
     origLink_num = graph.getLink_num();
 
     CZERO = ((C)1e-6);
-    EPS = ((W)1e-6);
+    EPS = ((W)1e-4);
 
     K = demands.size();
     demand_second_path_locs.resize(K);
@@ -852,6 +877,8 @@ class CG {
           C sobj=success_obj(  );
           std::cout << sdata.iterator_num <<" status link num: "<<N<<  " objvalue: " << computeOBJ()<<" success fractional bw: "<<sobj<<" success rat: "
                     <<sobj/(totalB+0.01  )<<"  the obj gap from opt is: "<<sdata.estimee_opt_diff<< std::endl;
+          std::cout << "nonzero matrix values: "<<sdata.nzn<<"   SLU non-zeros "<<sdata.snzn << std::endl;
+          std::cout <<sdata.etype <<" enter: "<<sdata.enter<< "    "<<sdata.exitt << " exit: "<<sdata.exit << std::endl;
         }
       }
 
@@ -880,7 +907,10 @@ class CG {
       }
 
       devote(enter_commodity, exit_base);
-
+      sdata.etype=enter_commodity.type;
+      sdata.enter=enter_commodity.id;
+      sdata.exitt=exit_base.type;
+      sdata.exit=exit_base.id;
       N = status_links.size();
       J = newGraph.getLink_num() - N;
       computIndexofLinks();
@@ -1113,16 +1143,16 @@ class CG {
        *
        */
 
-      copy(S, S + N * N, workS);
+      // copy(S, S + N * N, workS);
       if( sizeof( W )==sizeof( double ) ){
         char c='N';
-        // dgetrs_(&c, &N, &nrhs, (double*)workS, &lda, ipiv, (double*)b, &ldb, &info);
-        dgesv_(&N, &nrhs, (double*)workS, &lda, ipiv, (double*)b, &ldb, &info);
+        dgetrs_(&c, &N, &nrhs, (double*)workS, &lda, ipiv, (double*)b, &ldb, &info);
+        // dgesv_(&N, &nrhs, (double*)workS, &lda, ipiv, (double*)b, &ldb, &info);
         
       }else{
         char c='N';
-         sgesv_(&N, &nrhs, (float*)workS, &lda, ipiv, (float*)b, &ldb, &info);
-        // sgetrs_(&c, &N, &nrhs, (float*)workS, &lda, ipiv, (float*)b, &ldb, &info);        
+         // sgesv_(&N, &nrhs, (float*)workS, &lda, ipiv, (float*)b, &ldb, &info);
+        sgetrs_(&c, &N, &nrhs, (float*)workS, &lda, ipiv, (float*)b, &ldb, &info);        
       }
 
       if (info > 0) {
@@ -1228,16 +1258,16 @@ class CG {
      * a_N=( Bb_K-b_N)/( BA-E )=b/S
      *
      */
-    copy(S, S + N * N, workS);
+    // copy(S, S + N * N, workS);
     if( sizeof( W )==sizeof( double ) ){
       char c='N';
       
-      // dgetrs_(&c, &N, &nrhs, (double*)workS, &lda, ipiv, (double*)b, &ldb, &info);        
-      dgesv_(&N, &nrhs, (double*)workS, &lda, ipiv, (double*)b, &ldb, &info);        
+      dgetrs_(&c, &N, &nrhs, (double*)workS, &lda, ipiv, (double*)b, &ldb, &info);        
+      // dgesv_(&N, &nrhs, (double*)workS, &lda, ipiv, (double*)b, &ldb, &info);        
     }else{
       char c='N';
-       sgesv_(&N, &nrhs, (float*)workS, &lda, ipiv, (float*)b, &ldb, &info);
-      // sgetrs_(&c, &N, &nrhs, (float*)workS, &lda, ipiv, (float*)b, &ldb, &info);        
+       // sgesv_(&N, &nrhs, (float*)workS, &lda, ipiv, (float*)b, &ldb, &info);
+      sgetrs_(&c, &N, &nrhs, (float*)workS, &lda, ipiv, (float*)b, &ldb, &info);        
     }
 
     if (info > 0) {
