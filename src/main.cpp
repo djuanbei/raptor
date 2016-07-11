@@ -446,7 +446,7 @@ void randbiGraph( const int V, const int E, const double WW ){
     task.push_back( make_pair( src, snk ) );
  
     vector<int> path;
-    if( bidijkstra_shortest_path( graph, bweights, 10000, src, snk, path  )){
+    if( bidijkstra_shortest_path( graph, bweights, src, snk, path , 10000 )){
       // if(graph.bicompute_shortest_path_dijkstra( src, snk, path )){
       all_dis[ i ]=graph.path_cost( path );
       bsumdis+=graph.path_cost( path );
@@ -467,7 +467,7 @@ void randbiGraph( const int V, const int E, const double WW ){
     vector<int> path, path1, path2, path3;
     src=it->first;
     snk=it->second;
-    if( bidijkstra_shortest_path( bgraph, weights, 10000, src, snk, path  )){
+    if( bidijkstra_shortest_path( bgraph, weights, src, snk, path , 10000 )){
       // graph.compute_shortest_path_dijkstra1( src, snk, path1 );
       // dijkstra_shortest_path( bgraph, weights, 10000, src, snk, path2  );
       // bidijkstra_shortest_path( graph, bweights, 10000, src, snk, path3  );

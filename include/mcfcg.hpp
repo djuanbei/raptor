@@ -798,7 +798,7 @@ class CG {
       }
       
       vector<int> path;
-      if (bidijkstra_shortest_path(graph, ws, inf_weight, src, snk, path)) {
+      if (bidijkstra_shortest_path(graph, ws, src, snk, path , inf_weight)) {
         
         success[ i ]=true;
 
@@ -977,8 +977,8 @@ class CG {
       W old_cost =
           path_cost(update_weights, paths[primary_path_loc[i]].path, (W)0.0);
 
-      if (bidijkstra_shortest_path(newGraph, update_weights, inf_weight, src,
-                                   snk, path[ tid ])) {
+      if (bidijkstra_shortest_path(newGraph, update_weights, src,
+                                   snk, path[ tid ] , inf_weight)) {
         W new_cost = path_cost(update_weights, path[ tid ], (W)0.0);
         
         W temp_diff = (new_cost - old_cost);
