@@ -8,7 +8,7 @@
 #include "IntTypes.h"
 
 //-------------------------------------------------------------------------------------------------
-
+static inline double systemTime( void );// SYSTEM time in seconds.
 static inline double cpuTime(void);  // CPU-time in seconds.
 
 extern double memUsed();  // Memory in mega bytes (returns 0 for unsupported
@@ -42,6 +42,7 @@ extern void sigTerm(
 static inline double cpuTime(void) { return (double)clock() / CLOCKS_PER_SEC; }
 
 #else
+#include<time.h>
 #include <sys/time.h>
 #include <sys/resource.h>
 #include <unistd.h>
@@ -50,6 +51,14 @@ static inline double cpuTime(void) {
   struct rusage ru;
   getrusage(RUSAGE_SELF, &ru);
   return (double)ru.ru_utime.tv_sec + (double)ru.ru_utime.tv_usec / 1000000;
+}
+
+static inline double systemTime( void ){
+  struct timespec start;
+  clock_gettime( CLOCK_MONOTONIC, &start);
+
+  return start.tv_sec +start.tv_nsec/1000000000.0;
+      
 }
 
 #endif

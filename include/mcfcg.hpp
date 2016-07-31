@@ -10,7 +10,7 @@
  */
 #include <deque>
 #include <vector>
-#include <limits>
+
 #include <set>
 #include <map>
 #include <cstring>
@@ -19,7 +19,7 @@
 #include <algorithm>
 #include <iostream>
 #include<omp.h>
-// #include "klu.h"
+#include "klu.h"
 #include "graphalg.hpp"
 using namespace fast_graph;
 using namespace std;
@@ -74,7 +74,14 @@ struct EXIT_VARIABLE {
   EXIT_VARIABLE() : type(DEMAND_T), id(0) {}
 };
 
-template <typename G, typename W, typename C>
+enum LU_SOLVER{
+  KLU=0,
+  LAPACK=1
+  
+};
+
+
+template <typename G,  typename C>
 class CG {
  public:
   struct Demand {
@@ -86,7 +93,7 @@ class CG {
   struct Statistics_data {
     int iterator_num;
     int empty_iterator_num;
-    W estimee_opt_diff;
+    double estimee_opt_diff;
     int nzn;
     int snzn;
     double minLU;
@@ -94,7 +101,7 @@ class CG {
     int enter;
     EXIT_BASE_TYPE exitt;
     int exit;
-    Statistics_data() : iterator_num(0), empty_iterator_num(0),estimee_opt_diff( numeric_limits<W>::max(  ) ), nzn( 0 ), snzn( 0 ), minLU(0  ) {}
+    Statistics_data() : iterator_num(0), empty_iterator_num(0),estimee_opt_diff( numeric_limits<double>::max(  ) ), nzn( 0 ), snzn( 0 ), minLU(0  ) {}
   };
 
   struct Path {
@@ -111,14 +118,14 @@ class CG {
   G graph;
   int origLink_num;
   G newGraph;
-  W inf_weight;
+  double inf_weight;
 
   vector<Demand> demands;
 
-  vector<W> orignal_weights;
+  vector<double> orignal_weights;
   vector<C> orignal_caps;
 
-  vector<W> update_weights;
+  vector<double> update_weights;
   vector<C> update_caps;
   vector<C> edgeLeftBandwith;
 
@@ -126,11 +133,11 @@ class CG {
 
   vector<Path> paths;  // all the paths save in this vector
   vector<int> empty_paths;  // the location which  is delete path
-  // vector<int> owner; // every path has over demand
-  // vector<int> link_of_path;
 
   vector<C> dual_solution;  // only link have dual value
-
+  vector<double> min_commodity_cost;
+  
+  
   vector<int> status_links;  // contain the index of status links
 
   vector<int> un_status_links;
@@ -148,35 +155,37 @@ class CG {
   Statistics_data sdata;
 
   vector<C> rhs;
-  W* A;
-  W* X;
+  double* A;
+  double* X;
 
   int* ipiv;
-  W* b;
+  double* b;
 
-  W* S;
-  W* workS;
+  double* S;
+  double* workS;
   int S_maxdim;
 
-  W* a_K;
-  W* a_N;
-  W* a_J;
+  double* a_K;
+  double* a_N;
+  double* a_J;
 
-  W* x_K;
-  W* x_N;
-  W* x_J;
+  double* x_K;
+  double* x_N;
+  double* x_J;
 
-  W* y_K;
-  W* y_N;
-  W* y_J;
+  double* y_K;
+  double* y_N;
+  double* y_J;
 
   C CZERO;
   int K, N, J;
-  W EPS;
+  double EPS;
 
   int info;
 
   int thread_num;
+
+  LU_SOLVER lu_sover;
 
   void allocateS(const int N) {
     if (S_maxdim >= N) return;
@@ -186,8 +195,8 @@ class CG {
       delete[] workS;
     }
     S_maxdim = 1.3 * N + 1;
-    S = new W[S_maxdim * S_maxdim];
-    workS = new W[S_maxdim * S_maxdim];
+    S = new double[S_maxdim * S_maxdim];
+    workS = new double[S_maxdim * S_maxdim];
   }
   C success_obj() {
     C re = 0;
@@ -204,13 +213,13 @@ class CG {
     }
     return re;
   }
-  W computeOBJ() {
-    W re = 0;
+  double computeOBJ() {
+    double re = 0;
 
     for (int i = 0; i < K; i++) {
       int pid = primary_path_loc[i];
 
-      W p_cost = 0;
+      double p_cost = 0;
       for (vector<int>::const_iterator it = paths[pid].path.begin();
            it != paths[pid].path.end(); it++) {
         p_cost += orignal_weights[*it];
@@ -222,7 +231,7 @@ class CG {
       int link = status_links[i];
       int pid = status_link_path_loc[link];
 
-      W p_cost = 0;
+      double p_cost = 0;
       for (vector<int>::const_iterator it = paths[pid].path.begin();
            it != paths[pid].path.end(); it++) {
         p_cost += orignal_weights[*it];
@@ -231,14 +240,14 @@ class CG {
     }
     return re;
   }
-  W computeObj() {
-    W re = 0;
+  double computeObj() {
+    double re = 0;
 
     for (int i = 0; i < K; i++) {
       int pid = primary_path_loc[i];
 
       if (paths[pid].back() < origLink_num) {
-        W p_cost = 0;
+        double p_cost = 0;
         for (vector<int>::const_iterator it = paths[pid].begin();
              it != paths[pid].end(); it++) {
           p_cost += orignal_weights[*it];
@@ -251,7 +260,7 @@ class CG {
       int link = status_links[i];
       int pid = status_link_path_loc[link];
       if (paths[pid].back() < origLink_num) {
-        W p_cost = 0;
+        double p_cost = 0;
         for (vector<int>::const_iterator it = paths[pid].begin();
              it != paths[pid].end(); it++) {
           p_cost += orignal_weights[*it];
@@ -262,14 +271,12 @@ class CG {
     return re;
   }
 
-  int nonzero(const int n, const W* data  ){
+  int nonzero(const int n, const double* data  ){
     int re=0;
     for( int i=0; i< n; i++ ){
       for( int j=0; j< n; j++ ){
         if( fabs( data[ i*n+j ] )>EPS ){
           re++;
-        }else if( fabs( data[ i*n+j ] )>10*EPS ){
-          std::cout << "0" << std::endl;
         }
       }
     }
@@ -323,7 +330,7 @@ class CG {
   }
 
   void transposeS() {
-    W temp = 0.0;
+    double temp = 0.0;
     for (int i = 0; i < N - 1; i++) {
       for (int j = i + 1; j < N; j++) {
         temp = S[i * N + j];
@@ -361,6 +368,7 @@ class CG {
       for (int i = 0; i < N; i++) {
         b[i] = -rhs[K + status_links[i]];
       }
+      
       for (int i = 0; i < N; i++) {
         int link = status_links[i];
 
@@ -370,26 +378,27 @@ class CG {
         }
       }
       copy(S, S + N * N, workS);
-      
-      if( sizeof( W )==sizeof( double ) ){
+
+      if( KLU==lu_sover ){
+        solveLP( workS, N, b );          
+      }else if( LAPACK==lu_sover ){
         dgesv_(&N, &nrhs, (double*)workS, &lda, ipiv, (double*)b, &ldb, &info);
         sdata.snzn=nonzero( N, workS );
         
+        if (info > 0) {
+          assert( false );
+          printf(
+              "The diagonal element of the triangular factor of "
+              "A,\n");
+          printf("U(%i,%i) is zero, so that A is singular;\n", info, info);
+          printf("the solution could not be computed.\n");
+          exit(1);
+        }
       }else{
-        sgesv_(&N, &nrhs, (float*)workS, &lda, ipiv, (float*)b, &ldb, &info);
-        sdata.snzn=nonzero( N, workS );
+        assert( false );
       }
 
-      if (info > 0) {
-        assert( false );
-        printf(
-            "The diagonal element of the triangular factor of "
-            "A,\n");
-        printf("U(%i,%i) is zero, so that A is singular;\n", info, info);
-        printf("the solution could not be computed.\n");
-        exit(1);
-      }
-      memcpy(x_N, b, N * sizeof(W));
+      memcpy(x_N, b, N * sizeof(double));
     }
 
     /**
@@ -418,8 +427,8 @@ class CG {
      */
 
     int reK = -1;
-    W minK = numeric_limits<W>::max();
-    W temp;
+    double minK = numeric_limits<double>::max();
+    double temp;
     int i = 0;
     while (i < K) {
       if (a_K[i] > EPS) {
@@ -441,7 +450,7 @@ class CG {
     }
 
     int reN = -1;
-    W minN = numeric_limits<W>::max();
+    double minN = numeric_limits<double>::max();
     i = 0;
     while (i < N) {
       if (a_N[i] > EPS) {
@@ -464,7 +473,7 @@ class CG {
     }
 
     int reJ = -1;
-    W minJ = numeric_limits<W>::max();
+    double minJ = numeric_limits<double>::max();
 
     i = 0;
     while (i < J) {
@@ -508,9 +517,9 @@ class CG {
   }
 
  public:
-  CG(const G& g, const vector<W>& ws, const vector<C>& caps,
+  CG(const G& g, const vector<double>& ws, const vector<C>& caps,
      const vector<Demand>& ds)
-      : graph(g), demands(ds), orignal_weights(ws), orignal_caps(caps) ,thread_num( 1 ){
+      : graph(g), demands(ds), orignal_weights(ws), orignal_caps(caps) ,thread_num( 1 ), lu_sover( KLU ){
 
 #ifdef _OPENMP
 #pragma omp parallel for
@@ -524,7 +533,7 @@ class CG {
     origLink_num = graph.getLink_num();
 
     CZERO = ((C)1e-6);
-    EPS = ((W)1e-4);
+    EPS = ((double)1e-4);
 
     K = demands.size();
     demand_second_path_locs.resize(K);
@@ -578,6 +587,10 @@ class CG {
     }
   }
   void setInfo(const int level) { info = level; }
+  
+  void setLUSOLVER( LU_SOLVER s ){
+    lu_sover=s;
+  }
 
   bool is_status_link(const int link) const {
     return find(status_links.begin(), status_links.end(), link) !=
@@ -666,8 +679,8 @@ class CG {
     return (it - status_links.begin()) + K;
   }
 
-  W getOrigCost(const vector<int>& path) const {
-    W re = 0.0;
+  double getOrigCost(const vector<int>& path) const {
+    double re = 0.0;
     for (vector<int>::const_iterator it = path.begin(); it != path.end();
          it++) {
       re += orignal_weights[*it];
@@ -701,45 +714,43 @@ class CG {
    * 
    * @return 
    */
-  // bool solveLP(const W * M, const int n, W * bb   ){
-  //   if( sizeof( W )==sizeof( double ) ){
-  //     vector<int> AAp;
-  //     vector<int> AAi;
-  //     vector<W> AAx;
-  //     int nz=0;
-  //     AAp.push_back( 0 );
-  //     for( int i=0; i< n; i++ ){
-  //       for( int j=0; j< n; j++ ){
-  //         if( fabs( M[ i*n+j ])>EPS  ){
-  //           nz++;
-  //           AAi.push_back( j );
-  //           AAx.push_back( M[ i*n+j ] );
-  //         }
-  //       }
-  //       AAp.push_back( nz );
-  //     }
+  bool solveLP(const double * M, const int n, double * b   ){
 
-  //     klu_symbolic *Symbolic ;
-  //     klu_numeric *Numeric ;
-  //     klu_common Common ;
+    vector<int> AAp;
+    vector<int> AAi;
+    vector<double> AAx;
+    int nz=0;
+    AAp.push_back( 0 );
+    for( int i=0; i< n; i++ ){
+      for( int j=0; j< n; j++ ){
+        if( fabs( M[ i*n+j ])>EPS  ){
+          nz++;
+          AAi.push_back( j );
+          AAx.push_back( M[ i*n+j ] );
+        }
+      }
+      AAp.push_back( nz );
+    }
 
-  //     int *Ap=&AAp[ 0 ];
-  //     int *Ai=&AAi[ 0 ];
-  //     double *Ax=&AAx[ 0 ];
-      
-  //     Symbolic = klu_analyze (n, Ap, Ai, &Common) ;
-  //     Numeric = klu_factor (Ap, Ai, Ax, Symbolic, &Common) ;
-  //     klu_solve (Symbolic, Numeric, n, 1, b, &Common) ;
-  //     klu_free_symbolic (&Symbolic, &Common) ;
-  //     klu_free_numeric (&Numeric, &Common) ;
-      
-  //   }else{
-      
-  //   }
-   
-  // }
+    klu_symbolic *Symbolic ;
+    klu_numeric *Numeric ;
+    klu_common Common ;
+
+    int *Ap=&AAp[ 0 ];
+    int *Ai=&AAi[ 0 ];
+    double *Ax=&AAx[ 0 ];
+    klu_defaults (&Common) ;      
+    Symbolic = klu_analyze (n, Ap, Ai, &Common) ;
+    Numeric = klu_factor (Ap, Ai, Ax, Symbolic, &Common) ;
+    klu_solve (Symbolic, Numeric, n, 1, b, &Common) ;
+    klu_free_symbolic (&Symbolic, &Common) ;
+    klu_free_numeric (&Numeric, &Common) ;
+
+    return true;
+  }
 
   bool solve() {
+
     initial_solution();
 
     iteration();
@@ -770,18 +781,8 @@ class CG {
       srcs.push_back(src);
       snks.push_back(snk);
     }
-    
-    for (int i = 0; i < K; i++) {
-      int src = demands[i].src;
-      int snk = demands[i].snk;
-      C bw = demands[i].bandwidth;
-      srcs.push_back(src);
-      snks.push_back(snk);
-      orignal_weights.push_back(inf_weight / 2);
-      orignal_caps.push_back(bw);      
-    }
 
-    vector<W> temp_cap(orignal_caps);
+    vector<double> temp_cap(orignal_caps);
 
 
     vector<bool> success( K, false );
@@ -790,7 +791,7 @@ class CG {
       int src = demands[i].src;
       int snk = demands[i].snk;
       C bw = demands[i].bandwidth;
-      vector<W> ws = orignal_weights;
+      vector<double> ws = orignal_weights;
       for (size_t j = 0; j < origLink_num; j++) {
         if (temp_cap[j] < bw) {
           ws[j] = inf_weight;
@@ -831,15 +832,28 @@ class CG {
       }
       success[ i ]=true;
     }
-
-
-    newGraph.initial(srcs, snks, orignal_weights);
-
     update_weights = orignal_weights;
+    newGraph.initial(srcs, snks, orignal_weights);
+    min_commodity_cost.resize( K, 2*inf_weight );
+#pragma omp parallel for
+    for (int i = 0; i < K; i++) {
+      vector<int> path;
+      int src = demands[i].src;
+      int snk = demands[i].snk;
+      if (bidijkstra_shortest_path(newGraph, update_weights, src,
+                                   snk, path , 2*inf_weight)) {
+        min_commodity_cost[ i ]=path_cost( update_weights, path, ( double )0.0 );
+      }
+      
+    }
+
+
+
+
     update_caps = orignal_caps;
     N = 0;
     J = srcs.size();
-    inf_weight = numeric_limits<W>::max() / 3;
+    inf_weight = numeric_limits<double>::max() / 3;
 
     for (int i = 0; i < J; i++) {
       un_status_links.push_back(i);
@@ -855,9 +869,11 @@ class CG {
     }
 
     dual_solution.resize(J, 0);
-    b = new W[J];
-    A = new W[K + J];
-    X = new W[K + J];
+
+
+    b = new double[J];
+    A = new double[K + J];
+    X = new double[K + J];
     fill( X, X+J, 0.0 );
     ipiv = new int[J];
 
@@ -870,9 +886,10 @@ class CG {
 
   void iteration() {
     while (true) {
+
       sdata.iterator_num++;
       if (info > 0) {
-        if(sdata.iterator_num%10==0  ){
+        if(sdata.iterator_num%100==0  ){
         
           C sobj=success_obj(  );
           std::cout << sdata.iterator_num <<" status link num: "<<N<<  " objvalue: " << computeOBJ()<<" success fractional bw: "<<sobj<<" success rat: "
@@ -880,6 +897,10 @@ class CG {
           std::cout << "nonzero matrix values: "<<sdata.nzn<<"   SLU non-zeros "<<sdata.snzn << std::endl;
           std::cout <<sdata.etype <<" enter: "<<sdata.enter<< "    "<<sdata.exitt << " exit: "<<sdata.exit << std::endl;
         }
+      }
+      
+      if( sdata.iterator_num>2000 ){
+        return;
       }
 
 
@@ -944,7 +965,7 @@ class CG {
      *  check status link dual value
      *
      */
-    W min_diff = -EPS;
+    double min_diff = -EPS;
     for (int i = 0; i < N; i++) {
       int link = status_links[i];
       if (dual_solution[link] < min_diff) {
@@ -959,8 +980,10 @@ class CG {
       return enter_variable;
     }
     sdata.estimee_opt_diff=0;
-    vector<W> opt_gap( thread_num, 0 );
-    vector<W> min_diffs( thread_num, -EPS );
+    vector<double> opt_gap( thread_num, 0 );
+    vector<double> min_diffs( thread_num, -EPS );
+    vector<double> max_gap( thread_num, -EPS );
+    
     vector<vector<int>> path( thread_num );
     vector<ENTER_VARIABLE> enter_variables( thread_num );
     for (int i=0; i < thread_num; i++) {
@@ -969,23 +992,36 @@ class CG {
     }
 #pragma omp parallel for
     for (int i = 0; i < K; i++) {
+#ifdef _OPENMP
       int tid= omp_get_thread_num( );
+#else
+      int tid=0;
+          
+#endif // (_OPENMP)
+
 
       int src = demands[i].src;
       int snk = demands[i].snk;
 
-      W old_cost =
-          path_cost(update_weights, paths[primary_path_loc[i]].path, (W)0.0);
+      double old_cost =
+          path_cost(update_weights, paths[primary_path_loc[i]].path, (double)0.0);
+      if( (min_commodity_cost[i  ]-old_cost)*demands[ i ].bandwidth> min_diffs[ tid ] ){
+        continue;
+      }
 
       if (bidijkstra_shortest_path(newGraph, update_weights, src,
                                    snk, path[ tid ] , inf_weight)) {
-        W new_cost = path_cost(update_weights, path[ tid ], (W)0.0);
+        double new_cost = path_cost(update_weights, path[ tid ], (double)0.0);
         
-        W temp_diff = (new_cost - old_cost);
+        double temp_diff = (new_cost - old_cost);
+        
         if( temp_diff<-EPS ){
+          if( temp_diff< max_gap[ tid ] ){
+            max_gap[ tid ]=temp_diff;
+          }
           opt_gap[ tid ]-=temp_diff*demands[ i ].bandwidth;
 
-          temp_diff       *=leftBandwith(path[ tid ]  ) +EPS ;
+          temp_diff*=leftBandwith(path[ tid ]  ) +EPS ;
         
           if (temp_diff < min_diffs[ tid ]) {
             min_diffs[ tid ] = temp_diff;
@@ -997,14 +1033,18 @@ class CG {
       }
     }
 
+
+
     int chid=0;
     min_diff=min_diffs[ 0 ];
     for( int i=1; i< thread_num; i++  ){
+
       if(min_diffs[ i ]<min_diff  ){
         min_diff=min_diffs[ i ];
         chid=i;
       }
     }
+ 
     for( int i=0;i< thread_num; i++ ){
       sdata.estimee_opt_diff+=opt_gap[ i ];
     }
@@ -1143,27 +1183,28 @@ class CG {
        *
        */
 
-      // copy(S, S + N * N, workS);
-      if( sizeof( W )==sizeof( double ) ){
+
+      if( KLU==lu_sover ){
+        copy(S, S + N * N, workS);
+        solveLP( workS, N, b );        
+      }
+      else if( LAPACK==lu_sover ){
         char c='N';
         dgetrs_(&c, &N, &nrhs, (double*)workS, &lda, ipiv, (double*)b, &ldb, &info);
-        // dgesv_(&N, &nrhs, (double*)workS, &lda, ipiv, (double*)b, &ldb, &info);
-        
+                
+        if (info > 0) {
+          assert( false );
+          printf(
+              "The diagonal element of the triangular factor of "
+              "A,\n");
+          printf("U(%i,%i) is zero, so that A is singular;\n", info, info);
+          printf("the solution could not be computed.\n");
+          exit(1);
+        }
       }else{
-        char c='N';
-         // sgesv_(&N, &nrhs, (float*)workS, &lda, ipiv, (float*)b, &ldb, &info);
-        sgetrs_(&c, &N, &nrhs, (float*)workS, &lda, ipiv, (float*)b, &ldb, &info);        
+        assert( false );
       }
 
-      if (info > 0) {
-        assert( false );
-        printf(
-            "The diagonal element of the triangular factor of "
-            "A,\n");
-        printf("U(%i,%i) is zero, so that A is singular;\n", info, info);
-        printf("the solution could not be computed.\n");
-        exit(1);
-      }
       memcpy(a_N, b, N * sizeof(double));
 
       /**
@@ -1258,28 +1299,26 @@ class CG {
      * a_N=( Bb_K-b_N)/( BA-E )=b/S
      *
      */
-    // copy(S, S + N * N, workS);
-    if( sizeof( W )==sizeof( double ) ){
+    if( KLU==lu_sover ){
+      copy(S, S + N * N, workS);
+      solveLP( workS,N, b );
+    }else if( LAPACK==lu_sover ){
       char c='N';
+      dgetrs_(&c, &N, &nrhs, (double*)workS, &lda, ipiv, (double*)b, &ldb, &info);
+      if (info > 0) {
+        assert( false );
+        printf(
+            "The diagonal element of the triangular factor of "
+            "A,\n");
+        printf("U(%i,%i) is zero, so that A is singular;\n", info, info);
+        printf("the solution could not be computed.\n");
+        exit(1);
+      }
       
-      dgetrs_(&c, &N, &nrhs, (double*)workS, &lda, ipiv, (double*)b, &ldb, &info);        
-      // dgesv_(&N, &nrhs, (double*)workS, &lda, ipiv, (double*)b, &ldb, &info);        
-    }else{
-      char c='N';
-       // sgesv_(&N, &nrhs, (float*)workS, &lda, ipiv, (float*)b, &ldb, &info);
-      sgetrs_(&c, &N, &nrhs, (float*)workS, &lda, ipiv, (float*)b, &ldb, &info);        
     }
 
-    if (info > 0) {
-      assert( false );
-      printf(
-          "The diagonal element of the triangular factor of "
-          "A,\n");
-      printf("U(%i,%i) is zero, so that A is singular;\n", info, info);
-      printf("the solution could not be computed.\n");
-      exit(1);
-    }
-    memcpy(a_N, b, N * sizeof(W));
+
+    memcpy(a_N, b, N * sizeof(double));
 
     /**
      * a_K=-A a_N
@@ -1341,12 +1380,12 @@ class CG {
   }
 
   void devote(ENTER_VARIABLE& enter_commodity, EXIT_VARIABLE& exit_base) {
-    // std::cout << "devote" << std::endl;
+
 
     if (PATH_T == enter_commodity.type) {
-      // std::cout << "path" << std::endl;
+
       if (DEMAND_T == exit_base.type) {
-        // std::cout << "demand" << std::endl;
+
         int exit_commodity_id = exit_base.id;
         int exit_primary_pid = primary_path_loc[exit_commodity_id];
 
@@ -1402,7 +1441,6 @@ class CG {
         addPrimaryPath( exit_commodity_id );
 
       } else if (STATUS_LINK == exit_base.type) {
-        // std::cout << "status link" << std::endl;
 
         int pid = status_link_path_loc[exit_base.id];
         paths[pid].path = enter_commodity.path;
@@ -1420,7 +1458,7 @@ class CG {
 
       } else {
         
-        // std::cout << "other link" << std::endl;
+
         // exit is un status link then from un_status link to status link
         if (empty_paths.empty()) {
           Path npath(enter_commodity.path, enter_commodity.id, exit_base.id);
@@ -1448,12 +1486,10 @@ class CG {
 
         int link = exit_base.id;
         addStatusLink( link );
-
       }
 
     } else {
 
-      // std::cout << "link" << std::endl;
       /**
        * enter a status link
        *
@@ -1465,7 +1501,7 @@ class CG {
       
 
       if (DEMAND_T == exit_base.type) {
-        // std::cout << "demand " << std::endl;
+
         int exit_commodity_id = exit_base.id;
         
         deletePrimaryPath( exit_commodity_id );
@@ -1492,11 +1528,9 @@ class CG {
         
         addPrimaryPath( exit_commodity_id );
       } else if (STATUS_LINK == exit_base.type) {
-
-        // std::cout << "status link sssssssssssssssssssssssssssssssssss" << std::endl;
         
         if(exit_base.id == enter_commodity.id  ){
-          // std::cout << "status link nnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnn" << std::endl;
+
           empty_paths.push_back(spid);
           demand_second_path_locs[paths[spid].owner].erase(spid);
           paths[spid].owner = -1;          
@@ -1513,7 +1547,7 @@ class CG {
 
         
       } else {
-        // std::cout << "other link " << std::endl;
+
         status_links.push_back(exit_base.id);
         
         int link = exit_base.id;
@@ -1615,30 +1649,34 @@ class CG {
       int oindex = paths[pid].owner;
       b[i] += A[oindex];
     }
-    copy(S, S + N * N, workS);
-    if( sizeof( W )==sizeof( double ) ){
-      dgesv_(&N, &nrhs, (double*)workS, &lda, ipiv, (double*)b, &ldb, &info);        
-    }else{
-      sgesv_(&N, &nrhs, (float*)workS, &lda, ipiv, (float*)b, &ldb, &info);        
-    }
 
-    if (info > 0) {
-      assert( false );
-      printf(
-          "The diagonal element of the triangular factor of "
-          "A,\n");
-      printf("U(%i,%i) is zero, so that A is singular;\n", info, info);
-      printf("the solution could not be computed.\n");
-      exit(1);
+    copy(S, S + N * N, workS);
+    if( KLU==lu_sover ){
+      solveLP( workS, N , b );
+    }else if( LAPACK==lu_sover ){
+      dgesv_(&N, &nrhs, (double*)workS, &lda, ipiv, (double*)b, &ldb, &info);
+      if (info > 0) {
+        assert( false );
+        printf(
+            "The diagonal element of the triangular factor of "
+            "A,\n");
+        printf("U(%i,%i) is zero, so that A is singular;\n", info, info);
+        printf("the solution could not be computed.\n");
+        exit(1);
+      }
     }
+    
 
     update_weights=orignal_weights;
+    
     fill(dual_solution.begin(  ), dual_solution.end(  ), 0.0);
-
+    
     for (int i = 0; i < N; i++) {
+      
       dual_solution[status_links[i]] =- b[i];
       update_weights[status_links[i]] -= b[i];
     }
+
   }
 
   void printResult() {

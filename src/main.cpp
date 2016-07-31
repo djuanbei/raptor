@@ -50,7 +50,7 @@ void MCFexample1(  ){
   
   compressed_sparse_row_graph<double,int> graph;
 
-  typedef CG<compressed_sparse_row_graph<double, int>, double, double> CG_T;
+  typedef CG<compressed_sparse_row_graph<double, int>,  double> CG_T;
   vector<CG_T::Demand> demands;
   CG_T::Demand d1;
   d1.src=0;
@@ -97,7 +97,7 @@ void MCFexample2(  ){
   
   compressed_sparse_row_graph<double,int> graph;
 
-  typedef CG<compressed_sparse_row_graph<double, int>, double, double> CG_T;
+  typedef CG<compressed_sparse_row_graph<double, int>, double> CG_T;
   vector<CG_T::Demand> demands;
   CG_T::Demand d1;
   d1.src=0;
@@ -127,7 +127,7 @@ void MCFexample2(  ){
 
 void randMCF( const int V, const int E, const double bw_B, const double w_B,  const int d_num, const double dBWB  ){
 
-  typedef float T;
+  typedef double T;
   
   compressed_sparse_row_graph<T,int> graph;
   set<pair<int, int> > hasSet;
@@ -172,7 +172,7 @@ void randMCF( const int V, const int E, const double bw_B, const double w_B,  co
   }
   i=0;
 
-  typedef CG<compressed_sparse_row_graph<T, int>, T, T> CG_T;
+  typedef CG<compressed_sparse_row_graph<T, int>,  T> CG_T;
   vector<CG_T::Demand> demands;
   while (i< d_num) {
     src = rand() % V;
@@ -498,7 +498,7 @@ void randbiGraph( const int V, const int E, const double WW ){
 int main(int argc, char *argv[]) {
   
   // MCFexample2(  );
-  randMCF( 3000, 15000, 100, 40, 3000, 40 );
+  randMCF( 30, 150, 100, 40, 200, 40 );
   // //  Case1(  );
   // double start=cpuTime(  );
   // randbiGraph(20000, 100000, 20);

@@ -50,10 +50,10 @@ endif
 COPTIMIZE	= -m64 -Ofast -flto -march=native  -funroll-loops
 COPTIMIZE ?= -O2 
 
-CFLAGS    += -I  include # -I  ~/demo/SuiteSparse/include
+CFLAGS    += -I  include -I include/klu # -I  ~/demo/SuiteSparse/include
 
  # -L ~/demo/SuiteSparse/  -lklu -lbtf -lamd -lcolamd -lsuitesparseconfig # $(LIB_WITH_PARTITION) $(LDLIBS)
-LFLAGS    +=-llapack   
+LFLAGS    +=-llapack   -L lib  -lklu -lbtf -lamd -lcolamd
 
 
 
