@@ -119,10 +119,14 @@ class CG {
   int origLink_num;
   G newGraph;
   double inf_weight;
-
+  double  Inf;
+  
   vector<Demand> demands;
 
+  vector<bool> orig_success;
+
   vector<double> orignal_weights;
+  
   vector<C> orignal_caps;
 
   vector<double> update_weights;
@@ -766,7 +770,21 @@ class CG {
 
     primary_path_loc.resize(K, 0);
     vector<C> temp_p(K);
+    
+    orig_success.resize( K, true );
+    vector<double> ws(orignal_weights.size(  ), 1);
 
+#pragma omp parallel for
+    for (int i = 0; i < K; i++) {
+      int src = demands[i].src;
+      int snk = demands[i].snk;
+      vector<int> path;
+      if(! bidijkstra_shortest_path( graph,  ws, src, snk,  path, graph.getLink_num(  ) +1) ){
+        orig_success[ i ]=false;
+      }
+
+    }
+      
     inf_weight = 0;
     for (int i = 0; i < origLink_num; i++) {
       inf_weight += orignal_weights[i];
@@ -786,12 +804,13 @@ class CG {
 
 
     vector<bool> success( K, false );
-    
+    double sum_bw=0;
     for (int i = 0; i < K; i++) {
       int src = demands[i].src;
       int snk = demands[i].snk;
       C bw = demands[i].bandwidth;
       vector<double> ws = orignal_weights;
+      sum_bw+=bw;
       for (size_t j = 0; j < origLink_num; j++) {
         if (temp_cap[j] < bw) {
           ws[j] = inf_weight;
@@ -820,8 +839,8 @@ class CG {
       C bw = demands[i].bandwidth;
       srcs.push_back(src);
       snks.push_back(snk);
-      orignal_weights.push_back(inf_weight / 2);
-      orignal_caps.push_back(bw);
+      orignal_weights.push_back(inf_weight );
+      orignal_caps.push_back(sum_bw);
       if( !success[ i ]){
         vector<int> path;
         path.push_back( srcs.size(  )-1 );
@@ -832,6 +851,8 @@ class CG {
       }
       success[ i ]=true;
     }
+    Inf=inf_weight;
+    
     update_weights = orignal_weights;
     newGraph.initial(srcs, snks, orignal_weights);
     min_commodity_cost.resize( K, 2*inf_weight );
@@ -840,14 +861,11 @@ class CG {
       vector<int> path;
       int src = demands[i].src;
       int snk = demands[i].snk;
-      if (bidijkstra_shortest_path(newGraph, update_weights, src,
+      if (bidijkstra_shortest_path(graph, update_weights, src,
                                    snk, path , 2*inf_weight)) {
         min_commodity_cost[ i ]=path_cost( update_weights, path, ( double )0.0 );
       }
-      
     }
-
-
 
 
     update_caps = orignal_caps;
@@ -965,11 +983,11 @@ class CG {
      *  check status link dual value
      *
      */
-    double min_diff = -EPS;
+    double max_diff = -EPS;
     for (int i = 0; i < N; i++) {
       int link = status_links[i];
-      if (dual_solution[link] < min_diff) {
-        min_diff = dual_solution[link];
+      if (dual_solution[link] < max_diff) {
+        max_diff = dual_solution[link];
         enter_variable.id = link;
         enter_variable.type = LINK_T;
         enter_variable.path.clear();
@@ -981,8 +999,8 @@ class CG {
     }
     sdata.estimee_opt_diff=0;
     vector<double> opt_gap( thread_num, 0 );
-    vector<double> min_diffs( thread_num, -EPS );
-    vector<double> max_gap( thread_num, -EPS );
+    vector<double> max_diffs( thread_num, EPS );
+    vector<double> max_gap( thread_num, EPS );
     
     vector<vector<int>> path( thread_num );
     vector<ENTER_VARIABLE> enter_variables( thread_num );
@@ -1002,32 +1020,40 @@ class CG {
 
       int src = demands[i].src;
       int snk = demands[i].snk;
-
+      max_diff=EPS;
       double old_cost =
           path_cost(update_weights, paths[primary_path_loc[i]].path, (double)0.0);
-      if( (min_commodity_cost[i  ]-old_cost)*demands[ i ].bandwidth> min_diffs[ tid ] ){
+      if( (old_cost-min_commodity_cost[i  ])*demands[ i ].bandwidth<max_diffs[ tid ] ){
         continue;
       }
 
-      if (bidijkstra_shortest_path(newGraph, update_weights, src,
+      if (orig_success[i]&&bidijkstra_shortest_path(graph, update_weights, src,
                                    snk, path[ tid ] , inf_weight)) {
+        
         double new_cost = path_cost(update_weights, path[ tid ], (double)0.0);
+
+        if(new_cost>Inf  ){
+          path[ tid ].clear(  );
+          path[ tid ].push_back( i+origLink_num );
+          new_cost=Inf;
+        }
         
-        double temp_diff = (new_cost - old_cost);
+        double temp_diff = (old_cost-new_cost );
         
-        if( temp_diff<-EPS ){
-          if( temp_diff< max_gap[ tid ] ){
+        if( temp_diff>EPS ){
+          if( temp_diff> max_gap[ tid ] ){
             max_gap[ tid ]=temp_diff;
           }
-          opt_gap[ tid ]-=temp_diff*demands[ i ].bandwidth;
+          opt_gap[ tid ]+=temp_diff*demands[ i ].bandwidth;
 
           temp_diff*=leftBandwith(path[ tid ]  ) +EPS ;
         
-          if (temp_diff < min_diffs[ tid ]) {
-            min_diffs[ tid ] = temp_diff;
+          if (temp_diff > max_diffs[ tid ]) {
+            max_diffs[ tid ] = temp_diff;
 
             enter_variables[ tid ].id = i;
             enter_variables[ tid ].path = path[ tid ];
+
           }          
         }
       }
@@ -1036,11 +1062,11 @@ class CG {
 
 
     int chid=0;
-    min_diff=min_diffs[ 0 ];
+    max_diff=max_diffs[ 0 ];
     for( int i=1; i< thread_num; i++  ){
 
-      if(min_diffs[ i ]<min_diff  ){
-        min_diff=min_diffs[ i ];
+      if(max_diffs[ i ]>max_diff  ){
+        max_diff=max_diffs[ i ];
         chid=i;
       }
     }
