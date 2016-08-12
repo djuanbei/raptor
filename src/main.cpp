@@ -48,9 +48,9 @@ void MCFexample1(  ){
   // weights.push_back( 1 );
   // caps.push_back( 2 );
   
-  compressed_sparse_row_graph<double,int> graph;
+  compressed_sparse_row_graph<int,int> graph;
 
-  typedef CG<compressed_sparse_row_graph<double, int>,  double> CG_T;
+  typedef CG<compressed_sparse_row_graph<int, int>,  double> CG_T;
   vector<CG_T::Demand> demands;
   CG_T::Demand d1;
   d1.src=0;
@@ -64,7 +64,9 @@ void MCFexample1(  ){
 
   demands.push_back( d2 );
 
-  graph.initial( srcs, snks, weights);
+  vector<int> ws( weights.size(  ), 1 );
+
+  graph.initial( srcs, snks, ws);
   CG_T cg( graph,weights, caps, demands );
   cg.setInfo( 1 );
   cg.solve(  );
@@ -95,9 +97,9 @@ void MCFexample2(  ){
 
 
   
-  compressed_sparse_row_graph<double,int> graph;
+  compressed_sparse_row_graph<int,int> graph;
 
-  typedef CG<compressed_sparse_row_graph<double, int>, double> CG_T;
+  typedef CG<compressed_sparse_row_graph<int, int>, double> CG_T;
   vector<CG_T::Demand> demands;
   CG_T::Demand d1;
   d1.src=0;
@@ -118,8 +120,8 @@ void MCFexample2(  ){
   d3.bandwidth=1;
 
   demands.push_back( d3 );
-
-  graph.initial( srcs, snks, weights);
+  vector<int> ws( weights.size(  ), 1 );
+  graph.initial( srcs, snks, ws);
   CG_T cg( graph,weights, caps, demands );
   cg.setInfo( 1 );
   cg.solve(  );
@@ -127,13 +129,14 @@ void MCFexample2(  ){
 
 void randMCF( const int V, const int E, const double bw_B, const double w_B,  const int d_num, const double dBWB  ){
 
-  typedef double T;
+  typedef float T;
   
-  compressed_sparse_row_graph<T,int> graph;
+  compressed_sparse_row_graph<int,int> graph;
   set<pair<int, int> > hasSet;
   vector<int> srcs;
   vector<int> snks;
-  vector<T> weights, caps;
+  vector<T>  caps;
+  vector<double> weights;
 
   std::default_random_engine generator;
   std::uniform_real_distribution<T> disBW(0.0,bw_B);
@@ -172,7 +175,7 @@ void randMCF( const int V, const int E, const double bw_B, const double w_B,  co
   }
   i=0;
 
-  typedef CG<compressed_sparse_row_graph<T, int>,  T> CG_T;
+  typedef CG<compressed_sparse_row_graph<int, int>,  T> CG_T;
   vector<CG_T::Demand> demands;
   while (i< d_num) {
     src = rand() % V;
@@ -188,7 +191,9 @@ void randMCF( const int V, const int E, const double bw_B, const double w_B,  co
     demands.push_back( d );
     i++;
   }
-  graph.initial( srcs, snks , weights);
+  vector<int> ws( snks.size(  ), 1 );
+  
+  graph.initial( srcs, snks , ws);
   CG_T cg( graph,weights, caps, demands );
   cg.setInfo( 1 );
   cg.solve(  );

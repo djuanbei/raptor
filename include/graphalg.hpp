@@ -212,53 +212,103 @@ bool bidijkstra_shortest_path(const G &g, const WV &NW, const int src,
   bool re = false;
   W best_dis = inif;
   int best_current = -1;
-
-  while (!Q.empty() && !bQ.empty()) {
-    PII p = Q.top();
-    current = p.second;
-    if (check[current]) {
-      re = true;
-      break;
-    }
-    check[current] = true;
-    Q.pop();
-
-    outDegree = g.getOutDegree(current);
-    W current_weight = p.first;
-    for (j = 0; j < outDegree; j++) {
-      link = g.getAdj(current, j);
-
-      weight = current_weight + NW[link];
-
-      g.findRhs(link, current, next);
-
-      if (weight < dis[next]) {
-        dis[next] = weight;
-        preLink[next] = link;
-        Q.push(make_pair(weight, next));
+  if( g.isDirect(  ) ){
+    while (!Q.empty() && !bQ.empty()) {
+      PII p = Q.top();
+      current = p.second;
+      if (check[current]) {
+        re = true;
+        break;
       }
-    }
-    p = bQ.top();
-    current = p.second;
-    if (check[current]) {
-      re = true;
-      break;
-    }
-    check[current] = true;
-    bQ.pop();
-    inDegree = g.getInDegree(current);
-    current_weight = bdis[current];
-    for (j = 0; j < inDegree; j++) {
-      link = g.getReAdj(current, j);
-      weight = current_weight + NW[link];
-      g.findRhs(link, current, next);
-      if (weight < bdis[next]) {
-        bdis[next] = weight;
-        bpreLink[next] = link;
-        bQ.push(make_pair(weight, next));
+      check[current] = true;
+      Q.pop();
+
+      outDegree = g.getOutDegree(current);
+      W current_weight = p.first;
+      for (j = 0; j < outDegree; j++) {
+        link = g.getAdj(current, j);
+
+        weight = current_weight + NW[link];
+
+        g.findSnk(link,  next);
+
+        if (weight < dis[next]) {
+          dis[next] = weight;
+          preLink[next] = link;
+          Q.push(make_pair(weight, next));
+        }
+      }
+      p = bQ.top();
+      current = p.second;
+      if (check[current]) {
+        re = true;
+        break;
+      }
+      check[current] = true;
+      bQ.pop();
+      inDegree = g.getInDegree(current);
+      current_weight = bdis[current];
+      for (j = 0; j < inDegree; j++) {
+        link = g.getReAdj(current, j);
+        weight = current_weight + NW[link];
+        g.findSrc(link,  next);
+        if (weight < bdis[next]) {
+          bdis[next] = weight;
+          bpreLink[next] = link;
+          bQ.push(make_pair(weight, next));
+        }
+      }
+    }    
+  }else{
+    while (!Q.empty() && !bQ.empty()) {
+      PII p = Q.top();
+      current = p.second;
+      if (check[current]) {
+        re = true;
+        break;
+      }
+      check[current] = true;
+      Q.pop();
+
+      outDegree = g.getOutDegree(current);
+      W current_weight = p.first;
+      for (j = 0; j < outDegree; j++) {
+        link = g.getAdj(current, j);
+
+        weight = current_weight + NW[link];
+
+        g.findRhs(link, current, next);
+
+        if (weight < dis[next]) {
+          dis[next] = weight;
+          preLink[next] = link;
+          Q.push(make_pair(weight, next));
+        }
+      }
+      p = bQ.top();
+      current = p.second;
+      if (check[current]) {
+        re = true;
+        break;
+      }
+      check[current] = true;
+      bQ.pop();
+      inDegree = g.getInDegree(current);
+      current_weight = bdis[current];
+      for (j = 0; j < inDegree; j++) {
+        link = g.getReAdj(current, j);
+        weight = current_weight + NW[link];
+        g.findRhs(link, current, next);
+        if (weight < bdis[next]) {
+          bdis[next] = weight;
+          bpreLink[next] = link;
+          bQ.push(make_pair(weight, next));
+        }
       }
     }
   }
+
+
   if (re) {
     W temp_dis;
     int temp;

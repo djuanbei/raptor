@@ -21,6 +21,7 @@
 #include<omp.h>
 #include "klu.h"
 #include "graphalg.hpp"
+#include "System.h"
 using namespace fast_graph;
 using namespace std;
 
@@ -101,7 +102,9 @@ class CG {
     int enter;
     EXIT_BASE_TYPE exitt;
     int exit;
-    Statistics_data() : iterator_num(0), empty_iterator_num(0),estimee_opt_diff( numeric_limits<double>::max(  ) ), nzn( 0 ), snzn( 0 ), minLU(0  ) {}
+    double start_time;
+    double using_system_time;
+    Statistics_data() : iterator_num(0), empty_iterator_num(0),estimee_opt_diff( numeric_limits<double>::max(  ) ), nzn( 0 ), snzn( 0 ), minLU(0  ), start_time( 0 ),using_system_time( 0 ) {}
   };
 
   struct Path {
@@ -115,21 +118,24 @@ class CG {
   };
 
  private:
+
   G graph;
+  vector<int> linkMap;
+  
   int origLink_num;
-  G newGraph;
-  double inf_weight;
-  double  Inf;
+
+  float inf_weight;
+  float  Inf;
   
   vector<Demand> demands;
 
   vector<bool> orig_success;
 
-  vector<double> orignal_weights;
+  vector<float> orignal_weights;
   
   vector<C> orignal_caps;
 
-  vector<double> update_weights;
+  vector<float> update_weights;
   vector<C> update_caps;
   vector<C> edgeLeftBandwith;
 
@@ -523,7 +529,26 @@ class CG {
  public:
   CG(const G& g, const vector<double>& ws, const vector<C>& caps,
      const vector<Demand>& ds)
-      : graph(g), demands(ds), orignal_weights(ws), orignal_caps(caps) ,thread_num( 1 ), lu_sover( KLU ){
+      : graph(g), demands(ds),  orignal_caps(caps) ,thread_num( 1 ), lu_sover( KLU ){
+
+    vector<int> srcs, snks;
+    int src, snk;
+    vector<int> temP_ws( ws.size(  ),1 );
+    linkMap.resize(ws.size(  )  );
+    for( int v=0; v< g.getVertex_num(  ); v++ ){
+      int degree=g.getOutDegree( v );
+      for( int i=0; i<degree; i++ ){
+        int link = g.getAdj(v, i);
+              
+        int snk;
+        linkMap[ srcs.size(  ) ]=link;
+        g.findRhs(link, v, snk);
+        srcs.push_back( v );
+        snks.push_back( snk );
+        
+      }
+    }
+    graph.initial( srcs, snks , temP_ws);
 
 #ifdef _OPENMP
 #pragma omp parallel for
@@ -531,8 +556,12 @@ class CG {
       thread_num=omp_get_num_threads(  );
     }
     
-    
 #endif // _OPENMP
+    
+    for( size_t i=0; i< ws.size(  ); i++ ){
+      orignal_weights.push_back(ws[ i ]);
+    }
+    
     info = 0;
     origLink_num = graph.getLink_num();
 
@@ -754,7 +783,7 @@ class CG {
   }
 
   bool solve() {
-
+    sdata.start_time=systemTime(  );
     initial_solution();
 
     iteration();
@@ -786,22 +815,17 @@ class CG {
     }
       
     inf_weight = 0;
+    double max_w=0;
     for (int i = 0; i < origLink_num; i++) {
-      inf_weight += orignal_weights[i];
+      if( max_w< orignal_weights[ i ] ){
+        max_w=orignal_weights[ i ];
+      }
+
     }
-    inf_weight *= 4;
-    inf_weight += 1;
+    
+    inf_weight =max_w*graph.getVertex_num(  )+1;
 
-    vector<int> srcs, snks;
-    int src, snk=0;
-    for (int i = 0; i < origLink_num; i++) {
-      graph.findSrcSnk(i, src, snk);
-      srcs.push_back(src);
-      snks.push_back(snk);
-    }
-
-    vector<double> temp_cap(orignal_caps);
-
+    vector<C> temp_cap(orignal_caps);
 
     vector<bool> success( K, false );
     double sum_bw=0;
@@ -809,7 +833,7 @@ class CG {
       int src = demands[i].src;
       int snk = demands[i].snk;
       C bw = demands[i].bandwidth;
-      vector<double> ws = orignal_weights;
+      vector<float> ws = orignal_weights;
       sum_bw+=bw;
       for (size_t j = 0; j < origLink_num; j++) {
         if (temp_cap[j] < bw) {
@@ -832,29 +856,24 @@ class CG {
         temp_p[i] = bw;
       }
     }
-
+    orignal_weights.push_back(inf_weight );
+    orignal_caps.push_back(sum_bw);
     for (int i = 0; i < K; i++) {
-      int src = demands[i].src;
-      int snk = demands[i].snk;
-      C bw = demands[i].bandwidth;
-      srcs.push_back(src);
-      snks.push_back(snk);
-      orignal_weights.push_back(inf_weight );
-      orignal_caps.push_back(sum_bw);
+
       if( !success[ i ]){
         vector<int> path;
-        path.push_back( srcs.size(  )-1 );
+        path.push_back( origLink_num );
         paths[i].path = path;
         paths[i].owner = i;
         primary_path_loc[i] = i;
-        temp_p[i] = bw;
+        temp_p[i] = demands[i].bandwidth;
       }
       success[ i ]=true;
     }
     Inf=inf_weight;
     
     update_weights = orignal_weights;
-    newGraph.initial(srcs, snks, orignal_weights);
+
     min_commodity_cost.resize( K, 2*inf_weight );
 #pragma omp parallel for
     for (int i = 0; i < K; i++) {
@@ -863,21 +882,21 @@ class CG {
       int snk = demands[i].snk;
       if (bidijkstra_shortest_path(graph, update_weights, src,
                                    snk, path , 2*inf_weight)) {
-        min_commodity_cost[ i ]=path_cost( update_weights, path, ( double )0.0 );
+        min_commodity_cost[ i ]=path_cost( update_weights, path, ( float )0.0 );
       }
     }
 
 
     update_caps = orignal_caps;
     N = 0;
-    J = srcs.size();
+    J = origLink_num+1;
     inf_weight = numeric_limits<double>::max() / 3;
 
     for (int i = 0; i < J; i++) {
       un_status_links.push_back(i);
     }
 
-    rhs.resize(demands.size() + srcs.size(), (C)0.0);
+    rhs.resize(K + origLink_num+1, (C)0.0);
     for (size_t i = 0; i < K; i++) {
       rhs[i] = demands[i].bandwidth;
     }
@@ -904,23 +923,20 @@ class CG {
 
   void iteration() {
     while (true) {
-
+      sdata.using_system_time=systemTime(  )-sdata.start_time;
       sdata.iterator_num++;
       if (info > 0) {
         if(sdata.iterator_num%100==0  ){
         
           C sobj=success_obj(  );
+          std::cout << "using time(s) :" <<sdata.using_system_time<< std::endl;
           std::cout << sdata.iterator_num <<" status link num: "<<N<<  " objvalue: " << computeOBJ()<<" success fractional bw: "<<sobj<<" success rat: "
                     <<sobj/(totalB+0.01  )<<"  the obj gap from opt is: "<<sdata.estimee_opt_diff<< std::endl;
           std::cout << "nonzero matrix values: "<<sdata.nzn<<"   SLU non-zeros "<<sdata.snzn << std::endl;
           std::cout <<sdata.etype <<" enter: "<<sdata.enter<< "    "<<sdata.exitt << " exit: "<<sdata.exit << std::endl;
         }
       }
-      
-      if( sdata.iterator_num>2000 ){
-        return;
-      }
-
+      if( sdata.iterator_num>10000 )return;
 
       /**
        *  enter variable choose
@@ -951,7 +967,7 @@ class CG {
       sdata.exitt=exit_base.type;
       sdata.exit=exit_base.id;
       N = status_links.size();
-      J = newGraph.getLink_num() - N;
+      J = origLink_num+1 - N;
       computIndexofLinks();
 
       computeS();
@@ -1021,8 +1037,8 @@ class CG {
       int src = demands[i].src;
       int snk = demands[i].snk;
       max_diff=EPS;
-      double old_cost =
-          path_cost(update_weights, paths[primary_path_loc[i]].path, (double)0.0);
+      float old_cost =
+          path_cost(update_weights, paths[primary_path_loc[i]].path, (float)0.0);
       if( (old_cost-min_commodity_cost[i  ])*demands[ i ].bandwidth<max_diffs[ tid ] ){
         continue;
       }
@@ -1030,15 +1046,15 @@ class CG {
       if (orig_success[i]&&bidijkstra_shortest_path(graph, update_weights, src,
                                    snk, path[ tid ] , inf_weight)) {
         
-        double new_cost = path_cost(update_weights, path[ tid ], (double)0.0);
+        float new_cost = path_cost(update_weights, path[ tid ], (float)0.0);
 
         if(new_cost>Inf  ){
           path[ tid ].clear(  );
-          path[ tid ].push_back( i+origLink_num );
+          path[ tid ].push_back( origLink_num );
           new_cost=Inf;
         }
         
-        double temp_diff = (old_cost-new_cost );
+        float temp_diff = (old_cost-new_cost );
         
         if( temp_diff>EPS ){
           if( temp_diff> max_gap[ tid ] ){
@@ -1058,7 +1074,6 @@ class CG {
         }
       }
     }
-
 
 
     int chid=0;
@@ -1706,6 +1721,8 @@ class CG {
   }
 
   void printResult() {
+    sdata.using_system_time=systemTime(  )-sdata.start_time;
+    std::cout << "using time(s) :" <<sdata.using_system_time<< std::endl;
     std::cout << "iteration time: " << sdata.iterator_num << std::endl;
     std::cout << "empty iteration tiem: " << sdata.empty_iterator_num
               << std::endl;

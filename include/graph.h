@@ -370,6 +370,10 @@ class compressed_sparse_row_graph {
     }
   }
 
+  bool isDirect(  )const{
+    return true;
+  }
+
   inline size_t getVertex_num(void) const { return vertex_num; }
 
   void setInfi(const W infi) { infi_value = infi; }
@@ -426,6 +430,8 @@ class compressed_sparse_row_graph {
     
     return false;
   }
+
+  
 
   inline bool findSrcSnk(const int link, E &src, E &snk) const {
     return _findSrcSnk(out2inLink_map[link], src, snk);
@@ -1397,7 +1403,10 @@ class undir_graph {
       inIndex.push_back(link_starts.size());
     }
   }    
-  
+
+  bool isDirect(  )const{
+    return false;
+  }
   inline size_t getVertex_num(void) const { return vertex_num; }
   inline int getLink_num(void) const { return link_num; }
 
@@ -1445,6 +1454,15 @@ class undir_graph {
   }
   inline bool findSrcSnk(const int link, E &src, E &snk) const {
     return _findSrcSnk(out2inLink_map[link], src, snk);
+  }
+
+  bool findSrc(const int link, E &src) const {
+    return _findSrc( out2inLink_map[link], src );
+
+  }
+  inline bool findSnk(const int link, E &snk) const {
+    return _findSnk( out2inLink_map[link], snk );
+
   }
 
 };
