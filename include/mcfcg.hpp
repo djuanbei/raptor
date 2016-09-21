@@ -160,9 +160,11 @@ class CG {
 
   vector<int> primary_path_loc;  // every demands have a primary path
 
-  map<int, int> status_link_path_loc;  //  the path corresponding status link
+  vector< int> status_link_path_loc;  //  the path corresponding status link
 
   Statistics_data sdata;
+
+  vector<int> candidate_enter;
 
   vector<C> rhs;
   double* A;
@@ -532,7 +534,7 @@ class CG {
       : graph(g), demands(ds),  orignal_caps(caps) ,thread_num( 1 ), lu_sover( KLU ){
 
     vector<int> srcs, snks;
-    int src, snk;
+
     vector<int> temP_ws( ws.size(  ),1 );
     linkMap.resize(ws.size(  )  );
     for( int v=0; v< g.getVertex_num(  ); v++ ){
@@ -564,6 +566,8 @@ class CG {
     
     info = 0;
     origLink_num = graph.getLink_num();
+
+    status_link_path_loc.resize( origLink_num );
 
     CZERO = ((C)1e-6);
     EPS = ((double)1e-4);
@@ -679,7 +683,6 @@ class CG {
       int spid = status_link_path_loc[link];
       paths[spid].link = -1;
 
-      status_link_path_loc.erase(link);
 
       status_primary_path_locs.erase(link);    
   }
@@ -823,7 +826,7 @@ class CG {
 
     }
     
-    inf_weight =max_w*graph.getVertex_num(  )+1;
+    inf_weight =max_w*(graph.getVertex_num(  )-1)+1;
 
     vector<C> temp_cap(orignal_caps);
 
@@ -923,15 +926,15 @@ class CG {
 
   void iteration() {
     while (true) {
-      sdata.using_system_time=systemTime(  )-sdata.start_time;
+
       sdata.iterator_num++;
       if (info > 0) {
         if(sdata.iterator_num%100==0  ){
-        
+          sdata.using_system_time=systemTime(  )-sdata.start_time;        
           C sobj=success_obj(  );
           std::cout << "using time(s) :" <<sdata.using_system_time<< std::endl;
           std::cout << sdata.iterator_num <<" status link num: "<<N<<  " objvalue: " << computeOBJ()<<" success fractional bw: "<<sobj<<" success rat: "
-                    <<sobj/(totalB+0.01  )<<"  the obj gap from opt is: "<<sdata.estimee_opt_diff<< std::endl;
+                    <<sobj/(totalB+0.01  )<<" the obj gap from opt is: "<<sdata.estimee_opt_diff<< std::endl;
           std::cout << "nonzero matrix values: "<<sdata.nzn<<"   SLU non-zeros "<<sdata.snzn << std::endl;
           std::cout <<sdata.etype <<" enter: "<<sdata.enter<< "    "<<sdata.exitt << " exit: "<<sdata.exit << std::endl;
         }
@@ -962,10 +965,7 @@ class CG {
       }
 
       devote(enter_commodity, exit_base);
-      sdata.etype=enter_commodity.type;
-      sdata.enter=enter_commodity.id;
-      sdata.exitt=exit_base.type;
-      sdata.exit=exit_base.id;
+
       N = status_links.size();
       J = origLink_num+1 - N;
       computIndexofLinks();
@@ -1013,10 +1013,43 @@ class CG {
     if (enter_variable.id >= 0) {
       return enter_variable;
     }
+
+    
+    
+    for(size_t i=0;  i< candidate_enter.size(  ); i++ )
+    for( vector<int>::iterator it= candidate_enter.begin(  ); it!= candidate_enter.end( ); it++  ){
+      
+      int id=*it;
+      int src = demands[id].src;
+      int snk = demands[id].snk;
+      vector<int> path;
+      
+      float old_cost =
+          path_cost(update_weights, paths[primary_path_loc[id]].path, (float)0.0);
+      
+      bidijkstra_shortest_path(graph, update_weights, src,
+                               snk, path , inf_weight);
+      float new_cost = path_cost(update_weights, path, (float)0.0);
+
+      if( old_cost-new_cost> 10000*EPS ){
+        for( size_t j=0; j<= i; j++ ){
+          candidate_enter.erase( candidate_enter.begin(  ) );
+        }
+        enter_variable.id    =id;
+        enter_variable.type=PATH_T;
+        enter_variable.path=path;
+        sort( enter_variable.path.begin(  ), enter_variable.path.end(  ) );
+        return  enter_variable;
+      }
+      
+    }
+    candidate_enter.clear(  );
+    
     sdata.estimee_opt_diff=0;
     vector<double> opt_gap( thread_num, 0 );
     vector<double> max_diffs( thread_num, EPS );
     vector<double> max_gap( thread_num, EPS );
+    vector<vector<int> > candidate(thread_num  );
     
     vector<vector<int>> path( thread_num );
     vector<ENTER_VARIABLE> enter_variables( thread_num );
@@ -1065,6 +1098,10 @@ class CG {
           temp_diff*=leftBandwith(path[ tid ]  ) +EPS ;
         
           if (temp_diff > max_diffs[ tid ]) {
+            if( temp_diff>10000*EPS ){
+              candidate[ tid ].push_back( i );              
+            }
+
             max_diffs[ tid ] = temp_diff;
 
             enter_variables[ tid ].id = i;
@@ -1078,8 +1115,9 @@ class CG {
 
     int chid=0;
     max_diff=max_diffs[ 0 ];
+    candidate_enter=candidate[ 0 ];
     for( int i=1; i< thread_num; i++  ){
-
+      candidate_enter.insert(candidate_enter.end(  ), candidate[ i ].begin(  ), candidate[ i ].end(  )  );
       if(max_diffs[ i ]>max_diff  ){
         max_diff=max_diffs[ i ];
         chid=i;
