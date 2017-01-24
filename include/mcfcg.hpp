@@ -321,7 +321,8 @@ class CG {
             const vector<int> &path = paths[pid].path;
             for (int j = 0; j < N; j++) {
                 int link1 = status_links[j];
-                if (lower_bound(path.begin(), path.end(), link1) != path.end()) {
+                if (lower_bound(path.begin(), path.end(), link1) !=
+                    path.end()) {
                     S[j * N + i] = -1.0;
                     sdata.nzn++;
                 }
@@ -448,6 +449,12 @@ class CG {
         }
     }
 
+  /** 
+   * 
+   * @brief choose candiate exit base commodity
+   * 
+   * @return 
+   */
     EXIT_VARIABLE computeExitVariable() {
         /**
          *  choose enter base as i which a[ i]>0 and x[ i ]/a[ i ]= min
@@ -680,8 +687,8 @@ class CG {
     void addStatusLink(const int link) {
         for (int i = 0; i < K; i++) {
             int pid = primary_path_loc[i];
-            if (lower_bound(paths[pid].path.begin(), paths[pid].path.end(), link) !=
-                paths[pid].path.end()) {
+            if (lower_bound(paths[pid].path.begin(), paths[pid].path.end(),
+                            link) != paths[pid].path.end()) {
                 status_primary_path_locs[link].insert(pid);
             }
         }
@@ -822,9 +829,9 @@ class CG {
                 }
             }
 
-            INC_KSP::yen_ksp<G, vector<float>, float> ksp_g(
+            inc_ksp::yen_ksp<G, vector<float>, float> ksp_g(
                 graph, orignal_weights, inf_weight);
-            INC_KSP::yen_next_path<G, vector<float>, float> ksp =
+            inc_ksp::yen_next_path<G, vector<float>, float> ksp =
                 ksp_g.next_path(src, snk);
             vector<int> path;
             for (int j = 0; j < k && ksp.next_path(path); j++) {
@@ -1375,8 +1382,9 @@ class CG {
                 for (int k = 0; k < left_AK.size(); k++) {
                     int pid = left_AK[k];
                     int ppid = primary_path_loc[pid];
-                    if (lower_bound(paths[ppid].path.begin(), paths[ppid].path.end(),
-                             un_status_links[i]) != paths[ppid].path.end())
+                    if (lower_bound(
+                            paths[ppid].path.begin(), paths[ppid].path.end(),
+                            un_status_links[i]) != paths[ppid].path.end())
                         a_J[i] -= a_K[pid];
                 }
             }
@@ -1393,8 +1401,9 @@ class CG {
                 for (int k = 0; k < left_AN.size(); k++) {
                     int pid = left_AN[k];
                     int ppid = status_link_path_loc[status_links[pid]];
-                    if (lower_bound(paths[ppid].path.begin(), paths[ppid].path.end(),
-                             un_status_links[i]) != paths[ppid].path.end())
+                    if (lower_bound(
+                            paths[ppid].path.begin(), paths[ppid].path.end(),
+                            un_status_links[i]) != paths[ppid].path.end())
                         a_J[i] -= a_N[pid];
                 }
             }
@@ -1489,8 +1498,9 @@ class CG {
                 int ppid = primary_path_loc[pid];
 
                 if (!paths[ppid].path.empty() &&
-                    lower_bound(paths[ppid].path.begin(), paths[ppid].path.end(),
-                         un_status_links[i]) != paths[ppid].path.end())
+                    lower_bound(paths[ppid].path.begin(),
+                                paths[ppid].path.end(),
+                                un_status_links[i]) != paths[ppid].path.end())
                     a_J[i] -= a_K[pid];
             }
         }
@@ -1508,8 +1518,9 @@ class CG {
                 int pid = left_AN[k];
                 int ppid = status_link_path_loc[status_links[pid]];
                 if (!paths[ppid].path.empty() &&
-                    lower_bound(paths[ppid].path.begin(), paths[ppid].path.end(),
-                         un_status_links[i]) != paths[ppid].path.end())
+                    lower_bound(paths[ppid].path.begin(),
+                                paths[ppid].path.end(),
+                                un_status_links[i]) != paths[ppid].path.end())
                     a_J[i] -= a_N[pid];
             }
         }

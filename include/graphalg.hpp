@@ -456,7 +456,7 @@ bool bidijkstra_shortest_path(const G &g, const WV &NW,
     return re;
 }
 
-namespace INC_KSP {
+namespace inc_ksp {
 template <typename W>
 struct devote_loc {
     int parent;
@@ -467,7 +467,7 @@ struct devote_loc {
     devote_loc() {
         parent = -1;
         loc = -1;
-        dis = numeric_limits<W>::max();
+        dis = numeric_limits<W>::max() / 10;
     }
     devote_loc(const int p, const int l, const W d) {
         parent = p;
@@ -495,7 +495,7 @@ class yen_next_path {
     set<int> using_edges;
 
     priority_queue<devote_loc<W>> Q;
-    int loc;
+    int last_loc;
 
    public:
     yen_next_path(const G &g, const int s, const int t, const WV *ws,
@@ -505,7 +505,7 @@ class yen_next_path {
         exclude_links = excludeL;
         src = s;
         snk = t;
-        loc = 0;
+        last_loc = 0;
     }
     bool next_path(vector<int> &path) {
         path.clear();
@@ -531,14 +531,14 @@ class yen_next_path {
         W pre_dis = 0;
         int temp_src = src;
 
-        for (i = 0; i < loc; i++) {
+        for (i = 0; i < last_loc; i++) {
             temp_exclude_nodes[temp_src] = true;
             pre_dis += (*weights)[last_path[i]];
             graph.findRhs(last_path[i], temp_src, temp_src);
         }
 
         for (; i < last_path.size(); i++) {
-            if (i == loc) {
+            if (i == last_loc) {
                 for (set<int>::iterator it = using_edges.begin();
                      it != using_edges.end(); it++) {
                     temp_exclude_links[*it] = true;
@@ -548,10 +548,10 @@ class yen_next_path {
                                          temp_exclude_links, temp_src, snk,
                                          temp_path, inf)) {
                 devote_loc<W> temp_loc(
-                    paths.size(), i,
+                    paths.size() - 1, i,
                     pre_dis + path_cost(*weights, temp_path, inf));
 
-                if (i == loc) {
+                if (i == last_loc) {
                     temp_loc.exclude_links.insert(temp_loc.exclude_links.end(),
                                                   using_edges.begin(),
                                                   using_edges.end());
@@ -568,18 +568,18 @@ class yen_next_path {
         }
         devote_loc<W> temp_loc = Q.top();
         Q.pop();
-        loc = temp_loc.loc;
+        last_loc = temp_loc.loc;
         int parent = temp_loc.parent;
         path.clear();
         path.insert(path.end(), paths[parent].begin(),
-                    paths[parent].begin() + loc);
+                    paths[parent].begin() + last_loc);
         temp_exclude_links = exclude_links;
         temp_exclude_nodes = exclude_nodes;
         const vector<int> &last_path1 = paths[parent];
         vector<int> temp_path1;
 
         temp_src = src;
-        for (int i = 0; i < loc; i++) {
+        for (int i = 0; i < last_loc; i++) {
             temp_exclude_nodes[temp_src] = true;
             graph.findRhs(last_path[i], temp_src, temp_src);
         }
