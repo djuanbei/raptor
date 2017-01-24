@@ -6,12 +6,12 @@
 ##        "make"    for the standard version (optimized, but with debug information and assertions active)
 
 PWD        = $(shell pwd)
-EXEC       = fastgraph
+EXEC       = raptor
 
 WROOT      = $(PWD)/src
 LIB        = fastgraph
 
-MAINFILE   = main
+MAINFILE   = raptor
 
 SRCSUF     = cpp
 

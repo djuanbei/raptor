@@ -3,6 +3,9 @@
 
 #include "System.h"
 
+namespace raptor
+{
+
 
 #if defined(__linux__)
 
@@ -147,4 +150,6 @@ void sigTerm(void handler(int))
 #ifdef SIGXCPU
     signal(SIGXCPU,handler);
 #endif
+}
+
 }

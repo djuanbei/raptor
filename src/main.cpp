@@ -1,5 +1,6 @@
-#include "graph.h"
+#include "graph.hpp"
 #include "System.h"
+
 #include "graphalg.hpp"
 #include <set>
 #include <vector>
@@ -14,7 +15,7 @@
 using namespace std;
 using namespace mcmcf;
 
-using namespace fast_graph;
+using namespace raptor;
 
 void MCFexample1(  ){
   vector<int> srcs;
@@ -129,7 +130,7 @@ void MCFexample2(  ){
 
 void randMCF( const int V, const int E, const double bw_B, const double w_B,  const int d_num, const double dBWB  ){
 
-  typedef float T;
+  typedef double T;
   
   compressed_sparse_row_graph<int,int> graph;
   set<pair<int, int> > hasSet;
@@ -196,6 +197,7 @@ void randMCF( const int V, const int E, const double bw_B, const double w_B,  co
   graph.initial( srcs, snks , ws);
   CG_T cg( graph,weights, caps, demands );
   cg.setInfo( 1 );
+  // cg.writeKsptoCNF( 10,"test.cnf" );
   cg.solve(  );
   
 }
