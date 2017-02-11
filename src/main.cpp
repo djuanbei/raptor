@@ -45,9 +45,9 @@ void MCFexample1() {
     // weights.push_back( 1 );
     // caps.push_back( 2 );
 
-    compressed_sparse_row_graph<int, int> graph;
+    directed_graph<int, int> graph;
 
-    typedef CG<compressed_sparse_row_graph<int, int>, double> CG_T;
+    typedef CG<directed_graph<int, int>, double> CG_T;
     vector<CG_T::Demand> demands;
     CG_T::Demand d1;
     d1.src = 0;
@@ -88,9 +88,9 @@ void MCFexample2() {
     weights.push_back(1);
     caps.push_back(1);
 
-    compressed_sparse_row_graph<int, int> graph;
+    directed_graph<int, int> graph;
 
-    typedef CG<compressed_sparse_row_graph<int, int>, double> CG_T;
+    typedef CG<directed_graph<int, int>, double> CG_T;
     vector<CG_T::Demand> demands;
     CG_T::Demand d1;
     d1.src = 0;
@@ -122,7 +122,7 @@ void randMCF(const int V, const int E, const double bw_B, const double w_B,
              const int d_num, const double dBWB) {
     typedef double T;
 
-    compressed_sparse_row_graph<int, int> graph;
+    directed_graph<int, int> graph;
     set<pair<int, int> > hasSet;
     vector<int> srcs;
     vector<int> snks;
@@ -164,7 +164,7 @@ void randMCF(const int V, const int E, const double bw_B, const double w_B,
     }
     i = 0;
 
-    typedef CG<compressed_sparse_row_graph<int, int>, T> CG_T;
+    typedef CG<directed_graph<int, int>, T> CG_T;
     vector<CG_T::Demand> demands;
     while (i < d_num) {
         src = rand() % V;
@@ -190,7 +190,7 @@ void randMCF(const int V, const int E, const double bw_B, const double w_B,
 }
 
 // void Case1(  ){
-//   compressed_sparse_row_graph<float > graph;
+//   directed_graph<float > graph;
 
 //   vector<int> srcs;
 //   vector<int> snks;
@@ -231,7 +231,7 @@ void randMCF(const int V, const int E, const double bw_B, const double w_B,
 // }
 
 void case2(void) {
-    compressed_sparse_row_graph<float> graph(5);
+    directed_graph<float> graph(5);
 
     vector<int> srcs;
     vector<int> snks;
@@ -287,7 +287,7 @@ void case2(void) {
 }
 
 void randGraph(const int V, const int E, const double WW) {
-    compressed_sparse_row_graph<double, int> graph;
+    directed_graph<double, int> graph;
     graph.setInfi(1000000000);
 
     set<pair<int, int> > hasSet;
@@ -316,31 +316,47 @@ void randGraph(const int V, const int E, const double WW) {
     }
 
     graph.initial(srcs, snks, weights);
-    // compressed_sparse_row_graph< double>::vertex_map<double> vmap=
+    // directed_graph< double>::vertex_map<double> vmap=
     //     graph.get_vertex_map<double>(  );
     // vmap[ 1 ]=122.22;
     // vmap[ 2 ]=122.22;
+
+
+    size_t tlen = 0;
+    size_t tnum = 0;
+    double slen=0;
+    size_t num=10000;
+    
+    vector<vector<int> > paths;
+    vector<int> dsrcs;
+    snk = rand() % V;
+    vector<double> dis( graph.getVertex_num(  ) );
+    vector<int>  preLink;
+    
+    dijkstra_shortest_retree( graph, weights,  snk,  preLink, dis, 100000000.0 )   ;
+    
 
     clock_t start = clock();
     // graph.compute_allPair_shortest_path();
     std::cout << ((double)(clock() - start)) / CLOCKS_PER_SEC << "  seconds"
               << std::endl;
-    size_t tlen = 0;
-    size_t tnum = 0;
-    vector<vector<int> > paths;
 
-    for (i = 0; i < 1000; i++) {
+    for (i = 0; i < num; i++) {
         set<int> pset;
         src = rand() % V;
-        snk = rand() % V;
+
         while (src == snk) {
-            snk = rand() % V;
+          src = rand() % V;
         }
+        dsrcs.push_back( src );
         paths.clear();
         vector<int> path;
-        if (graph.compute_shortest_path_dijkstra(src, snk, path)) {
+        if (bidijkstra_shortest_path(graph, weights,  src, snk, path, 1000000.0)) {
             if (!graph.isValidatePath(src, snk, path))
                 std::cout << "error" << std::endl;
+            tlen+=path.size(  );
+            tnum++;
+            slen+=path_cost( weights, path,0.0 );
         }
 
         // graph.getShortPath(src, snk, paths);
@@ -355,9 +371,36 @@ void randGraph(const int V, const int E, const double WW) {
         // }
         // tlen+=pset.size(  );
     }
-    std::cout << tnum << " pair " << tlen << " length"
-              << "  mean length: " << (tlen / (tnum + 0.01)) << std::endl;
+    double d=clock(  )-start;
+    std::cout<<"time: "<<d<<std::endl;
 
+    
+    std::cout << tnum << " pair " << tlen << " length"
+              << "  mean length: " << (tlen / (tnum + 0.01))<<"        :    sum length:  "<<slen << std::endl;
+    tlen=0;
+    tnum=0;
+    slen=0;
+    start = clock();
+    for (i = 0; i < num; i++) {
+        src = dsrcs[ i ];
+        paths.clear();
+        vector<int> path;
+        
+        if (astar_shortest_path(graph, weights, dis, src, snk, path,100000.0)) {
+            if (!graph.isValidatePath(src, snk, path))
+                std::cout << "error" << std::endl;
+            tlen+=path.size(  );
+            tnum++;
+            slen+=path_cost( weights, path , 0.0);
+        }
+        
+    }
+
+    d=clock(  )-start;
+    std::cout<<"time: "<<d<<std::endl;
+
+    std::cout << tnum << " pair " << tlen << " length"
+              << "  mean length: " << (tlen / (tnum + 0.01)) <<"        :    sum length:  "<<slen << std::endl;
     // graph.increaseLinkWeight( V/2, 10 );
     // vector<int> path;
     // int re =graph.getShortPath( 0,V/2, path );
@@ -367,8 +410,8 @@ void randGraph(const int V, const int E, const double WW) {
 }
 
 void randbiGraph(const int V, const int E, const double WW) {
-    compressed_sparse_row_graph<double, int> graph;
-    undir_graph<double, int> bgraph;
+    directed_graph<double, int> graph;
+    undirected_graph<double, int> bgraph;
     graph.setInfi(100000);
 
     set<pair<int, int> > hasSet;
@@ -490,16 +533,20 @@ void randbiGraph(const int V, const int E, const double WW) {
 }
 
 int main(int argc, char *argv[]) {
-    // MCFexample2(  );
-    randMCF(500, 4000, 1000, 40, 5000, 100);
-    // //  Case1(  );
-    // double start=cpuTime(  );
-    // randbiGraph(20000, 100000, 20);
+  randGraph(20000, 100000, 20);
+  return 0;
+  
+  // MCFexample2(  );
+  randMCF(500, 4000, 1000, 40, 5000, 100);
+    
+  // //  Case1(  );
+  // double start=cpuTime(  );
+  // randbiGraph(20000, 100000, 20);
 
-    // double end=cpuTime(  );
-    // std::cout << "time "<<end-start<<" seconds" << "  "<<memUsedPeak( true
-    // )<< " M  "<<memUsed(  )<<"  M" << std::endl;
-    // // case2(  );
+  // double end=cpuTime(  );
+  // std::cout << "time "<<end-start<<" seconds" << "  "<<memUsedPeak( true
+  // )<< " M  "<<memUsed(  )<<"  M" << std::endl;
+  // // case2(  );
 
-    return 0;
+  return 0;
 }

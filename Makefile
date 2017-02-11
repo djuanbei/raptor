@@ -9,9 +9,9 @@ PWD        = $(shell pwd)
 EXEC       = raptor
 
 WROOT      = $(PWD)/src
-LIB        = fastgraph
+LIB        = raptor
 
-MAINFILE   = raptor
+MAINFILE   = main
 
 SRCSUF     = cpp
 
@@ -47,7 +47,7 @@ endif
 #CFLAGS     = -fomit-frame-pointer -fno-rtti -fno-exceptions  -DHAVE_CONFIG_H
 # include ~/demo/SuiteSparse/SuiteSparse_config/SuiteSparse_config.mk
 
-COPTIMIZE	= -m64 -Ofast -flto -march=native  -funroll-loops
+# COPTIMIZE	= -m64 -Ofast -flto -march=native  -funroll-loops
 COPTIMIZE ?= -O2 
 
 CFLAGS    += -I  include -I include/klu # -I  ~/demo/SuiteSparse/include

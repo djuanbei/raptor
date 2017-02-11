@@ -1,6 +1,6 @@
 #ifndef __SYSTEM_H
 #define __SYSTEM_H
-namespace raptor {
+
 
 #if defined(__linux__)
 #include <fpu_control.h>
@@ -62,5 +62,5 @@ static inline double systemTime(void) {
 }
 
 #endif
-}
+
 #endif

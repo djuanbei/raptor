@@ -15,7 +15,7 @@
 #include <set>
 #include <vector>
 
-#include "heap.h"
+#include "heap.hpp"
 
 using namespace std;
 
@@ -83,6 +83,75 @@ bool dijkstra_shortest_path(const G &g, const WV &NW, const int src,
                 dis[next] = weight;
                 preLink[next] = link;
                 Q.push(make_pair(weight, next));
+            }
+        }
+    }
+    return false;
+}
+
+/** 
+ * @brief https://en.wikipedia.org/wiki/A*_search_algorithm
+ * 
+ * @param g 
+ * @param NW 
+ * @param h  heuristic function
+ * @param src 
+ * @param snk 
+ * @param path 
+ * @param inf 
+ * 
+ * @return 
+ */
+
+template <typename G, typename WV, typename W, typename H>
+bool astar_shortest_path(const G &g, const WV &NW, const H& h, const int src,
+                            const int snk, vector<int> &path, const W inf) {
+    typedef pair<W, int> PII;
+    path.clear();
+    if (src < 0 || snk < 0) return false;
+    if (src == snk) return true;
+    int vertex_num = g.getVertex_num();
+    if (src >= vertex_num || snk >= vertex_num) return false;
+
+    vector<int> preLink(vertex_num, -1);
+    vector<W> dis(vertex_num, inf);
+    LESSOR_T<PII> order;
+    size_t j, outDegree;
+    int link, next;
+    int current;
+    W weight;
+
+    Fixed_heap<W, int, LESSOR_T<PII>> Q(order, vertex_num);
+    
+    dis[src] = 0;
+    Q.push(make_pair(0.0, src));
+    while (!Q.empty()) {
+        PII p = Q.top();
+        current = p.second;
+        if (current == snk) {
+            while (current != src) {
+                path.push_back(preLink[current]);
+                g.findRhs(preLink[current], current, current);
+            }
+            reverse(path.begin(), path.end());
+            return true;
+        }
+        Q.pop();
+
+        outDegree = g.getOutDegree(current);
+        W current_weight = dis[current];
+        for (j = 0; j < outDegree; j++) {
+            link = g.getAdj(current, j);
+
+            weight = current_weight + NW[link];
+
+            g.findRhs(link, current, next);
+
+            if (weight < dis[snk] && weight < dis[next]) {
+              
+                dis[next] = weight;
+                preLink[next] = link;
+                Q.push(make_pair(weight+h[ next ], next));
             }
         }
     }
@@ -167,6 +236,52 @@ void dijkstra_shortest_tree(const G &g, const WV &NW, const int src,
         W current_weight = p.first;
         for (j = 0; j < outDegree; j++) {
             link = g.getAdj(current, j);
+
+            weight = current_weight + NW[link];
+
+            g.findRhs(link, current, next);
+
+            if (weight < dis[next]) {
+                dis[next] = weight;
+                preLink[next] = link;
+                Q.push(make_pair(weight, next));
+            }
+        }
+    }
+}
+
+template <typename G, typename WV, typename W>
+void dijkstra_shortest_retree(const G &g, const WV &NW, const int snk,
+                            vector<int> &preLink, vector<W> &dis, const W inf) {
+    typedef pair<W, int> PII;
+    int vertex_num = g.getVertex_num();
+    preLink.resize(vertex_num);
+    dis.resize(vertex_num);
+    fill(preLink.begin(), preLink.end(), -1);
+    fill(dis.begin(), dis.end(), inf);
+    if (snk< 0) return;
+
+    if (snk >= vertex_num) return;
+
+    LESSOR_T<PII> order;
+    size_t j, inDegree;
+    int link, next=snk;
+    int current;
+    W weight;
+
+    Fixed_heap<W, int, LESSOR_T<PII>> Q(order, vertex_num);
+    dis[snk] = 0;
+    Q.push(make_pair(0.0, snk));
+    while (!Q.empty()) {
+        PII p = Q.top();
+        current = p.second;
+
+        Q.pop();
+
+        inDegree = g.getInDegree(current);
+        W current_weight = p.first;
+        for (j = 0; j < inDegree; j++) {
+            link = g.getReAdj(current, j);
 
             weight = current_weight + NW[link];
 
@@ -341,6 +456,61 @@ bool bidijkstra_shortest_path(const G &g, const WV &NW, const int src,
     }
     return re;
 }
+
+template <typename G, typename WV,typename H, typename W>
+bool dijkstra_shortest_path(const G &g, const WV &NW, const H& h, const int src,
+                            const int snk, vector<int> &path, const W inf) {
+    typedef pair<W, int> PII;
+    path.clear();
+    if (src < 0 || snk < 0) return false;
+    if (src == snk) return true;
+    int vertex_num = g.getVertex_num();
+    if (src >= vertex_num || snk >= vertex_num) return false;
+
+    vector<int> preLink(vertex_num, -1);
+    vector<W> dis(vertex_num, inf);
+    LESSOR_T<PII> order;
+    size_t j, outDegree;
+    int link, next;
+    int current;
+    W weight;
+
+    Fixed_heap<W, int, LESSOR_T<PII>> Q(order, vertex_num);
+    dis[src] = 0;
+    Q.push(make_pair(0.0, src));
+    while (!Q.empty()) {
+        PII p = Q.top();
+        current = p.second;
+        if (current == snk) {
+            while (current != src) {
+                path.push_back(preLink[current]);
+                g.findRhs(preLink[current], current, current);
+            }
+            reverse(path.begin(), path.end());
+            return true;
+        }
+        Q.pop();
+
+        outDegree = g.getOutDegree(current);
+        W current_weight = p.first;
+        for (j = 0; j < outDegree; j++) {
+            link = g.getAdj(current, j);
+
+            weight = current_weight + NW[link];
+
+            g.findRhs(link, current, next);
+
+            if (weight < dis[snk] && weight < dis[next]) {
+                dis[next] = weight;
+                preLink[next] = link;
+                Q.push(make_pair(weight, next));
+            }
+        }
+    }
+    return false;
+}
+
+
 
 template <typename G, typename WV, typename W>
 bool bidijkstra_shortest_path(const G &g, const WV &NW,
