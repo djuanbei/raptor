@@ -29,8 +29,8 @@ ifeq ($(SRCSUF),cpp)
 	CC=g++  -fopenmp
 	CLANG=clang++
 
-	CFLAGS     =  -pedantic -W -Wall   -std=c++11    -DHAVE_CONFIG_H -Wlong-long
-	LFLAGS    =   -pedantic -W -Wall 
+	CFLAGS     =  -pedantic -W -Werror   -std=c++11    -DHAVE_CONFIG_H -Wlong-long
+	LFLAGS    =   -pedantic -W -Werror
 else
 	CC=gcc
 	CLANG=clang

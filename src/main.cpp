@@ -341,7 +341,7 @@ void randGraph(const int V, const int E, const double WW) {
     std::cout << ((double)(clock() - start)) / CLOCKS_PER_SEC << "  seconds"
               << std::endl;
 
-    for (i = 0; i < num; i++) {
+    for (size_t i = 0; i < num; i++) {
         set<int> pset;
         src = rand() % V;
 
@@ -381,7 +381,7 @@ void randGraph(const int V, const int E, const double WW) {
     tnum=0;
     slen=0;
     start = clock();
-    for (i = 0; i < num; i++) {
+    for (size_t i = 0; i < num; i++) {
         src = dsrcs[ i ];
         paths.clear();
         vector<int> path;

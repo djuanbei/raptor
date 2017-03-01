@@ -23,7 +23,9 @@ namespace raptor {
 
 template <typename T>
 struct LESSOR_T {
-    bool operator()(const T &x, const T &y) const { return x.first < y.first; }
+    bool operator()(const T &x, const T &y) const {
+      return x.first < y.first;
+    }
 };
 
 template <typename WV, typename W>
@@ -36,15 +38,46 @@ W path_cost(const WV &NW, const vector<int> &path, W) {
     return re;
 }
 
+/** 
+ * @brief https://en.wikipedia.org/wiki/DFS
+ * 
+ * @param g 
+ * @param src 
+ * @param pass_nodes 
+ * 
+ * @return 
+ */
+template <typename G>
+void dfs_search(const G &g,  const int src, vector<int> &pass_nodes) {
+  pass_nodes.clear(  );
+  int vertex_num = g.getVertex_num();
+  if (src < 0 ) {
+    return false;
+  }
+
+  if (src >= vertex_num ){
+    return false;
+  }
+
+  
+
+}
+
 template <typename G, typename WV, typename W>
 bool dijkstra_shortest_path(const G &g, const WV &NW, const int src,
                             const int snk, vector<int> &path, const W inf) {
     typedef pair<W, int> PII;
     path.clear();
-    if (src < 0 || snk < 0) return false;
-    if (src == snk) return true;
+    if (src < 0 || snk < 0) {
+      return false;
+    }
+    if (src == snk){
+      return true;
+    }
     int vertex_num = g.getVertex_num();
-    if (src >= vertex_num || snk >= vertex_num) return false;
+    if (src >= vertex_num || snk >= vertex_num) {
+      return false;
+    }
 
     vector<int> preLink(vertex_num, -1);
     vector<W> dis(vertex_num, inf);
@@ -108,10 +141,16 @@ bool astar_shortest_path(const G &g, const WV &NW, const H& h, const int src,
                             const int snk, vector<int> &path, const W inf) {
     typedef pair<W, int> PII;
     path.clear();
-    if (src < 0 || snk < 0) return false;
-    if (src == snk) return true;
+    if (src < 0 || snk < 0) {
+      return false;
+    }
+    if (src == snk){
+      return true; 
+    }
     int vertex_num = g.getVertex_num();
-    if (src >= vertex_num || snk >= vertex_num) return false;
+    if (src >= vertex_num || snk >= vertex_num){
+      return false; 
+    }
 
     vector<int> preLink(vertex_num, -1);
     vector<W> dis(vertex_num, inf);
@@ -166,9 +205,13 @@ void dijkstra_shortest_tree(const G &g, const WV &NW, const int src,
     preLink.resize(vertex_num);
     fill(preLink.begin(), preLink.end(), -1);
 
-    if (src < 0) return;
+    if (src < 0) {
+      return;
+    }
 
-    if (src >= vertex_num) return;
+    if (src >= vertex_num){
+      return; 
+    }
 
     vector<W> dis(vertex_num, inf);
     LESSOR_T<PII> order;
@@ -213,9 +256,13 @@ void dijkstra_shortest_tree(const G &g, const WV &NW, const int src,
     dis.resize(vertex_num);
     fill(preLink.begin(), preLink.end(), -1);
     fill(dis.begin(), dis.end(), inf);
-    if (src < 0) return;
+    if (src < 0) {
+      return;
+    }
 
-    if (src >= vertex_num) return;
+    if (src >= vertex_num){
+      return; 
+    }
 
     LESSOR_T<PII> order;
     size_t j, outDegree;
@@ -259,9 +306,13 @@ void dijkstra_shortest_retree(const G &g, const WV &NW, const int snk,
     dis.resize(vertex_num);
     fill(preLink.begin(), preLink.end(), -1);
     fill(dis.begin(), dis.end(), inf);
-    if (snk< 0) return;
+    if (snk< 0) {
+      return;
+    }
 
-    if (snk >= vertex_num) return;
+    if (snk >= vertex_num){
+      return; 
+    }
 
     LESSOR_T<PII> order;
     size_t j, inDegree;
@@ -301,10 +352,16 @@ bool bidijkstra_shortest_path(const G &g, const WV &NW, const int src,
                               const int snk, vector<int> &path, const W inf) {
     typedef pair<W, int> PII;
     path.clear();
-    if (src < 0 || snk < 0) return false;
-    if (src == snk) return true;
+    if (src < 0 || snk < 0){
+      return false; 
+    }
+    if (src == snk){
+      return true; 
+    }
     int vertex_num = g.getVertex_num();
-    if (src >= vertex_num || snk >= vertex_num) return false;
+    if (src >= vertex_num || snk >= vertex_num){
+      return false; 
+    }
 
     vector<int> preLink(vertex_num, -1);
     vector<W> dis(vertex_num, inf);
@@ -462,10 +519,16 @@ bool dijkstra_shortest_path(const G &g, const WV &NW, const H& h, const int src,
                             const int snk, vector<int> &path, const W inf) {
     typedef pair<W, int> PII;
     path.clear();
-    if (src < 0 || snk < 0) return false;
-    if (src == snk) return true;
+    if (src < 0 || snk < 0){
+      return false; 
+    }
+    if (src == snk){
+      return true; 
+    }
     int vertex_num = g.getVertex_num();
-    if (src >= vertex_num || snk >= vertex_num) return false;
+    if (src >= vertex_num || snk >= vertex_num){
+      return false; 
+    }
 
     vector<int> preLink(vertex_num, -1);
     vector<W> dis(vertex_num, inf);
@@ -519,10 +582,16 @@ bool bidijkstra_shortest_path(const G &g, const WV &NW,
                               const int snk, vector<int> &path, const W inf) {
     typedef pair<W, int> PII;
     path.clear();
-    if (src < 0 || snk < 0) return false;
-    if (src == snk) return true;
+    if (src < 0 || snk < 0){
+      return false; 
+    }
+    if (src == snk){
+      return true; 
+    }
     int vertex_num = g.getVertex_num();
-    if (src >= vertex_num || snk >= vertex_num) return false;
+    if (src >= vertex_num || snk >= vertex_num){
+      return false; 
+    }
 
     vector<int> preLink(vertex_num, -1);
     vector<W> dis(vertex_num, inf);
@@ -561,10 +630,14 @@ bool bidijkstra_shortest_path(const G &g, const WV &NW,
         W current_weight = p.first;
         for (j = 0; j < outDegree; j++) {
             link = g.getAdj(current, j);
-            if (exclude_links[link]) continue;
+            if (exclude_links[link]){
+              continue; 
+            }
 
             g.findRhs(link, current, next);
-            if (exclude_nodes[next]) continue;
+            if (exclude_nodes[next]){
+              continue; 
+            }
             weight = current_weight + NW[link];
 
             if (weight < dis[next]) {
@@ -585,10 +658,14 @@ bool bidijkstra_shortest_path(const G &g, const WV &NW,
         current_weight = bdis[current];
         for (j = 0; j < inDegree; j++) {
             link = g.getReAdj(current, j);
-            if (exclude_links[link]) continue;
+            if (exclude_links[link]){
+              continue; 
+            }
 
             g.findRhs(link, current, next);
-            if (exclude_nodes[next]) continue;
+            if (exclude_nodes[next]){
+              continue; 
+            }
             weight = current_weight + NW[link];
             if (weight < bdis[next]) {
                 bdis[next] = weight;
@@ -707,7 +784,7 @@ class yen_next_path {
             graph.findRhs(last_path[i], temp_src, temp_src);
         }
 
-        for (; i < last_path.size(); i++) {
+        for (; i < (int)last_path.size(); i++) {
             if (i == last_loc) {
                 for (set<int>::iterator it = using_edges.begin();
                      it != using_edges.end(); it++) {
@@ -797,6 +874,11 @@ class yen_ksp {
                                        inf);
     }
 };
+}
+
+namespace maxflow {
+
+
 }
 }
 

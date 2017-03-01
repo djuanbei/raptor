@@ -880,7 +880,7 @@ class CG {
             C bw = demands[i].bandwidth;
             vector<float> ws = orignal_weights;
             sum_bw += bw;
-            for (size_t j = 0; j < origLink_num; j++) {
+            for (int j = 0; j < origLink_num; j++) {
                 if (temp_cap[j] < bw) {
                     ws[j] = inf_weight;
                 }
@@ -942,7 +942,7 @@ class CG {
         }
 
         rhs.resize(K + origLink_num + 1, (C)0.0);
-        for (size_t i = 0; i < K; i++) {
+        for (int i = 0; i < K; i++) {
             rhs[i] = demands[i].bandwidth;
         }
 
@@ -1379,7 +1379,7 @@ class CG {
             }
 
             for (size_t i = 0; i < un_status_links.size(); i++) {
-                for (int k = 0; k < left_AK.size(); k++) {
+                for (size_t k = 0; k < left_AK.size(); k++) {
                     int pid = left_AK[k];
                     int ppid = primary_path_loc[pid];
                     if (lower_bound(
@@ -1398,7 +1398,7 @@ class CG {
             }
 
             for (size_t i = 0; i < un_status_links.size(); i++) {
-                for (int k = 0; k < left_AN.size(); k++) {
+                for (size_t k = 0; k < left_AN.size(); k++) {
                     int pid = left_AN[k];
                     int ppid = status_link_path_loc[status_links[pid]];
                     if (lower_bound(
@@ -1493,7 +1493,7 @@ class CG {
         }
 
         for (size_t i = 0; i < un_status_links.size(); i++) {
-            for (int k = 0; k < left_AK.size(); k++) {
+            for (size_t k = 0; k < left_AK.size(); k++) {
                 int pid = left_AK[k];
                 int ppid = primary_path_loc[pid];
 
