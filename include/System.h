@@ -1,7 +1,6 @@
 #ifndef __SYSTEM_H
 #define __SYSTEM_H
 
-
 #if defined(__linux__)
 #include <fpu_control.h>
 #endif
@@ -49,16 +48,16 @@ static inline double cpuTime(void) { return (double)clock() / CLOCKS_PER_SEC; }
 #include <unistd.h>
 
 static inline double cpuTime(void) {
-    struct rusage ru;
-    getrusage(RUSAGE_SELF, &ru);
-    return (double)ru.ru_utime.tv_sec + (double)ru.ru_utime.tv_usec / 1000000;
+  struct rusage ru;
+  getrusage(RUSAGE_SELF, &ru);
+  return (double)ru.ru_utime.tv_sec + (double)ru.ru_utime.tv_usec / 1000000;
 }
 
 static inline double systemTime(void) {
-    struct timespec start;
-    clock_gettime(CLOCK_MONOTONIC, &start);
+  struct timespec start;
+  clock_gettime(CLOCK_MONOTONIC, &start);
 
-    return start.tv_sec + start.tv_nsec / 1000000000.0;
+  return start.tv_sec + start.tv_nsec / 1000000000.0;
 }
 
 #endif
