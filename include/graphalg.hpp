@@ -427,6 +427,13 @@ void dijkstra_shortest_retree(const G &graph, const WV &NW, const int snk,
 }
 
 template <typename G, typename WV, typename W>
+void dijkstra_shortest_retree(const G &graph, const WV &NW, const int snk,
+                              vector<W> &dis, const W inf) {
+  vector<int> preLink;
+  dijkstra_shortest_retree(graph, NW, snk, preLink, dis, inf);
+}
+
+template <typename G, typename WV, typename W>
 bool bidijkstra_shortest_path(const G &graph, const WV &NW, const int src,
                               const int snk, vector<int> &path, const W inf) {
   typedef pair<W, int> PII;
@@ -951,7 +958,72 @@ class yen_ksp {
 };
 }
 
-namespace maxflow {}
+namespace maxflow {
+
+template <typename G, typename WV, typename CV, typename W, typename C>
+pair<C, W> _minCostMaxFlow(const G &graph, int src, int snk, const WV &weights,
+                           const CV &caps, vector<vector<int>> &split_flows,
+                           vector<C> &flow_sizes, W infi_value,
+                           C max_cap = numeric_limits<C>::max()) {
+  int vertex_num = graph.getVertex_num();
+  int link_num = graph.getLink_num();
+  if (src < 0 || src >= vertex_num) {
+    return make_pair<C, W>(0, 0);
+  }
+  if (snk < 0 || snk >= vertex_num) {
+    return make_pair<C, W>(0, 0);
+  }
+  if (src == snk) {
+    return make_pair<C, W>(0, 0);
+  }
+
+  vector<W> dist(vertex_num, infi_value);
+  vector<C> width(link_num);
+  vector<C> flow(link_num);
+  vector<W> backDis(vertex_num, infi_value);
+
+  dist[src] = 0;
+  width[src] = INF;
+  vector<int> caps(link_num);
+
+  dijkstra_shortest_retree(graph, weights, snk, backDis, infi_value);
+}
+
+template <typename G, typename WV, typename CV, typename W, typename C>
+pair<C, W> minCostMaxFlow(const G &graph, int src, int snk, const WV &weights,
+                          const CV &caps, vector<vector<int>> &split_flows,
+                          vector<C> &flow_sizes, W infi_value,
+                          C max_cap = numeric_limits<C>::max()) {
+  if (graph.isDirect()) {
+    return _minCostMaxFlow(graph, src, snk, weights, caps, infi_value max_cap);
+  } else {
+    simple_graph temp_graph;
+    vector<int> srcs, snks;
+    int tempSrc, tempSnk;
+    vector<W> tempWights;
+    vector<C> tempCaps;
+    for (int i = 0; i < graph.getLink_num(); i++) {
+      graph.findSrcSnk(i, tempSrc, tempSnk);
+      srcs.push_back(tempSrc);
+      snks.push_back(tempSnk);
+
+      srcs.push_back(tempSnk);
+      snks.push_back(tempSrc);
+
+      tempWights.push_back(weights[i]);
+      tempWights.push_back(weights[i]);
+
+      tempCaps.push_back(caps[i]);
+      tempCaps.push_back(caps[i]);
+    }
+
+    temp_graph.initial(srcs, snks);
+
+    _minCostMaxFlow(temp_graph, src, snk, tempWights, tempCaps,
+                    infi_value max_cap);
+  }
+}
+}
 }
 
 #endif

@@ -77,9 +77,9 @@ class simple_graph {
     in2outLink_map.clear();
     out2inLink_map.clear();
   }
-  
+
   void initial(vector<int> &srcs, vector<int> &snks, bool direct = false);
-  
+
   bool isDirect() const { return directed; }
 
   inline size_t getVertex_num(void) const { return vertex_num; }
@@ -108,7 +108,7 @@ class simple_graph {
   inline bool findSnk(const int link, int &snk) const {
     return _findSnk(out2inLink_map[link], snk);
   }
-  
+
   bool findRhs(const int link, const int lhs, int &rhs) const {
     int tempSrc, tempSnk;
     if (!findSrcSnk(link, tempSrc, tempSnk)) {
