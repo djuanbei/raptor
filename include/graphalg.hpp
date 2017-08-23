@@ -65,14 +65,14 @@ void dfs_search(const G &graph, const int src, vector<int> &pass_nodes) {
   pass_nodes.clear();
   int vertex_num = graph.getVertex_num();
   if (src < 0) {
-    return false;
+
   }
 
   if (src >= vertex_num) {
-    return false;
+
   }
 
-  int current, j, outDegree, tempSnk;
+  int current, j, link, outDegree, tempSnk;
 
   vector<int> child_id(vertex_num, -1);
   pass_nodes.push_back(src);
@@ -112,14 +112,14 @@ void bfs_search(const G &graph, const int src, vector<int> &pass_nodes) {
   pass_nodes.clear();
   int vertex_num = graph.getVertex_num();
   if (src < 0) {
-    return false;
+
   }
 
   if (src >= vertex_num) {
-    return false;
+
   }
 
-  int current, j, outDegree, tempSnk;
+  int current, j, link, outDegree, tempSnk;
   vector<int> Q;
   vector<bool> pass(vertex_num, false);
   pass[src] = true;
@@ -600,65 +600,6 @@ bool bidijkstra_shortest_path(const G &graph, const WV &NW, const int src,
   return re;
 }
 
-template <typename G, typename WV, typename H, typename W>
-bool dijkstra_shortest_path(const G &graph, const WV &NW, const H &h,
-                            const int src, const int snk, vector<int> &path,
-                            const W inf) {
-  typedef pair<W, int> PII;
-  path.clear();
-  if (src < 0 || snk < 0) {
-    return false;
-  }
-  if (src == snk) {
-    return true;
-  }
-  int vertex_num = graph.getVertex_num();
-  if (src >= vertex_num || snk >= vertex_num) {
-    return false;
-  }
-
-  vector<int> preLink(vertex_num, -1);
-  vector<W> dis(vertex_num, inf);
-  LESSOR_T<PII> order;
-  size_t j, outDegree;
-  int link, tempSnk;
-  int current;
-  W weight;
-
-  Fixed_heap<W, int, LESSOR_T<PII>> Q(order, vertex_num);
-  dis[src] = 0;
-  Q.push(make_pair(0.0, src));
-  while (!Q.empty()) {
-    PII p = Q.top();
-    current = p.second;
-    if (current == snk) {
-      while (current != src) {
-        path.push_back(preLink[current]);
-        graph.findRhs(preLink[current], current, current);
-      }
-      reverse(path.begin(), path.end());
-      return true;
-    }
-    Q.pop();
-
-    outDegree = graph.getOutDegree(current);
-    W current_weight = p.first;
-    for (j = 0; j < outDegree; j++) {
-      link = graph.getAdj(current, j);
-
-      weight = current_weight + NW[link];
-
-      graph.findRhs(link, current, tempSnk);
-
-      if (weight < dis[snk] && weight < dis[tempSnk]) {
-        dis[tempSnk] = weight;
-        preLink[tempSnk] = link;
-        Q.push(make_pair(weight, tempSnk));
-      }
-    }
-  }
-  return false;
-}
 
 template <typename G, typename WV, typename W>
 bool bidijkstra_shortest_path(const G &graph, const WV &NW,
@@ -983,8 +924,8 @@ pair<C, W> _minCostMaxFlow(const G &graph, int src, int snk, const WV &weights,
   vector<W> backDis(vertex_num, infi_value);
 
   dist[src] = 0;
-  width[src] = INF;
-  vector<int> caps(link_num);
+  width[src] = max_cap;
+
 
   dijkstra_shortest_retree(graph, weights, snk, backDis, infi_value);
 }

@@ -157,74 +157,6 @@ class directed_graph {
   }
 
  public:
-  template <typename T>
-  class vertex_map {
-   private:
-    graph_t &graph;
-    vector<T> values;
-
-   public:
-    class map_iterator {
-     private:
-      vertex_map<T> &v_map;
-      int index;
-
-     public:
-      map_iterator(vertex_map<T> &vv_map, int i = 0)
-          : v_map(vv_map), index(i) {}
-      map_iterator(map_iterator &other)
-          : v_map(other.v_map), index(other.index) {}
-      void operator()(map_iterator &other) {
-        v_map = other.v_map;
-        index = other.index;
-      }
-      bool operator!=(const map_iterator &other) const {
-        return index != other.index;
-      }
-      void operator++() { index++; }
-      void operator--() { index--; }
-      void operator++(int) { index++; }
-
-      void operator--(int) { index--; }
-
-      T &operator*() {
-        static T error_return;
-        if (index < 0 || index >= graph.getVertex_num()) {
-          cerr << " there are some thing wrone" << endl;
-          return error_return;
-        }
-        return v_map.values[index];
-      }
-    };
-    typedef map_iterator iterator;
-
-    vertex_map(graph_t &g) : graph(g), values(g.getVertex_num()) {}
-
-    T &operator[](const int index) {
-      static T error_return;
-      if (index < 0 || index >= graph.getVertex_num()) {
-        cerr << " there are some thing wrone" << endl;
-        return error_return;
-      }
-      return values[index];
-    }
-
-    const T &operator[](const int index) const {
-      static T error_return;
-      if (index < 0 || index >= graph.getVertex_num()) {
-        cerr << " there are some thing wrone" << endl;
-        return error_return;
-      }
-      return values[index];
-    }
-    iterator begin() { return map_iterator(*this); }
-    iterator end() { return map_iterator(*this, values.size()); }
-  };
-
-  template <typename T>
-  vertex_map<T> get_vertex_map() {
-    return vertex_map<T>(*this);
-  }
 
   directed_graph(const size_t k = 1)
       : save_path(true),
@@ -1064,56 +996,6 @@ class directed_graph {
     }
   }
 
-  /**
-   *
-   *  compute two disjoint path1 path2 and the corss srlg do not have
-   *intersection
-   * @param src
-   * @param snk
-   * @param srlg map from edge to  srlg
-   * @param path1
-   * @param path2
-   *
-   * @return true if find these two paths; false otherwise
-   */
-  bool twodragonplay(const E src, const E snk, const map<E, vector<int>> &srlg,
-                     vector<E> &path1, vector<E> &path2) {
-    if (0 == link_num) return true;
-    assert(src < vertex_num && snk < vertex_num);
-    compute_sourceallPair_shortest_path_dijkstra(src);
-    W totalweight = 0.0;
-    size_t i;
-    for (i = 0; i < link_num; i++) {
-      totalweight += getWeight(i);
-    }
-    double meanweight = (totalweight + 0.0) / link_num;
-    map<int, int> srlgoccurnum;
-
-    for (typename map<E, vector<int>>::const_iterator it = srlg.begin();
-         it != srlg.end(); it++) {
-      for (set<int>::const_iterator iter = it->second.begin();
-           it != it->second.end(); it++) {
-        if (srlgoccurnum.find(*it) == srlgoccurnum.end()) {
-          srlgoccurnum[*it] = 1;
-        } else {
-          srlgoccurnum[*it]++;
-        }
-      }
-    }
-
-    vector<E> redq, bludq;
-    set<int> redsrlg, bluesrlg;
-    redq.push_back(src);
-    bludq.push_back(src);
-
-    map<int, size_t> redfirstsrlgloc;
-    map<int, size_t> bluefirstsrlgloc;
-
-    while (true) {
-    }
-
-    return true;
-  }
 
   void compute_allPair_shortest_path() {
     assert(save_path);
