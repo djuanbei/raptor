@@ -88,7 +88,8 @@ void setX86FPUPrecision() {
 #endif
 }
 
-#if !defined(_MSC_VER) && !defined(__MINGW32__)
+#if defined (__linux__)
+
 void limitMemory(uint64_t max_mem_mb) {
 // FIXME: OpenBSD does not support RLIMIT_AS. Not sure how well RLIMIT_DATA
 // works instead.
@@ -118,7 +119,7 @@ void limitMemory(uint64_t /*max_mem_mb*/) {
 }
 #endif
 
-#if !defined(_MSC_VER) && !defined(__MINGW32__)
+#if defined (__linux__)
 void limitTime(uint32_t max_cpu_time) {
   if (max_cpu_time != 0) {
     rlimit rl;

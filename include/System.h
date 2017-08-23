@@ -41,7 +41,7 @@ extern void sigTerm(
 
 static inline double cpuTime(void) { return (double)clock() / CLOCKS_PER_SEC; }
 
-#else
+#elif (__linux__)
 #include <sys/resource.h>
 #include <sys/time.h>
 #include <time.h>
@@ -59,6 +59,34 @@ static inline double systemTime(void) {
 
   return start.tv_sec + start.tv_nsec / 1000000000.0;
 }
+
+#elif (__MACH__)
+
+#include <time.h>
+#include <sys/time.h>
+
+#include <mach/clock.h>
+#include <mach/mach.h>
+
+
+
+
+static inline double systemTime(void) {
+  struct timespec ts;
+
+  clock_serv_t cclock;
+  mach_timespec_t mts;
+  host_get_clock_service(mach_host_self(), CALENDAR_CLOCK, &cclock);
+  clock_get_time(cclock, &mts);
+  mach_port_deallocate(mach_task_self(), cclock);
+  ts.tv_sec = mts.tv_sec;
+  ts.tv_nsec = mts.tv_nsec;
+
+  return ts.tv_sec + ts.tv_nsec / 1000000000.0;
+}
+
+
+
 
 #endif
 

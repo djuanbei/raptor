@@ -11,7 +11,10 @@
 #include <deque>
 #include <vector>
 
+#ifdef OMP
 #include <omp.h>
+#endif
+
 #include <algorithm>
 #include <cassert>
 #include <cstring>
