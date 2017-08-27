@@ -62,14 +62,11 @@ static inline double systemTime(void) {
 
 #elif (__MACH__)
 
-#include <time.h>
 #include <sys/time.h>
+#include <time.h>
 
 #include <mach/clock.h>
 #include <mach/mach.h>
-
-
-
 
 static inline double systemTime(void) {
   struct timespec ts;
@@ -84,9 +81,6 @@ static inline double systemTime(void) {
 
   return ts.tv_sec + ts.tv_nsec / 1000000000.0;
 }
-
-
-
 
 #endif
 

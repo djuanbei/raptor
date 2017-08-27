@@ -157,7 +157,6 @@ class directed_graph {
   }
 
  public:
-
   directed_graph(const size_t k = 1)
       : save_path(true),
         infi_value(numeric_limits<W>::max() / 10e10),
@@ -995,7 +994,6 @@ class directed_graph {
       }
     }
   }
-
 
   void compute_allPair_shortest_path() {
     assert(save_path);

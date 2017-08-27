@@ -12,11 +12,13 @@
 #define __GRAPH_ALG_H
 
 #include <algorithm>
+#include <limits>
 #include <queue>
 #include <set>
 #include <stack>
 #include <utility>
 #include <vector>
+
 #include "heap.hpp"
 
 namespace raptor {
@@ -65,11 +67,9 @@ void dfs_search(const G &graph, const int src, vector<int> &pass_nodes) {
   pass_nodes.clear();
   int vertex_num = graph.getVertex_num();
   if (src < 0) {
-
   }
 
   if (src >= vertex_num) {
-
   }
 
   int current, j, link, outDegree, tempSnk;
@@ -112,11 +112,9 @@ void bfs_search(const G &graph, const int src, vector<int> &pass_nodes) {
   pass_nodes.clear();
   int vertex_num = graph.getVertex_num();
   if (src < 0) {
-
   }
 
   if (src >= vertex_num) {
-
   }
 
   int current, j, link, outDegree, tempSnk;
@@ -600,7 +598,6 @@ bool bidijkstra_shortest_path(const G &graph, const WV &NW, const int src,
   return re;
 }
 
-
 template <typename G, typename WV, typename W>
 bool bidijkstra_shortest_path(const G &graph, const WV &NW,
                               const vector<bool> &exclude_nodes,
@@ -902,6 +899,87 @@ class yen_ksp {
 namespace maxflow {
 
 template <typename G, typename WV, typename CV, typename W, typename C>
+
+C dijkstra(const G &graph, int src, int snk, const WV &weights,
+           const vector<W> &backDis, const CV &caps, vector<C> &flows,
+           vector<int> &link_path, const W inf) {
+  typedef pair<W, int> PII;
+
+  link_path.clear();
+
+  size_t j, outDegree, inDegree, link, next;
+  int current;
+  int weight, current_weight;
+  int vertex_num = graph.getVertex_num();
+
+  vector<W> dis(vertex_num, inf);
+  vector<int> preLink(vertex_num, -1);
+
+  LESSOR_T<PII> order;
+  Fixed_heap<W, int, LESSOR_T<PII>> Q(order, vertex_num);
+  dis[src] = 0;
+
+  C INF = std::numeric_limits<C>::max() / 10;
+
+  Q.push(backDis[src], src);
+
+  while (!Q.empty()) {
+    Q.top(current_weight, current);
+
+    if (current == snk) {
+      while (current != src) {
+        link_path.push_back(preLink[current]);
+        graph.findRhs(preLink[current], current, current);
+      }
+      reverse(link_path.begin(), link_path.end());
+      C re = INF;
+      for (vector<int>::const_iterator it = link_path.begin();
+           it != link_path.end(); it++) {
+        re = min(re, caps[*it]);
+      }
+
+      return re;
+    }
+    Q.pop();
+
+    outDegree = graph.getOutDegree(current);
+
+    for (j = 0; j < outDegree; j++) {
+      link = graph.getAdj(current, j);
+
+      if (caps[link] > 0) {
+        graph.findRhs(link, current, next);
+
+        weight = current_weight + weights[link];
+
+        if (weight < dis[snk] && weight < dis[next]) {
+          preLink[next] = link;
+          dis[next] = weight;
+          Q.push(weight + backDis[next], next);
+        }
+      }
+    }
+
+    inDegree = graph.getInDegree(current);
+
+    for (j = 0; j < inDegree; j++) {
+      link = graph.getReAdj(current, j);
+      if (flows[link] > 0) {
+        graph.findRhs(link, current, next);
+        weight = current_weight - weights[link];
+        if (weight < dis[snk] && weight < dis[next]) {
+          preLink[next] = link;
+          dis[next] = weight;
+          Q.push_back(weight + backDis[next], next);
+        }
+      }
+    }
+  }
+
+  return 0;
+}
+
+template <typename G, typename WV, typename CV, typename W, typename C>
 pair<C, W> _minCostMaxFlow(const G &graph, int src, int snk, const WV &weights,
                            const CV &caps, vector<vector<int>> &split_flows,
                            vector<C> &flow_sizes, W infi_value,
@@ -926,8 +1004,14 @@ pair<C, W> _minCostMaxFlow(const G &graph, int src, int snk, const WV &weights,
   dist[src] = 0;
   width[src] = max_cap;
 
-
   dijkstra_shortest_retree(graph, weights, snk, backDis, infi_value);
+  CV temp_caps(caps);
+
+  C amt = dijkstra(graph, src, snk, weights, backDis, temp_caps, flows,
+                   link_path, infi_value);
+
+  while (amt > 0) {
+  }
 }
 
 template <typename G, typename WV, typename CV, typename W, typename C>
