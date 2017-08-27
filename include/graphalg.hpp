@@ -1006,11 +1006,20 @@ pair<C, W> _minCostMaxFlow(const G &graph, int src, int snk, const WV &weights,
 
   dijkstra_shortest_retree(graph, weights, snk, backDis, infi_value);
   CV temp_caps(caps);
-
-  C amt = dijkstra(graph, src, snk, weights, backDis, temp_caps, flows,
+  vector<int> link_path;
+  C amt = dijkstra(graph, src, snk, weights, backDis, temp_caps, flow,
                    link_path, infi_value);
 
   while (amt > 0) {
+    split_flows.push_back(link_path);
+    flow_sizes.push_back(amt);
+    for(vector<int>::iterator it=link_path.begin(); it!= link_path.end(); it++){
+      temp_caps[*it]-=amt;
+      flow[*it]+=amt;
+    }
+    
+    amt = dijkstra(graph, src, snk, weights, backDis, temp_caps, flow,
+                   link_path, infi_value);
   }
 }
 
@@ -1020,7 +1029,7 @@ pair<C, W> minCostMaxFlow(const G &graph, int src, int snk, const WV &weights,
                           vector<C> &flow_sizes, W infi_value,
                           C max_cap = numeric_limits<C>::max()) {
   if (graph.isDirect()) {
-    return _minCostMaxFlow(graph, src, snk, weights, caps, infi_value max_cap);
+    return _minCostMaxFlow(graph, src, snk, weights, caps, split_flows, flow_sizes,  infi_value, max_cap);
   } else {
     simple_graph temp_graph;
     vector<int> srcs, snks;
@@ -1044,8 +1053,8 @@ pair<C, W> minCostMaxFlow(const G &graph, int src, int snk, const WV &weights,
 
     temp_graph.initial(srcs, snks);
 
-    _minCostMaxFlow(temp_graph, src, snk, tempWights, tempCaps,
-                    infi_value max_cap);
+    _minCostMaxFlow(temp_graph, src, snk, tempWights, tempCaps,  split_flows, flow_sizes, 
+                    infi_value, max_cap);
   }
 }
 }
