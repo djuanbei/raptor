@@ -14,17 +14,17 @@
 #include <algorithm>
 #include <limits>
 #include <queue>
-#include <set>
 #include <stack>
+#include <unordered_set>
 #include <utility>
 #include <vector>
-
+#include "graph.h"
 #include "heap.hpp"
 
 namespace raptor {
 using std::vector;
-using std::set;
-using std::map;
+using std::unordered_set;
+
 using std::queue;
 using std::stack;
 using std::pair;
@@ -762,7 +762,7 @@ class yen_next_path {
   vector<bool> temp_exclude_links;
   vector<bool> temp_exclude_nodes;
 
-  set<int> using_edges;
+  unordered_set<int> using_edges;
 
   priority_queue<devote_loc<W>> Q;
   int last_loc;
@@ -809,7 +809,7 @@ class yen_next_path {
 
     for (; i < (int)last_path.size(); i++) {
       if (i == last_loc) {
-        for (set<int>::iterator it = using_edges.begin();
+        for (unordered_set<int>::iterator it = using_edges.begin();
              it != using_edges.end(); it++) {
           temp_exclude_links[*it] = true;
         }
@@ -1013,11 +1013,12 @@ pair<C, W> _minCostMaxFlow(const G &graph, int src, int snk, const WV &weights,
   while (amt > 0) {
     split_flows.push_back(link_path);
     flow_sizes.push_back(amt);
-    for(vector<int>::iterator it=link_path.begin(); it!= link_path.end(); it++){
-      temp_caps[*it]-=amt;
-      flow[*it]+=amt;
+    for (vector<int>::iterator it = link_path.begin(); it != link_path.end();
+         it++) {
+      temp_caps[*it] -= amt;
+      flow[*it] += amt;
     }
-    
+
     amt = dijkstra(graph, src, snk, weights, backDis, temp_caps, flow,
                    link_path, infi_value);
   }
@@ -1029,7 +1030,8 @@ pair<C, W> minCostMaxFlow(const G &graph, int src, int snk, const WV &weights,
                           vector<C> &flow_sizes, W infi_value,
                           C max_cap = numeric_limits<C>::max()) {
   if (graph.isDirect()) {
-    return _minCostMaxFlow(graph, src, snk, weights, caps, split_flows, flow_sizes,  infi_value, max_cap);
+    return _minCostMaxFlow(graph, src, snk, weights, caps, split_flows,
+                           flow_sizes, infi_value, max_cap);
   } else {
     simple_graph temp_graph;
     vector<int> srcs, snks;
@@ -1053,8 +1055,8 @@ pair<C, W> minCostMaxFlow(const G &graph, int src, int snk, const WV &weights,
 
     temp_graph.initial(srcs, snks);
 
-    _minCostMaxFlow(temp_graph, src, snk, tempWights, tempCaps,  split_flows, flow_sizes, 
-                    infi_value, max_cap);
+    _minCostMaxFlow(temp_graph, src, snk, tempWights, tempCaps, split_flows,
+                    flow_sizes, infi_value, max_cap);
   }
 }
 }

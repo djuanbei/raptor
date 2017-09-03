@@ -27,7 +27,7 @@ RCOBJS     = $(addsuffix r,  $(COBJS))
 
 ifeq ($(SRCSUF),cpp)
 	# CC=g++  -fopenmp
-	CC=g++ 
+	CC=g++  -DUSING_LAPACK
 	CLANG=clang++
 
 	CFLAGS     =  -pedantic -W -Werror   -std=c++11    -DHAVE_CONFIG_H -Wlong-long

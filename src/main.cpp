@@ -1,4 +1,5 @@
 #include <cstdlib>
+#include <fstream>
 #include <iostream>
 #include <random>
 #include <set>
@@ -10,6 +11,8 @@
 #include "graphalg.hpp"
 
 #include "mcfcg.hpp"
+
+#include "csvReader.hpp"
 
 using namespace std;
 using namespace mcmcf;
@@ -531,6 +534,19 @@ void randbiGraph(const int V, const int E, const double WW) {
 }
 
 int main(int argc, char *argv[]) {
+  ifstream ifs;
+  ifs.open(argv[1], std::ifstream::in);
+  csv_istream csv_in(ifs);
+
+  string temp;
+  while (csv_in >> temp) {
+    cout << temp << endl;
+  }
+
+  ifs.close();
+
+  return 0;
+
   randGraph(20000, 100000, 20);
   return 0;
 
