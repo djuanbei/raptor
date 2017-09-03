@@ -45,12 +45,42 @@ W path_cost(const WV &NW, const vector<int> &path, W) {
 }
 template <typename G>
 bool isValidatePath(const G &graph, const int &src, const int &snk,
-                    vector<int> &path) {
+                    const vector<int> &path) {
   int current = src;
   for (vector<int>::const_iterator it = path.begin(); it != path.end(); it++) {
-    graph.findRhs(*it, current, current);
+    if(!graph.findRhs(*it, current, current)){
+      return false;
+    }
   }
   return current == snk;
+}
+
+template <typename G>
+bool isSimplePath(const G & graph, const int src, const int snk, const vector<int> &path){
+
+  int current = src;
+  vector<int> nodes;
+  nodes.push_back(current);
+  for (vector<int>::const_iterator it = path.begin(); it != path.end(); it++) {
+    if(!graph.findRhs(*it, current, current)){
+      return false;
+    }
+    nodes.push_back(current);
+  }
+  if(current != snk){
+    return false;
+  }
+
+  sort(nodes.begin(), nodes.end());
+  int last=-1;
+  for(vector<int>::iterator it=nodes.begin(); it!= nodes.end(); it++){
+    if(*it==last){
+      return false;
+    }
+    last=*it;
+  }
+  return true;
+
 }
 
 /**
@@ -807,7 +837,9 @@ class yen_next_path {
       graph.findRhs(last_path[i], temp_src, temp_src);
     }
 
+    
     for (; i < (int)last_path.size(); i++) {
+      temp_exclude_links[last_path[i]] = true;
       if (i == last_loc) {
         for (unordered_set<int>::iterator it = using_edges.begin();
              it != using_edges.end(); it++) {
@@ -819,7 +851,7 @@ class yen_next_path {
                                    inf)) {
         devote_loc<W> temp_loc(paths.size() - 1, i,
                                pre_dis + path_cost(*weights, temp_path, inf));
-
+        temp_loc.exclude_links.push_back(last_path[i]);
         if (i == last_loc) {
           temp_loc.exclude_links.insert(temp_loc.exclude_links.end(),
                                         using_edges.begin(), using_edges.end());
@@ -849,14 +881,16 @@ class yen_next_path {
     temp_src = src;
     for (int i = 0; i < last_loc; i++) {
       temp_exclude_nodes[temp_src] = true;
-      graph.findRhs(last_path[i], temp_src, temp_src);
+      graph.findRhs(last_path1[i], temp_src, temp_src);
     }
 
     for (vector<int>::iterator it = temp_loc.exclude_links.begin();
          it != temp_loc.exclude_links.end(); it++) {
       temp_exclude_links[*it] = true;
     }
+    
 
+    
     bidijkstra_shortest_path(graph, *weights, temp_exclude_nodes,
                              temp_exclude_links, temp_src, snk, temp_path, inf);
     path.insert(path.end(), temp_path.begin(), temp_path.end());

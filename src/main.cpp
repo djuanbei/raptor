@@ -533,7 +533,55 @@ void randbiGraph(const int V, const int E, const double WW) {
   std::cout << "bi method time  " << cpuTime() - start1 << std::endl;
 }
 
+
+void testAns(char *filename){
+  ifstream ifs;
+  ifs.open(filename, std::ifstream::in);
+  csv_istream csv_in(ifs);
+  vector<int> srcs, snks;
+  vector<double> weights;
+  int src, snk;
+  double w;
+  while(csv_in>> src && csv_in>> snk){
+    csv_in>> w;
+    srcs.push_back(src);
+    snks.push_back(snk);
+    srcs.push_back(snk);
+    snks.push_back(src);
+    weights.push_back(w);
+    weights.push_back(w);
+  }
+  double infi_value=1000000000;
+  directed_graph<double, int> graph;
+  graph.initial(srcs, snks, weights);
+  inc_ksp::yen_ksp<directed_graph<double, int>, vector<double> , double> yen(graph, weights, infi_value);
+
+  inc_ksp::yen_next_path<directed_graph<double, int>, vector<double> , double> next_p=yen.next_path(15, 0);
+
+  int path_num=0;
+  vector<int> path;
+  set< vector<int> > paths;  
+  while(next_p.next_path(path)){
+    if(!isSimplePath(graph, 15, 0, path)){
+      cout<<"error"<<endl;
+    }
+    sort(path.begin(), path.end());
+    if(paths.find(path)!=paths.end()){
+      cout<<"error"<<endl;
+    }
+    paths.insert(path);
+    path_num++;
+  }
+  cout<<"the number of simple path connect Hawii and Hartford is: "<<path_num<<endl;
+    
+  
+  
+}
+
 int main(int argc, char *argv[]) {
+  testAns(argv[1]);
+  return 0;
+  
   ifstream ifs;
   ifs.open(argv[1], std::ifstream::in);
   csv_istream csv_in(ifs);
