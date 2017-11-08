@@ -263,7 +263,7 @@ bool astar_shortest_path(const G &graph, const WV &NW, const H &h,
   vector<W> dis(vertex_num, inf);
   LESSOR_T<PII> order;
   size_t j, outDegree;
-  int link, tempSnk;
+  int link, tempSnk=0;
   int current;
   W weight;
 
