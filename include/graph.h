@@ -32,7 +32,7 @@ class simple_graph {
     bool operator<(const tempElment &other) const { return src < other.src; }
   };
 
-  bool directed;
+
   int vertex_num;
   int link_num;
 
@@ -78,9 +78,9 @@ class simple_graph {
     out2inLink_map.clear();
   }
 
-  void initial(vector<int> &srcs, vector<int> &snks, bool direct = false);
+  void initial(vector<int> &srcs, vector<int> &snks);
 
-  bool isDirect() const { return directed; }
+  bool isDirect() const { return true; }
 
   inline size_t getVertex_num(void) const { return vertex_num; }
 

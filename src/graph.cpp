@@ -1,8 +1,8 @@
 #include "graph.h"
 namespace raptor {
 
-void simple_graph::initial(vector<int> &srcs, vector<int> &snks, bool direct) {
-  directed = direct;
+void simple_graph::initial(vector<int> &srcs, vector<int> &snks) {
+
   assert(srcs.size() == snks.size());
   clear();
 
