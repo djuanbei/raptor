@@ -22,70 +22,16 @@
 #include <unordered_set>
 #include "System.h"
 #include "graphalg.hpp"
+#include "config.h"
 #include "klu.h"
 using namespace raptor;
 using namespace std;
 
-#ifdef USING_LAPACK
-/* DGESV prototype */
-extern "C" {
-void dgesv_(int *N, int *nrhs, double *a, int *lda, int *ipiv, double *b,
-            int *ldb, int *info);
 
-void sgesv_(int *N, int *nrhs, float *a, int *lda, int *ipiv, float *b,
-            int *ldb, int *info);
-
-// LU decomoposition of a general matrix
-void dgetrf_(int *M, int *N, double *A, int *lda, int *IPIV, int *INFO);
-//// generate inverse of a matrix given its LU decomposition
-// void dgetri_( int* N, double* A, int* lda, int* IPIV, double* WORK, int*
-// lwork, int* INFO);
-void dgetrs_(char *C, int *N, int *NRHS, double *A, int *LDA, int *IPIV,
-             double *B, int *LDB, int *INFO);
-
-// LU decomoposition of a general matrix
-void sgetrf_(int *M, int *N, float *A, int *lda, int *IPIV, int *INFO);
-//// generate inverse of a matrix given its LU decomposition
-// void dgetri_( int* N, double* A, int* lda, int* IPIV, double* WORK, int*
-// lwork, int* INFO);
-void sgetrs_(char *C, int *N, int *NRHS, float *A, int *LDA, int *IPIV,
-             float *B, int *LDB, int *INFO);
-}
-#else
-
-extern "C" {
-static void dgesv_(int *N, int *nrhs, double *a, int *lda, int *ipiv, double *b,
-                   int *ldb, int *info) {}
-
-static void sgesv_(int *N, int *nrhs, float *a, int *lda, int *ipiv, float *b,
-                   int *ldb, int *info) {}
-
-// LU decomoposition of a general matrix
-static void dgetrf_(int *M, int *N, double *A, int *lda, int *IPIV, int *INFO) {
-}
-//// generate inverse of a matrix given its LU decomposition
-// void dgetri_( int* N, double* A, int* lda, int* IPIV, double* WORK, int*
-// lwork, int* INFO);
-static void dgetrs_(char *C, int *N, int *NRHS, double *A, int *LDA, int *IPIV,
-                    double *B, int *LDB, int *INFO) {}
-
-// LU decomoposition of a general matrix
-static void sgetrf_(int *M, int *N, float *A, int *lda, int *IPIV, int *INFO) {}
-//// generate inverse of a matrix given its LU decomposition
-// void dgetri_( int* N, double* A, int* lda, int* IPIV, double* WORK, int*
-// lwork, int* INFO);
-static void sgetrs_(char *C, int *N, int *NRHS, float *A, int *LDA, int *IPIV,
-                    float *B, int *LDB, int *INFO) {}
-}
-
-#endif
+namespace raptor{
 
 namespace mcmcf {
-enum ENTER_BASE_TYPE {
-  PATH_T = 0,
-  LINK_T = 1
 
-};
 
 struct ENTER_VARIABLE {
   ENTER_BASE_TYPE type;
@@ -94,57 +40,19 @@ struct ENTER_VARIABLE {
   ENTER_VARIABLE() : type(PATH_T), id(0) {}
 };
 
-enum EXIT_BASE_TYPE {
-  DEMAND_T = 0,
-  STATUS_LINK = 1,
-  OTHER_LINK = 2
 
-};
 struct EXIT_VARIABLE {
   EXIT_BASE_TYPE type;
   int id;
   EXIT_VARIABLE() : type(DEMAND_T), id(0) {}
 };
 
-enum LU_SOLVER {
-  KLU = 0,
-  LAPACK = 1
 
-};
 
 template <typename G, typename C, typename W = double>
 class CG {
  public:
-  struct Demand {
-    int src, snk;
-    C bandwidth;
-    Demand() : src(0), snk(0), bandwidth(0) {}
-  };
 
-  struct Statistics_data {
-    int iterator_num;
-    int empty_iterator_num;
-    double estimee_opt_diff;
-    int nzn;
-    int snzn;
-    double minLU;
-    ENTER_BASE_TYPE etype;
-    int enter;
-    EXIT_BASE_TYPE exitt;
-    int exit;
-    double start_time;
-    double using_system_time;
-
-    Statistics_data()
-        : iterator_num(0),
-          empty_iterator_num(0),
-          estimee_opt_diff(numeric_limits<double>::max()),
-          nzn(0),
-          snzn(0),
-          minLU(0),
-          start_time(0),
-          using_system_time(0) {}
-  };
 
   struct Path {
     vector<int> path;
@@ -165,11 +73,13 @@ class CG {
   W inf_weight;
   W Inf;
 
-  vector<Demand> demands;
+  vector<Demand<C> > demands;
 
   vector<bool> orig_success;
 
   vector<W> orignal_weights;
+  
+
 
   vector<C> orignal_caps;
 
@@ -242,7 +152,9 @@ class CG {
   LU_SOLVER lu_sover;
 
   void allocateS(const int N) {
-    if (S_maxdim >= N) return;
+    if (S_maxdim >= N){
+      return;
+    }
     if (NULL != S) {
       delete[] S;
       S = NULL;
@@ -256,14 +168,18 @@ class CG {
     C re = 0;
     for (int i = 0; i < K; i++) {
       int pid = primary_path_loc[i];
-      if (paths[pid].path.back() < origLink_num) re += x_K[i];
+      if (paths[pid].path.back() < origLink_num){
+        re += x_K[i];
+      }
     }
 
     for (int i = 0; i < N; i++) {
       int link = status_links[i];
       int pid = status_link_path_loc[link];
 
-      if (paths[pid].path.back() < origLink_num) re += x_N[i];
+      if (paths[pid].path.back() < origLink_num){
+        re += x_N[i];
+      }
     }
     return re;
   }
@@ -341,13 +257,17 @@ class CG {
    *
    */
   void computeS() {
-    if (0 == N) return;
+    if (0 == N){
+      return;
+    }
     /**
      * S=BA-E
      *
      */
     sdata.nzn = 0;
-    if (N > S_maxdim) allocateS(N);
+    if (N > S_maxdim){
+      allocateS(N);
+    }
     fill(S, S + N * N, 0.0);
 
     for (int i = 0; i < N; i++) {
@@ -489,7 +409,7 @@ class CG {
    *
    * @return
    */
-  EXIT_VARIABLE computeExitVariable() {
+  EXIT_VARIABLE computeLeavingVariable() {
     /**
      *  choose enter base as i which a[ i]>0 and x[ i ]/a[ i ]= min
      * x/a
@@ -577,26 +497,29 @@ class CG {
     if (minN <= minJ) {
       re.id = status_links[reN];
       re.type = STATUS_LINK;
-      if (minN <= EPS) sdata.empty_iterator_num++;
+      if (minN <= EPS){
+        sdata.empty_iterator_num++;
+      }
       return re;
     }
     re.id = un_status_links[reJ];
     re.type = OTHER_LINK;
-    if (minJ <= EPS) sdata.empty_iterator_num++;
+    if (minJ <= EPS){
+      sdata.empty_iterator_num++;
+    }
     return re;
   }
 
  public:
   CG(const G &g, const vector<W> &ws, const vector<C> &caps,
-     const vector<Demand> &ds)
-      : graph(g),
-        demands(ds),
+     const vector<Demand<C> > &ds)
+      : demands(ds),
         orignal_caps(caps),
         thread_num(1),
         lu_sover(KLU) {
+    
+    orignal_weights.resize( ws.size());    
     vector<int> srcs, snks;
-
-    vector<int> temp_ws(ws.size(), 1);
     linkMap.resize(ws.size());
     /**
      *  Reorder link id to improve
@@ -611,12 +534,25 @@ class CG {
 
         int snk;
         linkMap[srcs.size()] = link;
+        orignal_weights[srcs.size()]= ws[link];
+        
         g.findRhs(link, v, snk);
         srcs.push_back(v);
         snks.push_back(snk);
+
       }
     }
-    graph.initial(srcs, snks, temp_ws);
+    graph.initial(srcs, snks);
+
+    
+    double max_w = 0;
+    for (int i = 0; i < origLink_num; i++) {
+      if (max_w < orignal_weights[i]) {
+        max_w = orignal_weights[i];
+      }
+    }
+    
+    inf_weight = max_w * (graph.getVertex_num() - 1) + 1;
 
 #ifdef _OPENMP
 #pragma omp parallel for
@@ -626,7 +562,6 @@ class CG {
 
 #endif  // _OPENMP
 
-    orignal_weights = ws;
 
     info = 0;
     origLink_num = graph.getLink_num();
@@ -651,11 +586,32 @@ class CG {
     workS = NULL;
     S_maxdim = 0;
 
+    update_caps = orignal_caps;
+    
+    C minNonzero=numeric_limits<C>::max();
     totalB = 0;
-    for (typename vector<Demand>::const_iterator it = demands.begin();
+    for (typename vector<Demand<C> >::const_iterator it = demands.begin();
          it != demands.end(); it++) {
+      if(it->bandwidth>CZERO && it->bandwidth< minNonzero){
+        minNonzero=it->bandwidth;
+      }
       totalB += it->bandwidth;
     }
+    
+    if(minNonzero>1){
+      for(size_t i=0; i<  update_caps.size(); i++){
+        update_caps[i]+=0.0001*(rand()%1000)/1000.0;
+      }
+      
+    }else{
+      for(size_t i=0; i<  update_caps.size(); i++){
+        update_caps[i]+=minNonzero*(rand()%1000)/1000.0;
+      }
+    }
+
+    orignal_caps.push_back(inf_weight);
+    update_caps.push_back(totalB);
+    
   }
   ~CG() {
     if (NULL != A) {
@@ -898,26 +854,15 @@ class CG {
       }
     }
 
-    inf_weight = 0;
-    double max_w = 0;
-    for (int i = 0; i < origLink_num; i++) {
-      if (max_w < orignal_weights[i]) {
-        max_w = orignal_weights[i];
-      }
-    }
-
-    inf_weight = max_w * (graph.getVertex_num() - 1) + 1;
-
     vector<C> temp_cap(orignal_caps);
-
     vector<bool> success(K, false);
-    double sum_bw = 0;
+
     for (int i = 0; i < K; i++) {
       int src = demands[i].src;
       int snk = demands[i].snk;
       C bw = demands[i].bandwidth;
       vector<W> ws = orignal_weights;
-      sum_bw += bw;
+
       for (int j = 0; j < origLink_num; j++) {
         if (temp_cap[j] < bw) {
           ws[j] = inf_weight;
@@ -938,8 +883,8 @@ class CG {
         temp_p[i] = bw;
       }
     }
-    orignal_weights.push_back(inf_weight);
-    orignal_caps.push_back(sum_bw);
+
+    
     for (int i = 0; i < K; i++) {
       if (!success[i]) {
         vector<int> path;
@@ -948,8 +893,8 @@ class CG {
         paths[i].owner = i;
         primary_path_loc[i] = i;
         temp_p[i] = demands[i].bandwidth;
+        success[i] = true;
       }
-      success[i] = true;
     }
     Inf = inf_weight;
 
@@ -967,7 +912,8 @@ class CG {
       }
     }
 
-    update_caps = orignal_caps;
+
+    
     N = 0;
     J = origLink_num + 1;
     inf_weight = numeric_limits<W>::max() / 3;
@@ -1021,7 +967,9 @@ class CG {
                     << sdata.exitt << " exit: " << sdata.exit << std::endl;
         }
       }
-      if (sdata.iterator_num > 10000) return;
+      if (sdata.iterator_num > 10000){
+        return;
+      }
 
       /**
        *  enter variable choose
@@ -1029,24 +977,24 @@ class CG {
        */
       update_edge_left_bandwith();
 
-      ENTER_VARIABLE enter_commodity = chooseEnterPath();
-      if (enter_commodity.id < 0) {
+      ENTER_VARIABLE entering_commodity = chooseEnteringBase();
+      if (entering_commodity.id < 0) {
         return;
       }
 
-      EXIT_VARIABLE exit_base;
+      EXIT_VARIABLE leaving_base;
 
-      if (PATH_T == enter_commodity.type) {
+      if (PATH_T == entering_commodity.type) {
         /**
          *  exit base  choose
          *
          */
-        exit_base = getExitBasebyPath(enter_commodity);
+        leaving_base = getLeavingBasebyPath(entering_commodity);
       } else {
-        exit_base = getExitBasebyStatusLink(enter_commodity);
+        leaving_base = getLeavingBasebyStatusLink(entering_commodity);
       }
 
-      devote(enter_commodity, exit_base);
+      pivot(entering_commodity, leaving_base);
 
       N = status_links.size();
       J = origLink_num + 1 - N;
@@ -1074,7 +1022,7 @@ class CG {
    *
    * @return
    */
-  ENTER_VARIABLE chooseEnterPath() {
+  ENTER_VARIABLE chooseEnteringBase() {
     ENTER_VARIABLE enter_variable;
     enter_variable.type = PATH_T;
     enter_variable.id = -1;
@@ -1234,7 +1182,7 @@ class CG {
    * @return
    */
 
-  EXIT_VARIABLE getExitBasebyPath(const ENTER_VARIABLE &enterCommodity) {
+  EXIT_VARIABLE getLeavingBasebyPath(const ENTER_VARIABLE &enterCommodity) {
     /**
      * A a=d
      *
@@ -1437,10 +1385,10 @@ class CG {
       }
     }
 
-    return computeExitVariable();
+    return computeLeavingVariable();
   }
 
-  EXIT_VARIABLE getExitBasebyStatusLink(const ENTER_VARIABLE &enterLink) {
+  EXIT_VARIABLE getLeavingBasebyStatusLink(const ENTER_VARIABLE &enterLink) {
     /**
      * A a=d
      *
@@ -1551,13 +1499,13 @@ class CG {
       }
     }
 
-    return computeExitVariable();
+    return computeLeavingVariable();
   }
 
-  void devote(ENTER_VARIABLE &enter_commodity, EXIT_VARIABLE &exit_base) {
-    if (PATH_T == enter_commodity.type) {
-      if (DEMAND_T == exit_base.type) {
-        int exit_commodity_id = exit_base.id;
+  void pivot(ENTER_VARIABLE &entering_commodity, EXIT_VARIABLE &leaving_base) {
+    if (PATH_T == entering_commodity.type) {
+      if (DEMAND_T == leaving_base.type) {
+        int exit_commodity_id = leaving_base.id;
         int exit_primary_pid = primary_path_loc[exit_commodity_id];
 
         /**
@@ -1574,10 +1522,10 @@ class CG {
          *
          */
 
-        paths[exit_primary_pid].path = enter_commodity.path;
-        paths[exit_primary_pid].owner = enter_commodity.id;
+        paths[exit_primary_pid].path = entering_commodity.path;
+        paths[exit_primary_pid].owner = entering_commodity.id;
 
-        if (enter_commodity.id != exit_base.id) {
+        if (entering_commodity.id != leaving_base.id) {
           /**
            * when enter commodity and exit
            *commodity are diff then replace the
@@ -1607,16 +1555,16 @@ class CG {
           primary_path_loc[exit_commodity_id] = pid;
           paths[pid].link = -1;
 
-          demand_second_path_locs[enter_commodity.id].insert(exit_primary_pid);
+          demand_second_path_locs[entering_commodity.id].insert(exit_primary_pid);
 
           setStatusLink(link, exit_primary_pid);
         }
 
         addPrimaryPath(exit_commodity_id);
 
-      } else if (STATUS_LINK == exit_base.type) {
-        int pid = status_link_path_loc[exit_base.id];
-        paths[pid].path = enter_commodity.path;
+      } else if (STATUS_LINK == leaving_base.type) {
+        int pid = status_link_path_loc[leaving_base.id];
+        paths[pid].path = entering_commodity.path;
 
         /**
          * when the owner of the exit path is not owner
@@ -1624,40 +1572,40 @@ class CG {
          *
          */
 
-        if (enter_commodity.id != paths[pid].owner) {
+        if (entering_commodity.id != paths[pid].owner) {
           demand_second_path_locs[paths[pid].owner].erase(pid);
-          demand_second_path_locs[enter_commodity.id].insert(pid);
+          demand_second_path_locs[entering_commodity.id].insert(pid);
         }
-        paths[pid].owner = enter_commodity.id;
+        paths[pid].owner = entering_commodity.id;
 
       } else {
         // exit is un status link then from un_status
         // link to status link
         if (empty_paths.empty()) {
-          Path npath(enter_commodity.path, enter_commodity.id, exit_base.id);
+          Path npath(entering_commodity.path, entering_commodity.id, leaving_base.id);
 
           paths.push_back(npath);
 
-          status_links.push_back(exit_base.id);
-          status_link_path_loc[exit_base.id] = paths.size() - 1;
+          status_links.push_back(leaving_base.id);
+          status_link_path_loc[leaving_base.id] = paths.size() - 1;
 
-          demand_second_path_locs[enter_commodity.id].insert(paths.size() - 1);
+          demand_second_path_locs[entering_commodity.id].insert(paths.size() - 1);
 
         } else {
           int pid = empty_paths.back();
           empty_paths.pop_back();
 
-          paths[pid].path = enter_commodity.path;
-          paths[pid].owner = enter_commodity.id;
-          paths[pid].link = exit_base.id;
+          paths[pid].path = entering_commodity.path;
+          paths[pid].owner = entering_commodity.id;
+          paths[pid].link = leaving_base.id;
 
-          status_links.push_back(exit_base.id);
+          status_links.push_back(leaving_base.id);
 
-          status_link_path_loc[exit_base.id] = pid;
-          demand_second_path_locs[enter_commodity.id].insert(pid);
+          status_link_path_loc[leaving_base.id] = pid;
+          demand_second_path_locs[entering_commodity.id].insert(pid);
         }
 
-        int link = exit_base.id;
+        int link = leaving_base.id;
         addStatusLink(link);
       }
 
@@ -1666,56 +1614,56 @@ class CG {
        * enter a status link
        *
        */
-      int enter_status_link = enter_commodity.id;
+      int enter_status_link = entering_commodity.id;
 
       int spid = status_link_path_loc[enter_status_link];
       deleteStatusLink(enter_status_link);
 
-      if (DEMAND_T == exit_base.type) {
-        int exit_commodity_id = exit_base.id;
+      if (DEMAND_T == leaving_base.type) {
+        int exit_commodity_id = leaving_base.id;
 
         deletePrimaryPath(exit_commodity_id);
 
-        if (paths[spid].owner == exit_base.id) {
-          primary_path_loc[exit_base.id] = spid;
-          demand_second_path_locs[exit_base.id].erase(spid);
+        if (paths[spid].owner == leaving_base.id) {
+          primary_path_loc[leaving_base.id] = spid;
+          demand_second_path_locs[leaving_base.id].erase(spid);
         } else {
-          assert(!demand_second_path_locs[exit_base.id].empty());
+          assert(!demand_second_path_locs[leaving_base.id].empty());
           unordered_set<int>::const_iterator it =
-              demand_second_path_locs[exit_base.id].begin();
+              demand_second_path_locs[leaving_base.id].begin();
 
           int pid = *it;
           int link = paths[pid].link;
 
           assert(link >= 0);
 
-          demand_second_path_locs[exit_base.id].erase(it);
-          primary_path_loc[exit_base.id] = pid;
+          demand_second_path_locs[leaving_base.id].erase(it);
+          primary_path_loc[leaving_base.id] = pid;
 
           setStatusLink(link, spid);
         }
 
         addPrimaryPath(exit_commodity_id);
-      } else if (STATUS_LINK == exit_base.type) {
-        if (exit_base.id == enter_commodity.id) {
+      } else if (STATUS_LINK == leaving_base.type) {
+        if (leaving_base.id == entering_commodity.id) {
           empty_paths.push_back(spid);
           demand_second_path_locs[paths[spid].owner].erase(spid);
           paths[spid].owner = -1;
         } else {
-          int pid = status_link_path_loc[exit_base.id];
+          int pid = status_link_path_loc[leaving_base.id];
           empty_paths.push_back(pid);
           demand_second_path_locs[paths[pid].owner].erase(pid);
 
           paths[pid].owner = -1;
           paths[pid].link = -1;
 
-          setStatusLink(exit_base.id, spid);
+          setStatusLink(leaving_base.id, spid);
         }
 
       } else {
-        status_links.push_back(exit_base.id);
+        status_links.push_back(leaving_base.id);
 
-        int link = exit_base.id;
+        int link = leaving_base.id;
 
         setStatusLink(link, spid);
 
@@ -1766,7 +1714,9 @@ class CG {
   }
 
   C leftBandwith(const vector<int> path) {
-    if (path.empty()) return 0;
+    if (path.empty()){
+      return 0;
+    }
     C re = edgeLeftBandwith[path.front()];
     for (vector<int>::const_iterator it = path.begin(); it != path.end();
          it++) {
@@ -1840,8 +1790,8 @@ class CG {
     fill(dual_solution.begin(), dual_solution.end(), 0.0);
 
     for (int i = 0; i < N; i++) {
-      dual_solution[status_links[i]] = -b[i];
-      update_weights[status_links[i]] -= b[i];
+      dual_solution[status_links[i]] = b[i];
+      update_weights[status_links[i]] += b[i];
     }
   }
 
@@ -1859,4 +1809,6 @@ class CG {
               << sobj / (totalB + 0.0) << std::endl;
   }
 };
+
+}
 }

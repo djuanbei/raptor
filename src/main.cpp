@@ -6,6 +6,7 @@
 #include <utility>
 #include <vector>
 #include "System.h"
+#include "config.h"
 #include "graph.h"
 #include "graph.hpp"
 #include "graphalg.hpp"
@@ -19,12 +20,61 @@ using namespace mcmcf;
 
 using namespace raptor;
 
+void example2(void){
+  vector<int> srcs;
+  vector<int> snks;
+  vector<double> weights, caps;
+  srcs.push_back(0);
+  snks.push_back(1);
+  weights.push_back(2);
+  caps.push_back(1);
+
+  srcs.push_back(0);
+  snks.push_back(1);
+  weights.push_back(1);
+  caps.push_back(2);
+
+  srcs.push_back(2);
+  snks.push_back(0);
+  weights.push_back(1);
+  caps.push_back(2);
+
+  srcs.push_back(2);
+  snks.push_back(1);
+  weights.push_back(4);
+  caps.push_back(2);
+
+  simple_graph graph;
+
+
+  typedef CG<simple_graph, double> CG_T;
+  
+  vector<Demand<double>> demands;
+  Demand<double> d1;
+  d1.src = 0;
+  d1.snk = 1;
+  d1.bandwidth = 1;
+  demands.push_back(d1);
+  Demand<double> d2;
+  d2.src = 2;
+  d2.snk = 1;
+  d2.bandwidth = 2;
+
+  demands.push_back(d2);
+
+
+  graph.initial(srcs, snks);
+  CG_T cg(graph, weights, caps, demands);
+  cg.setInfo(1);
+  cg.solve();
+}
+
 
 void randMCF(const int V, const int E, const double bw_B, const double w_B,
              const int d_num, const double dBWB) {
   typedef double T;
 
-  directed_graph<int, int> graph;
+  simple_graph graph;
   set<pair<int, int> > hasSet;
   vector<int> srcs;
   vector<int> snks;
@@ -66,8 +116,8 @@ void randMCF(const int V, const int E, const double bw_B, const double w_B,
   }
   i = 0;
 
-  typedef CG<directed_graph<int, int>, T> CG_T;
-  vector<CG_T::Demand> demands;
+  typedef CG<simple_graph, T> CG_T;
+  vector<Demand<T> > demands;
   while (i < d_num) {
     src = rand() % V;
     snk = rand() % V;
@@ -75,7 +125,7 @@ void randMCF(const int V, const int E, const double bw_B, const double w_B,
       snk = rand() % V;
     }
     bw = disDBW(generator);
-    CG_T::Demand d;
+    Demand<T>  d;
     d.src = src;
     d.snk = snk;
     d.bandwidth = bw;
@@ -84,7 +134,7 @@ void randMCF(const int V, const int E, const double bw_B, const double w_B,
   }
   vector<int> ws(snks.size(), 1);
 
-  graph.initial(srcs, snks, ws);
+  graph.initial(srcs, snks);
   CG_T cg(graph, weights, caps, demands);
   cg.setInfo(1);
   cg.writeKsptoCNF(10, "test.cnf");
@@ -422,7 +472,8 @@ void testAns(char *filename){
 }
 
 int main(int argc, char *argv[]) {
-  testAns(argv[1]);
+  example2();
+  //  testAns(argv[1]);
   return 0;
   
   ifstream ifs;
