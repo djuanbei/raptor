@@ -123,9 +123,9 @@ class CG {
   int *ipiv;
   double *b;
 
-  double *O;
-  double *workO;
-  int O_maxdim;
+  double *SM;
+  double *workS;
+  int S_maxdim;
 
 
 
@@ -150,8 +150,8 @@ class CG {
 
   int K, S, N; 
   double EPS;
+  solverPara para;
 
-  int info;
 
   int thread_num;
 
@@ -163,17 +163,17 @@ class CG {
    * @param S the size of saturate link
    */
   void allocateS(const int S) {
-    if (O_maxdim >= S) {
+    if (S_maxdim >= S) {
       return;
     }
-    if (NULL != O) {
-      delete[] O;
-      O = NULL;
-      delete[] workO;
+    if (NULL != SM) {
+      delete[] SM;
+      SM = NULL;
+      delete[] workS;
     }
-    O_maxdim = 1.3 * S + 1;
-    O = new double[O_maxdim * O_maxdim];
-    workO = new double[O_maxdim * O_maxdim];
+    S_maxdim = 1.3 * S + 1;
+    SM = new double[S_maxdim * S_maxdim];
+    workS = new double[S_maxdim * S_maxdim];
   }
   C success_obj() {
     C re = 0;
@@ -273,28 +273,42 @@ class CG {
       return;
     }
     /**
-     * O= CB - D
+     * SM= CB - D
      *
      */
     sdata.nzn = 0;
-    if (S > O_maxdim) {
+    if (S > S_maxdim) {
       allocateS(S);
     }
-    fill(O, O + S * S, 0.0);
-
+    fill(SM, SM + S * S, 0.0);
+    /**
+     * -D
+     */
     for (int i = 0; i < S; i++) {
       int link = status_links[i];
       int pid = status_link_path_loc[link];
       const vector<int> &path = paths[pid].path;
-      for (int j = 0; j < S; j++) {
-        int link1 = status_links[j];
-        if (lower_bound(path.begin(), path.end(), link1) != path.end()) {
-          O[j * S + i] = -1.0;
+      for(vector<int>::const_iterator lit=path.begin(); lit!=path.end(); lit++){
+        vector<int>::iterator it=lower_bound(status_links.begin(), status_links.end(), *lit);
+        if(it!=status_links.end()){
+          int j=it-status_links.begin();
+          SM[j * S + i] = -1.0;
           sdata.nzn++;
         }
       }
+      // for (int j = 0; j < S; j++) {
+      //   int link1 = status_links[j];
+      //   if (lower_bound(path.begin(), path.end(), link1) != path.end()) {
+      //     SM[j * S + i] = -1.0;
+      //     sdata.nzn++;
+      //   }
+      // }
     }
 
+    /**
+     *  CB
+     *
+     */
     for (unordered_map<int, unordered_set<int>>::const_iterator it =
              status_primary_path_locs.begin();
          it != status_primary_path_locs.end(); it++) {
@@ -308,7 +322,7 @@ class CG {
              cit != demand_secondary_path_locs[oindex].end(); cit++) {
           int slink = paths[*cit].link;
           int j = getNindex(slink) - K;
-          O[i * S + j] += 1.0;
+          SM[i * S + j] += 1.0;
           sdata.nzn++;
         }
       }
@@ -319,9 +333,9 @@ class CG {
     double temp = 0.0;
     for (int i = 0; i < S - 1; i++) {
       for (int j = i + 1; j < S; j++) {
-        temp = O[i * S + j];
-        O[i * S + j] = O[j * S + i];
-        O[j * S + i] = temp;
+        temp = SM[i * S + j];
+        SM[i * S + j] = SM[j * S + i];
+        SM[j * S + i] = temp;
       }
     }
   }
@@ -348,8 +362,8 @@ class CG {
      *capacity of other
      *links
      * x_S=( C rhs_K -rhs_S )/( CB - D)
-     *unordered_set O=CB - D, b= C rhs_K -rhs_S
-     *x_S = b/O
+     *unordered_set SM=CB - D, b= C rhs_K -rhs_S
+     *x_S = b/SM
      */
     if (S > 0) {
       fill(b, b + S, 0.0);
@@ -367,14 +381,14 @@ class CG {
           b[i] += rhs[paths[*it].owner];
         }
       }
-      copy(O, O + S * S, workO);
+      copy(SM, SM + S * S, workS);
 
       if (KLU == lu_sover) {
-        solveLP(workO, S, b);
+        solveLP(workS, S, b);
       } else if (LAPACK == lu_sover) {
-        dgesv_(&S, &nrhs, (double *)workO, &lda, ipiv, (double *)b, &ldb,
+        dgesv_(&S, &nrhs, (double *)workS, &lda, ipiv, (double *)b, &ldb,
                &info);
-        sdata.snzn = nonzero(S, workO);
+        sdata.snzn = nonzero(S, workS);
 
         if (info > 0) {
           assert(false);
@@ -568,7 +582,7 @@ class CG {
 
 #endif  // _OPENMP
 
-    info = 0;
+
     OrigLink_num = graph.getLink_num();
 
     status_link_path_loc.resize(OrigLink_num+1);
@@ -598,9 +612,9 @@ class CG {
     lambda_K = Lambda;
 
 
-    O = NULL;
-    workO = NULL;
-    O_maxdim = 0;
+    SM = NULL;
+    workS = NULL;
+    S_maxdim = 0;
 
     update_caps = orignal_caps;
 
@@ -653,14 +667,14 @@ class CG {
       b = NULL;
     }
 
-    if (NULL != O) {
-      delete[] O;
-      O = NULL;
-      delete[] workO;
-      workO = NULL;
+    if (NULL != SM) {
+      delete[] SM;
+      SM = NULL;
+      delete[] workS;
+      workS = NULL;
     }
   }
-  void setInfo(const int level) { info = level; }
+  void setInfo(const int level) { para.info = level; }
 
   void setLUSOLVER(LU_SOLVER s) { lu_sover = s; }
 
@@ -823,7 +837,7 @@ class CG {
 
     iteration();
 
-    if (info > 0) {
+    if (para.info > 0) {
       printResult();
     }
     return true;
@@ -967,8 +981,8 @@ class CG {
   void iteration() {
     while (true) {
       sdata.iterator_num++;
-      if (info > 0) {
-        if (sdata.iterator_num % 100 == 0) {
+      if (para.info > 0) {
+        if (sdata.iterator_num % para.perIterationPrint == 0) {
           sdata.using_system_time = systemTime() - sdata.start_time;
           C sobj = success_obj();
           std::cout << "using time(s) :" << sdata.using_system_time
@@ -985,7 +999,7 @@ class CG {
                     << sdata.exitt << " exit: " << sdata.exit << std::endl;
         }
       }
-      if (sdata.iterator_num > 10000) {
+      if (sdata.iterator_num > para.maxIterationNum) {
         return;
       }
 
@@ -995,7 +1009,7 @@ class CG {
        */
       update_edge_left_bandwith();
 
-      ENTER_VARIABLE entering_commodity = chooseEnteringBase();
+      ENTER_VARIABLE entering_commodity = chooseEnteringVariable();
       if (entering_commodity.id < 0) {
         return;
       }
@@ -1040,7 +1054,7 @@ class CG {
    *
    * @return
    */
-  ENTER_VARIABLE chooseEnteringBase() {
+  ENTER_VARIABLE chooseEnteringVariable() {
     ENTER_VARIABLE enter_variable;
 
     enter_variable.type = PATH_T;
@@ -1060,7 +1074,7 @@ class CG {
     }
     
     /**
-     * if there is a dual value of  saturate link is negative then this link is a entering variable
+     * If there is a dual value of  saturate link is negative then this link is a entering variable
      */
 
     if (enter_variable.id >= 0) {
@@ -1083,13 +1097,15 @@ class CG {
       bidijkstra_shortest_path(graph, update_weights, src, snk, path,
                                Inf_weight);
       W new_cost = path_cost(update_weights, path, (W)0.0);
+      W diff=old_cost - new_cost;
 
-      if (old_cost - new_cost > 10000 * EPS) {
+      if (diff > 10000 * EPS &&  diff> sdata.objSpeed ) {
         candidate_enter.erase(candidate_enter.begin(), candidate_enter.begin()+i+1 );
         enter_variable.id = id;
         enter_variable.type = PATH_T;
         enter_variable.path = path;
         sort(enter_variable.path.begin(), enter_variable.path.end());
+        sdata.objSpeed =(para.objSpeedUpdateRat)*sdata.objSpeed +(1-(para.objSpeedUpdateRat))*diff;
         return enter_variable;
       }
     }
@@ -1097,8 +1113,8 @@ class CG {
 
     sdata.estimee_opt_diff = 0;
     vector<double> opt_gap(thread_num, 0);
+    vector<double> max_gaps(thread_num, EPS);
     vector<double> max_diffs(thread_num, EPS);
-    vector<double> max_gap(thread_num, EPS);
     vector<vector<int>> candidate(thread_num);
 
     vector<vector<int>> path(thread_num);
@@ -1130,7 +1146,7 @@ class CG {
        */
 
       if ((old_cost - min_commodity_cost[i]) * demands[i].bandwidth <
-          max_diffs[tid]) {
+          max_gaps[tid]) {
         continue;
       }
 
@@ -1147,19 +1163,19 @@ class CG {
         W temp_diff = (old_cost - new_cost);
 
         if (temp_diff > EPS) {
-          if (temp_diff > max_gap[tid]) {
-            max_gap[tid] = temp_diff;
+          if (temp_diff > max_diffs[tid]) {
+            max_diffs[tid] = temp_diff;
           }
           opt_gap[tid] += temp_diff * demands[i].bandwidth;
 
           temp_diff *= leftBandwith(path[tid]) + EPS;
 
-          if (temp_diff > max_diffs[tid]) {
+          if (temp_diff > max_gaps[tid]) {
             if (temp_diff > 10000 * EPS) {
               candidate[tid].push_back(i);
             }
 
-            max_diffs[tid] = temp_diff;
+            max_gaps[tid] = temp_diff;
 
             enter_variables[tid].id = i;
             enter_variables[tid].path = path[tid];
@@ -1169,13 +1185,13 @@ class CG {
     }
 
     int chid = 0;
-    max_diff = max_diffs[0];
+    double max_gap = max_gaps[0];
     candidate_enter = candidate[0];
     for (int i = 1; i < thread_num; i++) {
       candidate_enter.insert(candidate_enter.end(), candidate[i].begin(),
                              candidate[i].end());
-      if (max_diffs[i] > max_diff) {
-        max_diff = max_diffs[i];
+      if (max_gaps[i] > max_gap) {
+        max_gap = max_gaps[i];
         chid = i;
       }
     }
@@ -1186,6 +1202,7 @@ class CG {
 
     sort(enter_variables[chid].path.begin(), enter_variables[chid].path.end());
 
+    sdata.objSpeed =(para.objSpeedUpdateRat)*sdata.objSpeed +(1-(para.objSpeedUpdateRat))*max_diffs[chid];
     return enter_variables[chid];
   }
 
@@ -1323,16 +1340,16 @@ class CG {
         }
       }
       /**
-       * lambda_S=( C beta_K-beta_S)/( CB - D )=b/O
+       * lambda_S=( C beta_K-beta_S)/( CB - D )=b/SM
        *
        */
 
       if (KLU == lu_sover) {
-        copy(O, O + S * S, workO);
-        solveLP(workO, S, b);
+        copy(SM, SM + S * S, workS);
+        solveLP(workS, S, b);
       } else if (LAPACK == lu_sover) {
         char c = 'S';
-        dgetrs_(&c, &S, &nrhs, (double *)workO, &lda, ipiv, (double *)b, &ldb,
+        dgetrs_(&c, &S, &nrhs, (double *)workS, &lda, ipiv, (double *)b, &ldb,
                 &info);
 
         if (info > 0) {
@@ -1473,15 +1490,15 @@ class CG {
 
 
     /**
-     * lambda_S=( C beta_K-beta_S)/( CB - D )=b/O
+     * lambda_S=( C beta_K-beta_S)/( CB - D )=b/SM
      *
      */
     if (KLU == lu_sover) {
-      copy(O, O + S * S, workO);
-      solveLP(workO, S, b);
+      copy(SM, SM + S * S, workS);
+      solveLP(workS, S, b);
     } else if (LAPACK == lu_sover) {
       char c = 'S';
-      dgetrs_(&c, &S, &nrhs, (double *)workO, &lda, ipiv, (double *)b, &ldb,
+      dgetrs_(&c, &S, &nrhs, (double *)workS, &lda, ipiv, (double *)b, &ldb,
               &info);
       if (info > 0) {
         assert(false);
@@ -1769,9 +1786,9 @@ class CG {
     /**
      * no link over is  used
      */
-
+#ifdef DEBUG
     for (int i = 0; i < S + N; i++) {
-      assert(edgeLeftBandwith[i] > -EPS);
+      assert(edgeLeftBandwith[i] >= -EPS);
     }
     
     /**
@@ -1779,16 +1796,18 @@ class CG {
 
      */
     for (int i = 0; i < K; i++) {
-      assert(allow[i] - demands[i].bandwidth > -EPS &&
-             allow[i] - demands[i].bandwidth < EPS);
+      assert(allow[i] - demands[i].bandwidth >= -EPS &&
+             allow[i] - demands[i].bandwidth <= EPS);
     }
 
     x_N = X  + K+ S;
     for (int i = 0; i < N; i++) {
       int link = un_status_links[i];
       x_N[i] = edgeLeftBandwith[link];
-      assert(x_N[i] > -EPS);
+      
+      assert(x_N[i] >= -EPS);
     }
+#endif    
   }
 
   C leftBandwith(const vector<int> path) {
@@ -1814,7 +1833,7 @@ class CG {
    * mu_K B + mu_S D = c_N
    *
    * mu_S( CB - D ) = c_K B - c_N
-   * mu_S O = c_K B -c_N = b
+   * mu_S SM = c_K B -c_N = b
    
    * mu_K= c_K -mu_S C
    */
@@ -1850,11 +1869,11 @@ class CG {
       b[i] += Mu[oindex];
     }
 
-    copy(O, O + S * S, workO);
+    copy(SM, SM + S * S, workS);
     if (KLU == lu_sover) {
-      solveLP(workO, S, b);
+      solveLP(workS, S, b);
     } else if (LAPACK == lu_sover) {
-      dgesv_(&S, &nrhs, (double *)workO, &lda, ipiv, (double *)b, &ldb, &info);
+      dgesv_(&S, &nrhs, (double *)workS, &lda, ipiv, (double *)b, &ldb, &info);
       if (info > 0) {
         assert(false);
         printf(
