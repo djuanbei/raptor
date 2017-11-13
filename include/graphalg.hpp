@@ -48,7 +48,7 @@ bool isValidatePath(const G &graph, const int &src, const int &snk,
                     const vector<int> &path) {
   int current = src;
   for (vector<int>::const_iterator it = path.begin(); it != path.end(); it++) {
-    if(!graph.findRhs(*it, current, current)){
+    if (!graph.findRhs(*it, current, current)) {
       return false;
     }
   }
@@ -56,31 +56,30 @@ bool isValidatePath(const G &graph, const int &src, const int &snk,
 }
 
 template <typename G>
-bool isSimplePath(const G & graph, const int src, const int snk, const vector<int> &path){
-
+bool isSimplePath(const G &graph, const int src, const int snk,
+                  const vector<int> &path) {
   int current = src;
   vector<int> nodes;
   nodes.push_back(current);
   for (vector<int>::const_iterator it = path.begin(); it != path.end(); it++) {
-    if(!graph.findRhs(*it, current, current)){
+    if (!graph.findRhs(*it, current, current)) {
       return false;
     }
     nodes.push_back(current);
   }
-  if(current != snk){
+  if (current != snk) {
     return false;
   }
 
   sort(nodes.begin(), nodes.end());
-  int last=-1;
-  for(vector<int>::iterator it=nodes.begin(); it!= nodes.end(); it++){
-    if(*it==last){
+  int last = -1;
+  for (vector<int>::iterator it = nodes.begin(); it != nodes.end(); it++) {
+    if (*it == last) {
       return false;
     }
-    last=*it;
+    last = *it;
   }
   return true;
-
 }
 
 /**
@@ -263,7 +262,7 @@ bool astar_shortest_path(const G &graph, const WV &NW, const H &h,
   vector<W> dis(vertex_num, inf);
   LESSOR_T<PII> order;
   size_t j, outDegree;
-  int link, tempSnk=0;
+  int link, tempSnk = 0;
   int current;
   W weight;
 
@@ -837,7 +836,6 @@ class yen_next_path {
       graph.findRhs(last_path[i], temp_src, temp_src);
     }
 
-    
     for (; i < (int)last_path.size(); i++) {
       temp_exclude_links[last_path[i]] = true;
       if (i == last_loc) {
@@ -888,9 +886,7 @@ class yen_next_path {
          it != temp_loc.exclude_links.end(); it++) {
       temp_exclude_links[*it] = true;
     }
-    
 
-    
     bidijkstra_shortest_path(graph, *weights, temp_exclude_nodes,
                              temp_exclude_links, temp_src, snk, temp_path, inf);
     path.insert(path.end(), temp_path.begin(), temp_path.end());

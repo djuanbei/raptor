@@ -183,7 +183,7 @@ class directed_graph {
     clear();
     save_path = save;
 
-    if (0 == srcs.size()){
+    if (0 == srcs.size()) {
       return;
     }
     link_num = srcs.size();
@@ -206,7 +206,7 @@ class directed_graph {
       }
     }
     vertex_num = ver_max + 1;
-    if (vertex_num > 5000){
+    if (vertex_num > 5000) {
       save_path = false;
     }
 
@@ -312,14 +312,14 @@ class directed_graph {
   inline int getLink_num(void) const { return link_num; }
 
   inline int getOutDegree(E vertex) const {
-    if (vertex >= vertex_num){
+    if (vertex >= vertex_num) {
       return 0;
     }
     return outIndex[vertex + 1] - outIndex[vertex];
   }
 
   inline int getInDegree(E vertex) const {
-    if (vertex >= vertex_num){
+    if (vertex >= vertex_num) {
       return 0;
     }
     return inIndex[vertex + 1] - inIndex[vertex];
@@ -374,7 +374,7 @@ class directed_graph {
   void compute_sourceallPair_shortest_path_dijkstra(const E src,
                                                     bool reset = true) {
     assert(save_path);
-    if (!save_path){
+    if (!save_path) {
       return;
     }
 
@@ -497,10 +497,10 @@ class directed_graph {
 
                                       vector<E> &path) {
     path.clear();
-    if (src >= vertex_num || snk >= vertex_num){
+    if (src >= vertex_num || snk >= vertex_num) {
       return false;
     }
-    if (src == snk){
+    if (src == snk) {
       return true;
     }
     size_t j, outDegree, link, next;
@@ -552,10 +552,10 @@ class directed_graph {
 
                                        vector<E> &path) {
     path.clear();
-    if (src >= vertex_num || snk >= vertex_num){
+    if (src >= vertex_num || snk >= vertex_num) {
       return false;
     }
-    if (src == snk){
+    if (src == snk) {
       return true;
     }
     size_t j, outDegree, link, next;
@@ -618,10 +618,10 @@ class directed_graph {
   bool bicompute_shortest_path_dijkstra(const E src, const E snk,
                                         vector<E> &path) {
     path.clear();
-    if (src >= vertex_num || snk >= vertex_num){
+    if (src >= vertex_num || snk >= vertex_num) {
       return false;
     }
-    if (src == snk){
+    if (src == snk) {
       return true;
     }
 
@@ -743,7 +743,7 @@ class directed_graph {
   bool compute_kshortest_path_dijkstra(const int K, const E src, const E snk,
                                        vector<vector<E>> &paths) {
     paths.clear();
-    if (K <= 0){
+    if (K <= 0) {
       return false;
     }
 
@@ -805,7 +805,7 @@ class directed_graph {
     unsigned char pid;
 
     for (i = 0; i < K; i++) {
-      if (preLink[snk * K + i].link > link_num){
+      if (preLink[snk * K + i].link > link_num) {
         return re;
       }
 
@@ -840,7 +840,7 @@ class directed_graph {
   void suurballe_shortest(const E src, const E snk, vector<E> &path1,
                           vector<E> &path2) {
     assert(save_path);
-    if (!save_path){
+    if (!save_path) {
       return;
     }
     const size_t shift = src * vertex_num;
@@ -942,7 +942,7 @@ class directed_graph {
         }
       }
 
-      if (Q.empty()){
+      if (Q.empty()) {
         return;
       }
 
@@ -1027,7 +1027,7 @@ class directed_graph {
 
   void compute_allPair_shortest_path() {
     assert(save_path);
-    if (!save_path){
+    if (!save_path) {
       return;
     }
     int i;
@@ -1056,10 +1056,10 @@ class directed_graph {
 
   bool getShortPath(const E src, const E snk, vector<vector<E>> &paths) const {
     paths.clear();
-    if (src >= vertex_num || snk >= vertex_num){
+    if (src >= vertex_num || snk >= vertex_num) {
       return false;
     }
-    if (src == snk){
+    if (src == snk) {
       return true;
     }
 
@@ -1103,7 +1103,7 @@ class directed_graph {
   }
 
   static void printPath(const vector<E> &path) {
-    if (0 == path.size()){
+    if (0 == path.size()) {
       return;
     }
 
@@ -1150,7 +1150,7 @@ class undirected_graph {
 
   bool _findSrc(const int link, E &src) const {
     src = vertex_num + 1;
-    if (link < 0 || link >= link_num){
+    if (link < 0 || link >= link_num) {
       return false;
     }
     src = _srcs[link];
@@ -1158,14 +1158,14 @@ class undirected_graph {
   }
   inline bool _findSnk(const int link, E &snk) const {
     snk = vertex_num + 1;
-    if (link >= link_num){
+    if (link >= link_num) {
       return false;
     }
     snk = link_ends[link];
     return true;
   }
   inline bool _findSrcSnk(const int link, E &src, E &snk) const {
-    if (!_findSrc(link, src)){
+    if (!_findSrc(link, src)) {
       return false;
     }
     _findSnk(link, snk);
@@ -1174,7 +1174,7 @@ class undirected_graph {
 
  public:
   void initial(vector<E> &srcs, vector<E> &snks) {
-    if (0 == srcs.size()){
+    if (0 == srcs.size()) {
       return;
     }
     link_num = srcs.size();
@@ -1290,7 +1290,7 @@ class undirected_graph {
   }
 
   inline int getInDegree(E vertex) const {
-    if (vertex >= vertex_num){
+    if (vertex >= vertex_num) {
       return 0;
     }
     return outIndex[vertex + 1] - outIndex[vertex] + inIndex[vertex + 1] -

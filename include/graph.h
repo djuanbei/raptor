@@ -32,7 +32,6 @@ class simple_graph {
     bool operator<(const tempElment &other) const { return src < other.src; }
   };
 
-
   int vertex_num;
   int link_num;
 
