@@ -613,7 +613,7 @@ bool bidijkstra_shortest_path(const G &graph, const WV &NW, const int src,
 
     current = best_current;
 
-    cwhile (current != src) {
+    while (current != src) {
       path.push_back(preLink[current]);
       graph.findRhs(preLink[current], current, current);
     }
