@@ -104,7 +104,7 @@ void randMCF(const int V, const int E, const double bw_B, const double w_B,
     if (hasSet.find(temp) == hasSet.end()) {
       i++;
 
-      bw = disBW(generator);
+      bw = (int)disBW(generator)+1;
       // weight = disWS(generator);
 
       hasSet.insert(temp);
@@ -124,7 +124,7 @@ void randMCF(const int V, const int E, const double bw_B, const double w_B,
     while (src == snk) {
       snk = rand() % V;
     }
-    bw = disDBW(generator);
+    bw = (int)disDBW(generator)+1;
     Demand<T>  d;
     d.src = src;
     d.snk = snk;
@@ -137,8 +137,8 @@ void randMCF(const int V, const int E, const double bw_B, const double w_B,
   graph.initial(srcs, snks);
   CG_T cg(graph, weights, caps, demands);
   cg.setInfo(1);
-  cg.writeKsptoCNF(10, "test.cnf");
-  // cg.solve(  );
+  // cg.writeKsptoCNF(10, "test.cnf");
+  cg.solve(  );
 }
 
 // void Case1(  ){
@@ -472,29 +472,29 @@ void testAns(char *filename){
 }
 
 int main(int argc, char *argv[]) {
-  example2();
-  //  testAns(argv[1]);
-  return 0;
+  // example2();
+  // //  testAns(argv[1]);
+  // return 0;
   
-  ifstream ifs;
-  ifs.open(argv[1], std::ifstream::in);
-  csv_istream csv_in(ifs);
+  // ifstream ifs;
+  // ifs.open(argv[1], std::ifstream::in);
+  // csv_istream csv_in(ifs);
 
-  string temp;
-  while (csv_in >> temp) {
-    cout << temp << endl;
-  }
+  // string temp;
+  // while (csv_in >> temp) {
+  //   cout << temp << endl;
+  // }
 
-  ifs.close();
+  // ifs.close();
 
-  return 0;
+  // return 0;
 
-  randGraph(20000, 100000, 20);
-  return 0;
+  // randGraph(20000, 100000, 20);
+  // return 0;
 
   // MCFexample2(  );
-  randMCF(500, 4000, 1000, 40, 5000, 100);
-
+  // randMCF(4, 8, 200, 40, 6, 50);
+  randMCF(10, 30, 200, 40, 30, 50);
   // //  Case1(  );
   // double start=cpuTime(  );
   // randbiGraph(20000, 100000, 20);

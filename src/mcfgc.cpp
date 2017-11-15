@@ -12,7 +12,7 @@ KLUsolver::~KLUsolver(){
   if(NULL!=Ax){
     delete []Ax;
   }
-  if(first){
+  if(!first){
     first=false;
     klu_free_symbolic(&Symbolic, &Common);
     klu_free_numeric(&Numeric, &Common);
@@ -23,14 +23,17 @@ void KLUsolver::update(int n){
 
   if(NULL!=Ap){
     delete [] Ap;
+    Ap=NULL;
   }
   if(NULL!=Ai){
     delete [] Ai;
+    Ai=NULL;
   }
   if(NULL!=Ax){
     delete []Ax;
+    Ax=NULL;
   }
-  if(first){
+  if(!first){
     first=false;
     klu_free_symbolic(&Symbolic, &Common);
     klu_free_numeric(&Numeric, &Common);
@@ -51,20 +54,27 @@ void KLUsolver::update(int n){
     if(column==tempColumn && row==tempRow){
       value+=elements[i].value;
     }else{
-      if(column!=tempColumn){
-        for(int j=column; j< tempColumn; j++){
-          Ap[j+1]=nz;
-        }
-      }
+
       if(fabs(value)>1e-6){
         Ai[nz]=row;
         Ax[nz]=value;
         nz++;
       }
+      
+      if(column!=tempColumn){
+        for(int j=column; j< tempColumn; j++){
+          Ap[j+1]=nz;
+        }
+      }
       column=tempColumn;
       row=tempRow;
       value=elements[i].value;
     }
+  }
+  if(fabs(value)>1e-6){
+    Ai[nz]=row;
+    Ax[nz]=value;
+    nz++;
   }
 
   for(int j=column; j< n; j++){
