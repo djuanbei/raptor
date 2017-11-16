@@ -21,6 +21,14 @@
 #include <vector>
 #include "graph.h"
 #include "heap.hpp"
+#include <mutex> 
+
+#if  (defined(__APPLE__) && defined(__MACH__))
+
+#else
+#include <omp.h>
+
+#endif
 
 namespace raptor {
 using std::vector;
@@ -30,6 +38,7 @@ using std::queue;
 using std::stack;
 using std::pair;
 using namespace std;
+
 
 template <typename T>
 struct LESSOR_T {
@@ -46,10 +55,11 @@ struct Data{
   vector<int> bpreLink;
   vector<W> bdis;
   Fixed_heap<W, int, LESSOR_T<PII>> bQ;
+  LESSOR_T<PII> order;
 
-  Data():vertex_num(0){
+  Data():vertex_num(0),Q(order), bQ(order){
   }
-  Data(int num, W inf,  LESSOR_T<PII> order):vertex_num(num),preLink(num, -1), dis(num, inf),
+  Data(int num, W inf):vertex_num(num),preLink(num, -1), dis(num, inf),
                          check( num, 0), Q(order, num), bpreLink(num, -1),
                          bdis(num, inf), bQ(order, num) {
   }
@@ -64,7 +74,16 @@ struct Data{
   }
   
 };
-static bool useData=false;
+/** 
+ * 
+ * @brief has some when  parallel invoke
+ * @param vertex_num 
+ * @param inf 
+ * @param id 
+ * @param isGet 
+ * 
+ * @return 
+ */
 
 template<typename W>
 static Data<W>& getData(int vertex_num, W inf, int &id, bool isGet=true){
@@ -73,8 +92,13 @@ static Data<W>& getData(int vertex_num, W inf, int &id, bool isGet=true){
   static  std::vector< Data<W> > datas;
  
   static  vector<char> isUsed;
+  
 
-#pragma omp critical
+  static std::mutex mtx;
+
+
+
+  #pragma omp critical
   {
     if(isGet)
     {
@@ -88,10 +112,10 @@ static Data<W>& getData(int vertex_num, W inf, int &id, bool isGet=true){
         }
       }
       if(id<0){
-        LESSOR_T<PII> order;
-        Data<W>  d(vertex_num,  inf,  order );
+        Data<W>  d(vertex_num,  inf );
         id=datas.size();
-        for(int i=0; i< 16; i++){
+        int thread_num=32;
+        for(int i=0; i< thread_num; i++){
           datas.push_back(d);
           isUsed.push_back(0);          
         }

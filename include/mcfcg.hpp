@@ -760,7 +760,8 @@ class CG {
     orignal_weights.push_back(inf_weight);
     update_caps.push_back(TotalB+1);
     int did;
-    getData(g.getVertex_num(), inf_weight, did);
+    getData(graph.getVertex_num(), inf_weight, did);
+    getData(graph.getVertex_num(), inf_weight, did, false);
   }
   ~CG() {
     if (NULL != Lambda) {
