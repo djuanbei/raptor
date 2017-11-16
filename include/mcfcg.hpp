@@ -11,7 +11,7 @@
 #include <deque>
 #include <vector>
 
-#if defined(__unix__) || (defined(__APPLE__) && defined(__MACH__))
+#if  (defined(__APPLE__) && defined(__MACH__))
 
 #else
 #include <omp.h>
@@ -30,6 +30,7 @@
 #include "graphalg.hpp"
 #include "klu.h"
 #include "util.h"
+
 using namespace raptor;
 using namespace std;
 
@@ -658,9 +659,10 @@ class CG {
       int degree = g.getOutDegree(v);
       for (int i = 0; i < degree; i++) {
         int link = g.getAdj(v, i);
-        linkMap[srcs.size()] = link;
-        orignal_caps[srcs.size()] = caps[link];
-        orignal_weights[srcs.size()] = ws[link];
+        int id=srcs.size();
+        linkMap[id] = link;
+        orignal_caps[id] = caps[link];
+        orignal_weights[id] = ws[link];
         int snk;
         g.findRhs(link, v, snk);
         srcs.push_back(v);
@@ -676,8 +678,14 @@ class CG {
         max_w = orignal_weights[i];
       }
     }
-
-    inf_weight = max_w * (graph.getVertex_num() - 1) + 1;
+    if(para.isSetpenaltyPrice){
+      
+      inf_weight=para.penaltyPriceForFailDemand;
+      
+    }else{
+      inf_weight = max_w * sqrt(graph.getVertex_num()) + 1;
+    }
+    
     inf = inf_weight;
 
 #ifdef _OPENMP
@@ -729,19 +737,30 @@ class CG {
       TotalB += it->bandwidth;
     }
 
-    if (minNonzero > 1) {
-      for (size_t i = 0; i < update_caps.size(); i++) {
-        update_caps[i] += 0.001 * (rand() % 1000) / 1000.0;
-      }
+    if(para.isSetDisturbed){
+      double domain=pow(10,para.disturbedDigit)+1;
+      double multiRat=1.0/domain;
+      
+      if (minNonzero > 1) {
+        for (size_t i = 0; i < update_caps.size(); i++) {
+          update_caps[i] += multiRat * (rand() /( RAND_MAX+0.0));
+        }
 
-    } else {
-      for (size_t i = 0; i < update_caps.size(); i++) {
-        update_caps[i] += minNonzero * ((rand() % 1000) / 1000000.0);
+      } else {
+        for (size_t i = 0; i < update_caps.size(); i++) {
+          update_caps[i] += multiRat*minNonzero * (rand() /( RAND_MAX+0.0));
+        }
       }
     }
+    /**
+     *add a  dummy link which can setup all demands
+     * 
+     */
 
     orignal_weights.push_back(inf_weight);
-    update_caps.push_back(TotalB);
+    update_caps.push_back(TotalB+1);
+    int did;
+    getData(g.getVertex_num(), inf_weight, did);
   }
   ~CG() {
     if (NULL != Lambda) {
@@ -921,18 +940,16 @@ class CG {
   }
 
   /**
-   * Set a initial routing path for every demand, the only constraint the
+   * Use some heustic  to choose good initial flow for every commodity.
+   *Set a initial routing path for every demand, the only constraint the
    * initial solution must satisfies is that link capacity.
    *
    */
 
   void initial_solution() {
     paths.resize(K);
-
     primary_path_loc.resize(K, 0);
-
     orig_success.resize(K, true);
-    vector<W> ws(orignal_weights.size(), 1);
 
 /**
  *  check whether there is path from  demand source to demand target
@@ -945,8 +962,8 @@ class CG {
       int src = demands[i].src;
       int snk = demands[i].snk;
       vector<int> path;
-      if (!bidijkstra_shortest_path(graph, ws, src, snk, path,
-                                    graph.getLink_num() + 1)) {
+      if (!bidijkstra_shortest_path(graph, orignal_weights, src, snk, path,
+                                    inf)) {
         orig_success[i] = false;
       }
     }
@@ -954,25 +971,36 @@ class CG {
     vector<C> temp_cap(orignal_caps);
     vector<bool> success(K, false);
 
+    vector<pair<C, int> > sortDemands;
+    for (int i = 0; i < K; i++) {
+      pair<C, int> temp =make_pair(demands[i].bandwidth, i );
+      sortDemands.push_back(temp);
+    }
+
+    sort(sortDemands.rbegin(), sortDemands.rend());
+
     /**
      * Direcltly setup demand one by one
      *
      */
 
-    for (int i = 0; i < K; i++) {
+    for (int k = 0; k < K; k++) {
+      
+      int i=sortDemands[k].second;
+      
       int src = demands[i].src;
       int snk = demands[i].snk;
       C bw = demands[i].bandwidth;
-      vector<W> ws = orignal_weights;
+      vector<W> ws( orignal_weights.size(), 1);
 
       for (int j = 0; j < origLink_num; j++) {
         if (temp_cap[j] < bw) {
-          ws[j] = inf_weight;
+          ws[j] = graph.getVertex_num();
         }
       }
 
       vector<int> path;
-      if (bidijkstra_shortest_path(graph, ws, src, snk, path, inf_weight)) {
+      if (bidijkstra_shortest_path(graph, ws, src, snk, path, graph.getVertex_num())) {
         success[i] = true;
 
         for (vector<int>::iterator it = path.begin(); it != path.end(); it++) {
@@ -1005,7 +1033,7 @@ class CG {
       int src = demands[i].src;
       int snk = demands[i].snk;
       if (bidijkstra_shortest_path(graph, update_weights, src, snk, path,
-                                   2 * inf_weight)) {
+                                   inf_weight)) {
         min_commodity_cost[i] = path_cost(update_weights, path, (W)0.0);
       }
     }
@@ -1036,6 +1064,7 @@ class CG {
         if (sdata.iterator_num % para.perIterationPrint == 0) {
           sdata.using_system_time = systemTime() - sdata.start_time;
           C sobj = success_obj();
+          double OBJ=computeOBJ();
           std::cout << fixed;
           std::cout << "============================================ " << endl;
           std::cout << "iteration: " << sdata.iterator_num << endl;
@@ -1045,16 +1074,16 @@ class CG {
           std::cout << "empty iteration num: " << sdata.empty_iterator_num
                     << endl;
           std::cout << "saturate link num: " << S << endl;
-          std::cout << "objvalue: " << computeOBJ() << endl;
+          std::cout << "objvalue: " << OBJ << endl;
           std::cout << "success fractional bw: " << sobj
-                    << ", success rat: " << sobj / (TotalB + 0.01)
-                    << ", the obj gap from opt is: " << sdata.estimee_opt_diff
+                    << ", success rat: " << sobj / (TotalB + 0.01)<< std::endl;
+          std::cout << "The obj gap from opt less or equal than: " << sdata.estimee_opt_diff<<"("<<100*sdata.estimee_opt_diff/OBJ<<"%)"
                     << std::endl;
 
           std::cout << "The number of nonzeon element in matrix (CB-D) : "
                     << sdata.nzn << std::endl;
 
-          std::cout << "last entering: " << sdata.enter
+          std::cout << "Last entering: " << sdata.enter
                     << ", last leaving: " << sdata.exit << std::endl;
         }
       }
@@ -1100,6 +1129,7 @@ class CG {
       if (KLU != para.solver) {
         transposeS();
       }
+
     }
   }
   /**
@@ -1153,7 +1183,7 @@ class CG {
         W new_cost = path_cost(update_weights, path, (W)0.0);
         W diff = old_cost - new_cost;
 
-        if (diff > 10000 * EPS && diff > sdata.objSpeed) {
+        if (diff > 10000 * EPS && diff > sdata.objSpeed&& leftBandwith(path)>(demands[id].bandwidth/10.0)) {
           candidate_enter.erase(candidate_enter.begin(),
                                 candidate_enter.begin() + i + 1);
           enter_variable.id = id;
@@ -1161,12 +1191,12 @@ class CG {
           enter_variable.path = path;
 
           sdata.objSpeed = (para.objSpeedUpdateRat) * sdata.objSpeed +
-                           (1 - (para.objSpeedUpdateRat)) * diff + 3;
+                           (1 - (para.objSpeedUpdateRat)) * diff;
           return enter_variable;
         }
       }
     }
-    sdata.objSpeed *= 0.8;
+
     candidate_enter.clear();
 
     sdata.estimee_opt_diff = 0;

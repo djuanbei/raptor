@@ -61,8 +61,16 @@ class Fixed_heap {
   }
 
  public:
+  Fixed_heap(const Comp &c):lt(c), size(0){}
   Fixed_heap(const Comp &c, int cap)
       : heap(cap), indices(cap, -1), lt(c), size(0) {}
+  
+  void resize( int  cap){
+    heap.resize(cap);
+    indices.resize(cap);
+    fill(indices.begin(), indices.end(), -1);
+    size=0;
+  }
 
   bool empty() const { return 0 == size; }
   void push(pair<W, E> k) {

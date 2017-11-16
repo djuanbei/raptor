@@ -13,6 +13,7 @@
 
 #include <algorithm>
 #include <limits>
+#include<map>
 #include <queue>
 #include <stack>
 #include <unordered_set>
@@ -34,6 +35,74 @@ template <typename T>
 struct LESSOR_T {
   bool operator()(const T &x, const T &y) const { return x.first < y.first; }
 };
+template<typename W>
+struct Data{
+  int vertex_num;
+  typedef pair<W, int> PII;
+  vector<int> preLink;
+  vector<W> dis;
+  vector<char> check;
+  Fixed_heap<W, int, LESSOR_T<PII>> Q;
+  vector<int> bpreLink;
+  vector<W> bdis;
+  Fixed_heap<W, int, LESSOR_T<PII>> bQ;
+
+  Data():vertex_num(0){
+  }
+  Data(int num, W inf,  LESSOR_T<PII> order):vertex_num(num),preLink(num, -1), dis(num, inf),
+                         check( num, 0), Q(order, num), bpreLink(num, -1),
+                         bdis(num, inf), bQ(order, num) {
+  }
+  void reset(W inf) {
+    fill(preLink.begin(), preLink.end() , -1);
+    fill(dis.begin(), dis.end(), inf);
+    fill(check.begin(), check.end(), 0);
+    Q.clear();
+    fill(bpreLink.begin(), bpreLink.end(), -1);
+    fill(bdis.begin(), bdis.end(), inf);
+    bQ.clear();
+  }
+  
+};
+static bool useData=false;
+
+template<typename W>
+static Data<W>& getData(int vertex_num, W inf, int &id, bool isGet=true){
+  typedef pair<W, int> PII;
+  
+  static  std::vector< Data<W> > datas;
+ 
+  static  vector<char> isUsed;
+
+#pragma omp critical
+  {
+    if(isGet)
+    {
+      id=-1;
+      for (size_t i=0; i< datas.size(); i++){
+        if(!isUsed[i] &&  datas[i].vertex_num>=vertex_num){
+          id=i;
+          isUsed[id]=1;
+          datas[id].reset(inf);
+          break;
+        }
+      }
+      if(id<0){
+        LESSOR_T<PII> order;
+        Data<W>  d(vertex_num,  inf,  order );
+        id=datas.size();
+        for(int i=0; i< 16; i++){
+          datas.push_back(d);
+          isUsed.push_back(0);          
+        }
+      }
+    }else{
+      isUsed[id]=0;
+    }
+  }
+  
+  return datas[id];  
+}
 
 template <typename WV, typename W>
 W path_cost(const WV &NW, const vector<int> &path, W) {
@@ -475,10 +544,16 @@ bool bidijkstra_shortest_path(const G &graph, const WV &NW, const int src,
   if (src >= vertex_num || snk >= vertex_num) {
     return false;
   }
+  int did;
+  Data<W> &data=getData(vertex_num, inf, did);
+  
+  vector<int>& preLink=data.preLink;
+  vector<W>& dis=data.dis;
+  vector<char>& check=data.check;
 
-  vector<int> preLink(vertex_num, -1);
-  vector<W> dis(vertex_num, inf);
-  vector<bool> check(vertex_num, false);
+  // vector<int> preLink(vertex_num, -1);
+  // vector<W> dis(vertex_num, inf);
+  // vector<char> check(vertex_num, 0);
 
   LESSOR_T<PII> order;
   size_t j, outDegree, inDegree;
@@ -486,14 +561,20 @@ bool bidijkstra_shortest_path(const G &graph, const WV &NW, const int src,
   int current;
   W weight;
 
-  Fixed_heap<W, int, LESSOR_T<PII>> Q(order, vertex_num);
+  Fixed_heap<W, int, LESSOR_T<PII>>& Q=data.Q;
+  // Fixed_heap<W, int, LESSOR_T<PII>> Q(order, vertex_num);
   dis[src] = 0;
   Q.push(make_pair(0.0, src));
 
-  vector<int> bpreLink(vertex_num, -1);
-  vector<W> bdis(vertex_num, inf);
+  vector<int>& bpreLink=data.bpreLink;
+  vector<W>& bdis=data.bdis;
+
+  // vector<int> bpreLink(vertex_num, -1);
+  // vector<W> bdis(vertex_num, inf);
+  
   bdis[snk] = 0;
-  Fixed_heap<W, int, LESSOR_T<PII>> bQ(order, vertex_num);
+  Fixed_heap<W, int, LESSOR_T<PII>>& bQ=data.bQ;
+  // Fixed_heap<W, int, LESSOR_T<PII>> bQ(order, vertex_num);
   bQ.push(make_pair(0.0, snk));
   bool re = false;
   W best_dis = inf;
@@ -506,7 +587,7 @@ bool bidijkstra_shortest_path(const G &graph, const WV &NW, const int src,
         re = true;
         break;
       }
-      check[current] = true;
+      check[current] = 1;
       Q.pop();
 
       outDegree = graph.getOutDegree(current);
@@ -530,7 +611,7 @@ bool bidijkstra_shortest_path(const G &graph, const WV &NW, const int src,
         re = true;
         break;
       }
-      check[current] = true;
+      check[current] = 1;
       bQ.pop();
       inDegree = graph.getInDegree(current);
       current_weight = bdis[current];
@@ -553,7 +634,7 @@ bool bidijkstra_shortest_path(const G &graph, const WV &NW, const int src,
         re = true;
         break;
       }
-      check[current] = true;
+      check[current] = 1;
       Q.pop();
 
       outDegree = graph.getOutDegree(current);
@@ -577,7 +658,7 @@ bool bidijkstra_shortest_path(const G &graph, const WV &NW, const int src,
         re = true;
         break;
       }
-      check[current] = true;
+      check[current] = 1;
       bQ.pop();
       inDegree = graph.getInDegree(current);
       current_weight = bdis[current];
@@ -608,6 +689,7 @@ bool bidijkstra_shortest_path(const G &graph, const WV &NW, const int src,
       }
     }
     if (best_dis >= inf) {
+      getData(vertex_num, inf, did, false);
       return false;
     }
 
@@ -624,6 +706,7 @@ bool bidijkstra_shortest_path(const G &graph, const WV &NW, const int src,
       graph.findRhs(bpreLink[current], current, current);
     }
   }
+  getData(vertex_num, inf, did, false);
   return re;
 }
 
@@ -647,7 +730,7 @@ bool bidijkstra_shortest_path(const G &graph, const WV &NW,
 
   vector<int> preLink(vertex_num, -1);
   vector<W> dis(vertex_num, inf);
-  vector<bool> check(vertex_num, false);
+  vector<char> check(vertex_num, 0);
 
   LESSOR_T<PII> order;
   size_t j, outDegree, inDegree;
@@ -675,7 +758,7 @@ bool bidijkstra_shortest_path(const G &graph, const WV &NW,
       re = true;
       break;
     }
-    check[current] = true;
+    check[current] = 1;
     Q.pop();
 
     outDegree = graph.getOutDegree(current);
@@ -704,7 +787,7 @@ bool bidijkstra_shortest_path(const G &graph, const WV &NW,
       re = true;
       break;
     }
-    check[current] = true;
+    check[current] = 1;
     bQ.pop();
     inDegree = graph.getInDegree(current);
     current_weight = bdis[current];
