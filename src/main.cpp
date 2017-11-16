@@ -494,7 +494,7 @@ int main(int argc, char *argv[]) {
 
   // MCFexample2(  );
   // randMCF(4, 8, 200, 40, 6, 50);
-  randMCF(10, 30, 200, 40, 30, 50);
+  randMCF(5000, 15000, 200, 40, 1200, 50);
   // //  Case1(  );
   // double start=cpuTime(  );
   // randbiGraph(20000, 100000, 20);

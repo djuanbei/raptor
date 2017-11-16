@@ -238,11 +238,8 @@ class CG {
     for (int i = 0; i < K; i++) {
       int pid = primary_path_loc[i];
 
-      double p_cost = 0;
-      for (vector<int>::const_iterator it = paths[pid].path.begin();
-           it != paths[pid].path.end(); it++) {
-        p_cost += orignal_weights[*it];
-      }
+      double p_cost = path_cost(update_weights, paths[pid].path,0.0 );
+
       re += p_cost * x_K[i];
     }
 
@@ -250,11 +247,8 @@ class CG {
       int link = saturate_links[i];
       int pid = status_link_path_loc[link];
 
-      double p_cost = 0;
-      for (vector<int>::const_iterator it = paths[pid].path.begin();
-           it != paths[pid].path.end(); it++) {
-        p_cost += orignal_weights[*it];
-      }
+      double p_cost =path_cost(update_weights, paths[pid].path, 0.0 );
+
       re += p_cost * x_S[i];
     }
     return re;
@@ -361,6 +355,7 @@ class CG {
 
       klusolver.elements = elements;
       klusolver.update(S);
+      sdata.nzn=klusolver.nonzeroNum;
 
     } else {
       /**
@@ -695,7 +690,7 @@ class CG {
       }
     }
 
-    Inf_weight = max_w * (graph.getVertex_num() - 1) + 1;
+    Inf_weight = max_w * (graph.getVertex_num()-1) + 1;
     Inf = Inf_weight;
 
 #ifdef _OPENMP
@@ -705,7 +700,6 @@ class CG {
     }
 
 #endif  // _OPENMP
-
 
 
 
@@ -1069,6 +1063,7 @@ class CG {
   bool iteration() {
     while (true) {
       sdata.iterator_num++;
+      computeRHS();
       if (para.info > 0) {
         if (sdata.iterator_num % para.perIterationPrint == 0) {
           sdata.using_system_time = systemTime() - sdata.start_time;
@@ -1083,6 +1078,8 @@ class CG {
                     << std::endl;
           std::cout << "nonzero matrix values: " << sdata.nzn
                     << "   SLU non-zeros " << sdata.snzn << std::endl;
+          std::cout << "empty iteration num: " << sdata.empty_iterator_num<<endl;
+
           std::cout << sdata.etype << " entering: " << sdata.enter << "    "
                     << sdata.exitt << " leaving: " << sdata.exit << std::endl;
         }
@@ -1091,7 +1088,7 @@ class CG {
         return false;
       }
       
-      computeRHS();
+
       update_edge_left_bandwith();
       /**
        *  entering variable choose
@@ -1190,12 +1187,13 @@ class CG {
           enter_variable.type = PATH_T;
           enter_variable.path = path;
 
-          sdata.objSpeed =(para.objSpeedUpdateRat)*sdata.objSpeed +(1-(para.objSpeedUpdateRat))*diff;
+          sdata.objSpeed =(para.objSpeedUpdateRat)*sdata.objSpeed +(1-(para.objSpeedUpdateRat))*diff+3;
           return enter_variable;
         }
       }
       
     }
+    sdata.objSpeed*=0.8;
     candidate_enter.clear();
 
     sdata.estimee_opt_diff = 0;
@@ -1255,7 +1253,7 @@ class CG {
           }
           opt_gap[tid] += temp_diff * demands[i].bandwidth;
 
-          temp_diff *= leftBandwith(path[tid]) + EPS;
+          temp_diff ;//*= leftBandwith(path[tid]) + EPS;
 
           if (temp_diff > max_gaps[tid]) {
             if (temp_diff > 10000 * EPS) {
@@ -1445,9 +1443,11 @@ class CG {
       if (KLU == lu_sover) {
         klusolver.solve(b);
       } else if (LAPACK == lu_sover) {
-        char c = 'S';
-        dgetrs_(&c, &S, &nrhs, (double *)workS, &lda, ipiv, (double *)b, &ldb,
-                &info);
+        copy(SM, SM + S * S, workS);                                  
+        dgesv_(&S, &nrhs, workS, &lda, ipiv, b, &ldb, &info);    
+        // char c = 'S';
+        // dgetrs_(&c, &S, &nrhs, (double *)workS, &lda, ipiv, (double *)b, &ldb,
+        //         &info);
 
         if (info > 0) {
           assert(false);
@@ -1563,9 +1563,11 @@ class CG {
       klusolver.solve(b);
 
     } else if (LAPACK == lu_sover) {
-      char c = 'S';
-      dgetrs_(&c, &S, &nrhs, (double *)workS, &lda, ipiv, (double *)b, &ldb,
-              &info);
+      copy(SM, SM + S * S, workS);                                  
+      dgesv_(&S, &nrhs, workS, &lda, ipiv, b, &ldb, &info);    
+      // char c = 'S';
+      // dgetrs_(&c, &S, &nrhs, (double *)workS, &lda, ipiv, (double *)b, &ldb,
+      //         &info);
       if (info > 0) {
         assert(false);
         printf(
@@ -1609,6 +1611,8 @@ class CG {
   }
 
   void pivot(ENTER_VARIABLE &entering_commodity, Leaving_base &leaving_base) {
+    sdata.enter=entering_commodity.id;
+    sdata.exit=leaving_base.id;
     if (PATH_T == entering_commodity.type) {
       if (DEMAND_T == leaving_base.type) {
         int exit_commodity_id = leaving_base.id;
