@@ -590,7 +590,7 @@ bool bidijkstra_shortest_path(const G &graph, const WV &NW, const int src,
 
 
   vector<int> preLink(vertex_num, -1);
-  vector<W> dis(vertex_num, inf);
+  vector<W> dis(vertex_num,inf);
   vector<char> check(vertex_num, 0);
 #endif
 
@@ -604,7 +604,9 @@ bool bidijkstra_shortest_path(const G &graph, const WV &NW, const int src,
 #else
   Fixed_heap<W, int, LESSOR_T<PII>> Q(order, vertex_num);
 #endif
+
   dis[src] = 0;
+  preLink[src]=0;
   Q.push(make_pair(0.0, src));
 #ifdef STATIC_TABLE
   vector<int>& bpreLink=data.bpreLink;
@@ -614,12 +616,14 @@ bool bidijkstra_shortest_path(const G &graph, const WV &NW, const int src,
   vector<W> bdis(vertex_num, inf);
 #endif
   
-  bdis[snk] = 0;
+
 #ifdef STATIC_TABLE
   Fixed_heap<W, int, LESSOR_T<PII>>& bQ=data.bQ;
 #else 
   Fixed_heap<W, int, LESSOR_T<PII>> bQ(order, vertex_num);
 #endif
+  bdis[snk] = 0;
+  bpreLink[snk]=0;
   bQ.push(make_pair(0.0, snk));
   bool re = false;
   W best_dis = inf;
@@ -639,11 +643,8 @@ bool bidijkstra_shortest_path(const G &graph, const WV &NW, const int src,
       W current_weight = p.first;
       for (j = 0; j < outDegree; j++) {
         link = graph.getAdj(current, j);
-
         weight = current_weight + NW[link];
-
         graph.findSnk(link, tempSnk);
-
         if (weight < dis[tempSnk]) {
           dis[tempSnk] = weight;
           preLink[tempSnk] = link;
