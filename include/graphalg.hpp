@@ -64,12 +64,23 @@ struct Data{
                          bdis(num, inf), bQ(order, num) {
   }
   void reset(W inf) {
-    fill(preLink.begin(), preLink.end() , -1);
+    int temp;
+    const vector<int>& qpassNodes=Q.getPassNodes();
+    assert(qpassNodes.size()< preLink.size());
+    for(vector<int>::const_iterator it=qpassNodes.begin(); it!=qpassNodes.end(); it++){
+      temp=*it;
+      preLink[temp]=-1;
+      check[temp]=0;      
+    }
+    const vector<int>& bqpassNodes=bQ.getPassNodes();
+    for(vector<int>::const_iterator it= bqpassNodes.begin(); it!= bqpassNodes.end(); it++){
+      temp=*it;
+      bpreLink[temp]=-1;
+      check[temp]=0;
+    }
     fill(dis.begin(), dis.end(), inf);
-    fill(check.begin(), check.end(), 0);
-    Q.clear();
-    fill(bpreLink.begin(), bpreLink.end(), -1);
     fill(bdis.begin(), bdis.end(), inf);
+    Q.clear();
     bQ.clear();
   }
   

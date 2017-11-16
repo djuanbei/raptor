@@ -26,6 +26,8 @@ class Fixed_heap {
   vector<int> indices;      // Each Key's position (index) in the Fixed_heap
   Comp lt;  // The heap is a minimum-heap with respect to this comparator
   int size;
+  vector<E> pass_nodes;
+  
 
   // Index "traversal" functions
   static inline int left(int i) { return (i << 1) | 1; }
@@ -75,6 +77,7 @@ class Fixed_heap {
   bool empty() const { return 0 == size; }
   void push(pair<W, E> k) {
     if (-1 == indices[k.second]) {
+      pass_nodes.push_back(k.second);
       heap[size] = k;
       indices[k.second] = size;
       percolateUp(size);
@@ -99,6 +102,10 @@ class Fixed_heap {
   }
 
   int len() const { return size; }
+  
+  const vector<E> & getPassNodes() const{
+    return pass_nodes;
+  }
 
   void clear() {
 
@@ -106,8 +113,8 @@ class Fixed_heap {
       indices[heap[i].second]=-1;
     }
     size = 0;
-
-
+    pass_nodes.clear();
+    
   }
 };
 
