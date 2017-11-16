@@ -568,37 +568,47 @@ bool bidijkstra_shortest_path(const G &graph, const WV &NW, const int src,
   if (src >= vertex_num || snk >= vertex_num) {
     return false;
   }
+#ifdef STATIC_TABLE
   int did;
   Data<W> &data=getData(vertex_num, inf, did);
   
   vector<int>& preLink=data.preLink;
   vector<W>& dis=data.dis;
   vector<char>& check=data.check;
+#else
 
-  // vector<int> preLink(vertex_num, -1);
-  // vector<W> dis(vertex_num, inf);
-  // vector<char> check(vertex_num, 0);
+
+  vector<int> preLink(vertex_num, -1);
+  vector<W> dis(vertex_num, inf);
+  vector<char> check(vertex_num, 0);
+#endif
 
   LESSOR_T<PII> order;
   size_t j, outDegree, inDegree;
   int link, tempSnk = 0;
   int current;
   W weight;
-
+#ifdef STATIC_TABLE
   Fixed_heap<W, int, LESSOR_T<PII>>& Q=data.Q;
-  // Fixed_heap<W, int, LESSOR_T<PII>> Q(order, vertex_num);
+#else
+  Fixed_heap<W, int, LESSOR_T<PII>> Q(order, vertex_num);
+#endif
   dis[src] = 0;
   Q.push(make_pair(0.0, src));
-
+#ifdef STATIC_TABLE
   vector<int>& bpreLink=data.bpreLink;
   vector<W>& bdis=data.bdis;
-
-  // vector<int> bpreLink(vertex_num, -1);
-  // vector<W> bdis(vertex_num, inf);
+#else 
+  vector<int> bpreLink(vertex_num, -1);
+  vector<W> bdis(vertex_num, inf);
+#endif
   
   bdis[snk] = 0;
+#ifdef STATIC_TABLE
   Fixed_heap<W, int, LESSOR_T<PII>>& bQ=data.bQ;
-  // Fixed_heap<W, int, LESSOR_T<PII>> bQ(order, vertex_num);
+#else 
+  Fixed_heap<W, int, LESSOR_T<PII>> bQ(order, vertex_num);
+#endif
   bQ.push(make_pair(0.0, snk));
   bool re = false;
   W best_dis = inf;
@@ -713,7 +723,9 @@ bool bidijkstra_shortest_path(const G &graph, const WV &NW, const int src,
       }
     }
     if (best_dis >= inf) {
+#ifdef STATIC_TABLE
       getData(vertex_num, inf, did, false);
+#endif
       return false;
     }
 
@@ -730,7 +742,9 @@ bool bidijkstra_shortest_path(const G &graph, const WV &NW, const int src,
       graph.findRhs(bpreLink[current], current, current);
     }
   }
+#ifdef STATIC_TABLE
   getData(vertex_num, inf, did, false);
+#endif
   return re;
 }
 

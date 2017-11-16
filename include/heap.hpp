@@ -90,10 +90,10 @@ class Fixed_heap {
 
   void pop() {
     indices[heap[0].second] = -1;
-    heap[0] = heap[size - 1];
+    size--;    
     if (size > 0) {
+      heap[0] = heap[size];
       indices[heap[0].second] = 0;
-      size--;
       percolateDown(0);
     }
   }
@@ -101,8 +101,13 @@ class Fixed_heap {
   int len() const { return size; }
 
   void clear() {
+
+    for(int  i=0; i< size  ; i++){
+      indices[heap[i].second]=-1;
+    }
     size = 0;
-    fill(indices.begin(), indices.end(), -1);
+
+
   }
 };
 
@@ -166,10 +171,12 @@ class SFixed_heap {
 
   void pop() {
     indices[heap[0]] = -1;
-    heap[0] = heap[size - 1];
-    if (size > 0) indices[heap[0]] = 0;
     size--;
-    if (size > 1) percolateDown(0);
+    if(size>0){
+      heap[0] = heap[size];
+      indices[heap[0]] = 0;
+      percolateDown(0);
+    }
   }
 
   void clear() {
