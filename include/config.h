@@ -92,7 +92,7 @@ struct sparseMatrixElem {
 };
 
 template<typename W>
-W getInf(W c){
+W getInf(W ){
   return std::numeric_limits<W>::max()/30.0;
 }
 

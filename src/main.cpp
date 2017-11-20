@@ -477,7 +477,8 @@ void testAns(char *filename){
   
 }
 
-int main(int argc, char *argv[]) {
+int main(int argc, char *
+         argv[]) {
   // example2();
   // //  testAns(argv[1]);
   // return 0;
