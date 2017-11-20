@@ -137,7 +137,7 @@ void randMCF(int solver, const int V, const int E, const double bw_B, const doub
 
   graph.initial(srcs, snks);
   CG_T cg(graph, weights, caps, demands);
-  cg.setInfo(4);
+  cg.setInfo(2);
   if(solver==0){
     cg.setLUSOLVER(KLU);
   }else{
@@ -500,10 +500,22 @@ int main(int argc, char *argv[]) {
 
   // MCFexample2(  );
   // randMCF(4, 8, 200, 40, 6, 50);
+  cout<<"using time(s), success rat, object value, iteration number, empty iteration,  computing shortest path use time(s), solving linear equation solve use time(s)"<<endl;
   if(argc>1){
-    randMCF(1, 5000, 25000, 400, 10, 500, 100);
+
+    for(int i=1; i< 40; i+=2){
+      // cout<<"************************************"<<endl;
+      // cout<<1000*i<<endl;
+      // cout<<"************************************"<<endl;
+      randMCF(0, 1000*i, 5000*i, 400, 10, 1000, 100);
+    }
   }else{
-    randMCF(0, 1000, 5000, 400, 10, 1000, 100);
+    for(int i=1; i< 40; i+=2){
+      // cout<<"************************************"<<endl;
+      // cout<<1000*i<<endl;
+      // cout<<"************************************"<<endl;
+      randMCF(0, 1000*i, 5000*i, 400, 10, 1000, 100);
+    }
   }
   // //  Case1(  );
   // double start=cpuTime(  );

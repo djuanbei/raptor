@@ -125,7 +125,7 @@ static Data<W>& getData(int vertex_num, W inf, int &id, bool isGet=true){
       if(id<0){
         Data<W>  d(vertex_num,  inf );
         id=datas.size();
-        int thread_num=32;
+        int thread_num=8;
         for(int i=0; i< thread_num; i++){
           datas.push_back(d);
           isUsed.push_back(0);          

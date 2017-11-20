@@ -75,9 +75,21 @@ static void sgetrs_(char *C, int *N, int *NRHS, float *A, int *LDA, int *IPIV,
   t=ms.count();
 
 
-
-
 namespace raptor {
+struct sparseMatrixElem {
+  int column, row;
+  double value;
+  sparseMatrixElem() : column(0), row(0), value(0) {}
+  bool operator<(const sparseMatrixElem &other) const {
+    if (column < other.column) {
+      return true;
+    }
+    if (column > other.column) {
+      return false;
+    }
+    return row <= other.row;
+  }
+};
 
 template<typename W>
 W getInf(W c){
