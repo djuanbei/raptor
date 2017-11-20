@@ -25,14 +25,16 @@
 #include <limits>
 #include <unordered_map>
 #include <unordered_set>
+#include <chrono>
 #include "System.h"
 #include "config.h"
 #include "graphalg.hpp"
 #include "klu.h"
 #include "util.h"
 
-using namespace raptor;
+
 using namespace std;
+using milliseconds = std::chrono::duration<double, std::milli>;
 
 namespace raptor {
 
@@ -468,14 +470,15 @@ class CG {
           b[i] += rhs[paths[*it].owner];
         }
       }
-
+      double t=0;
       if (KLU == para.solver) {
-        klusolver.solve(b);
+
+        callTime(t,klusolver.solve(b));
 
       } else if (LAPACK == para.solver) {
         copy(SM, SM + S * S, workS);
-        dgesv_(&S, &nrhs, (double *)workS, &lda, ipiv, (double *)b, &ldb,
-               &info);
+        callTime(t,dgesv_(&S, &nrhs, (double *)workS, &lda, ipiv, (double *)b, &ldb,
+                          &info));
         sdata.snzn = nonzero(S, workS);
 
         if (info > 0) {
@@ -496,7 +499,7 @@ class CG {
       } else {
         assert(false);
       }
-
+      sdata.lpsolvertime+=t;
       memcpy(x_S, b, S * sizeof(double));
       for (int i = 0; i < S; i++) {
         int link = saturate_links[i];
@@ -624,20 +627,22 @@ class CG {
     if (minK <= minS && minK <= minN) {
       re.id = reK;
       re.type = DEMAND_T;
-      if (minK <= EPS) sdata.empty_iterator_num++;
+      if (minK <= EPS/100.0){
+        sdata.empty_iterator_num++;
+      }
       return re;
     }
     if (minS <= minN) {
       re.id = saturate_links[reS];
       re.type = STATUS_LINK;
-      if (minS <= EPS) {
+      if (minS <= EPS/100.0) {
         sdata.empty_iterator_num++;
       }
       return re;
     }
     re.id = un_saturate_links[reN];
     re.type = OTHER_LINK;
-    if (minN <= EPS) {
+    if (minN <= EPS/100.0) {
       sdata.empty_iterator_num++;
     }
     return re;
@@ -762,9 +767,13 @@ class CG {
 
     orignal_weights.push_back(inf_weight);
     update_caps.push_back(TotalB+1);
+    inf_weight=getInf(0.0);
+#ifdef STATIC_TABLE
     int did;
     getData(graph.getVertex_num(), inf_weight, did);
     getData(graph.getVertex_num(), inf_weight, did, false);
+#endif
+    
   }
   ~CG() {
     if (NULL != Lambda) {
@@ -794,6 +803,10 @@ class CG {
       workS = NULL;
     }
   }
+  void setPara(solverPara &p){
+    para=p;
+  }
+      
   void setInfo(const int level) { para.info = level; }
 
   void setLUSOLVER(LU_SOLVER s) { para.solver = s; }
@@ -875,6 +888,7 @@ class CG {
   void computIndexofLinks() {
     stable_sort(saturate_links.begin(), saturate_links.end());
     un_saturate_links.clear();
+
     fill(un_saturate_link_ids.begin(), un_saturate_link_ids.end(), -1);
     size_t i = 0;
     for (int j = 0; j < S + N; j++) {
@@ -886,6 +900,7 @@ class CG {
           un_saturate_link_ids[j]=un_saturate_links.size();
           un_saturate_links.push_back(j);
         } else {
+          assert(j==saturate_links[i]);
           i++;
         }
       }
@@ -985,7 +1000,10 @@ class CG {
       for (int j = 0; j < origLink_num; j++) {
         if (temp_cap[j] < bw) {
           ws[j] = graph.getVertex_num();
+        }else{
+          ws[j]=bw/temp_cap[j];
         }
+        
       }
 
       vector<int> path;
@@ -1043,18 +1061,23 @@ class CG {
 
     dual_solution.resize(N + 1, 0);
 
-    inf_weight = numeric_limits<W>::max() / 30.0;
   }
 
   bool iteration() {
     while (true) {
       sdata.iterator_num++;
       computeRHS();
-      if (para.info > 0) {
+      double OBJ=computeOBJ();
+      sdata.totalStaturateLink+=S;
+      sdata.totalStaturateLink+=sdata.nzn;
+      if(sdata.bestUpperobj<OBJ-sdata.estimee_opt_diff){
+        sdata.bestUpperobj=OBJ-sdata.estimee_opt_diff;
+      }
+      if (para.info > 1) {
         if (sdata.iterator_num % para.perIterationPrint == 0) {
           sdata.using_system_time = systemTime() - sdata.start_time;
           C sobj = success_obj();
-          double OBJ=computeOBJ();
+
           std::cout << fixed;
           std::cout << "============================================ " << endl;
           std::cout << "iteration: " << sdata.iterator_num << endl;
@@ -1067,7 +1090,7 @@ class CG {
           std::cout << "objvalue: " << OBJ << endl;
           std::cout << "success fractional bw: " << sobj
                     << ", success rat: " << sobj / (TotalB + 0.01)<< std::endl;
-          std::cout << "The obj gap from opt less or equal than: " << sdata.estimee_opt_diff<<"("<<100*sdata.estimee_opt_diff/(OBJ-sdata.estimee_opt_diff)<<"%)"
+          std::cout << "The obj gap from opt less or equal than: " << sdata.estimee_opt_diff<<"("<<100*sdata.estimee_opt_diff/sdata.bestUpperobj<<"%)"
                     << std::endl;
 
           std::cout << "The number of nonzeon element in matrix (CB-D) : "
@@ -1086,7 +1109,11 @@ class CG {
        *  entering variable choose
        *
        */
-      ENTER_VARIABLE entering_commodity = chooseEnteringVariable();
+
+      double t=0;
+      callTime(t, ENTER_VARIABLE entering_commodity = chooseEnteringVariable());
+      sdata.shortestpathtime+=t;
+      
       if (entering_commodity.id < 0) {
         return true;
       }
@@ -1435,16 +1462,12 @@ class CG {
        * lambda_S=( C beta_K-beta_S)/( CB - D )=b/SM
        *
        */
-
+      double t=0;
       if (KLU == para.solver) {
-        klusolver.solve(b);
+        callTime(t, klusolver.solve(b));
       } else if (LAPACK == para.solver) {
         copy(SM, SM + S * S, workS);
-        dgesv_(&S, &nrhs, workS, &lda, ipiv, b, &ldb, &info);
-        // char c = 'S';
-        // dgetrs_(&c, &S, &nrhs, (double *)workS, &lda, ipiv, (double *)b,
-        // &ldb,
-        //         &info);
+        callTime(t,dgesv_(&S, &nrhs, workS, &lda, ipiv, b, &ldb, &info));
 
         if (info > 0) {
           assert(false);
@@ -1464,7 +1487,7 @@ class CG {
       } else {
         assert(false);
       }
-
+      sdata.lpsolvertime+=t;
       memcpy(lambda_S, b, S * sizeof(double));
 
       /**
@@ -1556,12 +1579,13 @@ class CG {
      * lambda_S=( C beta_K-beta_S)/( CB - D )=b/SM
      *
      */
+    double t=0;
     if (KLU == para.solver) {
-      klusolver.solve(b);
+      callTime(t,klusolver.solve(b));
 
     } else if (LAPACK == para.solver) {
       copy(SM, SM + S * S, workS);
-      dgesv_(&S, &nrhs, workS, &lda, ipiv, b, &ldb, &info);
+      callTime(t,dgesv_(&S, &nrhs, workS, &lda, ipiv, b, &ldb, &info));
       // char c = 'S';
       // dgetrs_(&c, &S, &nrhs, (double *)workS, &lda, ipiv, (double *)b, &ldb,
       //         &info);
@@ -1579,7 +1603,7 @@ class CG {
         exit(1);
       }
     }
-
+    sdata.lpsolvertime+=t;
     memcpy(lambda_S, b, S * sizeof(double));
 
     /**
@@ -1888,12 +1912,12 @@ class CG {
       int ppid = primary_path_loc[oindex];
       b[i] -= getOrigCost(paths[ppid].path);
     }
-
+    double t=0;
     if (KLU == para.solver) {
-      klusolver.tsolve(b);
+      callTime(t,klusolver.tsolve(b));
     } else if (LAPACK == para.solver) {
       copy(SM, SM + S * S, workS);
-      dgesv_(&S, &nrhs, (double *)workS, &lda, ipiv, (double *)b, &ldb, &info);
+      callTime(t,dgesv_(&S, &nrhs, (double *)workS, &lda, ipiv, (double *)b, &ldb, &info));
       if (info > 0) {
         assert(false);
         printf(
@@ -1908,7 +1932,7 @@ class CG {
         exit(1);
       }
     }
-
+    sdata.lpsolvertime+=t;
     update_weights = orignal_weights;
 
     fill(dual_solution.begin(), dual_solution.end(), 0.0);
@@ -1921,10 +1945,14 @@ class CG {
 
   void printResult() {
     sdata.using_system_time = systemTime() - sdata.start_time;
+    std::cout << "======================================" << sdata.using_system_time << std::endl;
     std::cout << "using time(s) :" << sdata.using_system_time << std::endl;
+    std::cout << "computing shortest path use time(ms) :" << sdata.shortestpathtime << std::endl;
+    std::cout << "solving linear equation solve use time(ms) :" << sdata.lpsolvertime << std::endl;
     std::cout << "iteration time: " << sdata.iterator_num << std::endl;
     std::cout << "empty iteration tiem: " << sdata.empty_iterator_num
               << std::endl;
+    std::cout<<"Total nonzero element: Total saturate link "<<sdata.totalNonzero/(sdata.totalStaturateLink+0.01)<<std::endl;
 
     C sobj = success_obj();
 

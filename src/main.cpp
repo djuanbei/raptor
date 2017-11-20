@@ -16,9 +16,10 @@
 #include "csvReader.hpp"
 
 using namespace std;
+using namespace raptor;
 using namespace mcmcf;
 
-using namespace raptor;
+
 
 void example2(void){
   vector<int> srcs;
@@ -70,7 +71,7 @@ void example2(void){
 }
 
 
-void randMCF(const int V, const int E, const double bw_B, const double w_B,
+void randMCF(int solver, const int V, const int E, const double bw_B, const double w_B,
              const int d_num, const double dBWB) {
   typedef double T;
 
@@ -90,7 +91,7 @@ void randMCF(const int V, const int E, const double bw_B, const double w_B,
 
   int i = 0;
   int src, snk;
-  // double weight,
+  double weight;
   double bw;
   pair<int, int> temp;
   while (i < E) {
@@ -105,12 +106,12 @@ void randMCF(const int V, const int E, const double bw_B, const double w_B,
       i++;
 
       bw = (int)disBW(generator)+1;
-      // weight = disWS(generator);
+      weight = (int)disWS(generator)+1;
 
       hasSet.insert(temp);
       srcs.push_back(src);
       snks.push_back(snk);
-      weights.push_back(1);
+      weights.push_back(weight);
       caps.push_back(bw);
     }
   }
@@ -136,7 +137,12 @@ void randMCF(const int V, const int E, const double bw_B, const double w_B,
 
   graph.initial(srcs, snks);
   CG_T cg(graph, weights, caps, demands);
-  cg.setInfo(1);
+  cg.setInfo(2);
+  if(solver==0){
+    cg.setLUSOLVER(KLU);
+  }else{
+    cg.setLUSOLVER(LAPACK);
+  }
   // cg.writeKsptoCNF(10, "test.cnf");
   cg.solve(  );
 }
@@ -494,7 +500,11 @@ int main(int argc, char *argv[]) {
 
   // MCFexample2(  );
   // randMCF(4, 8, 200, 40, 6, 50);
-  randMCF(5000, 15000, 200, 40, 500, 100);
+  if(argc>1){
+    randMCF(1, 5000, 15000, 200, 40, 500, 100);
+  }else{
+    randMCF(0, 5000, 15000, 200, 10, 500, 100);
+  }
   // //  Case1(  );
   // double start=cpuTime(  );
   // randbiGraph(20000, 100000, 20);

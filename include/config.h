@@ -67,7 +67,23 @@ static void sgetrs_(char *C, int *N, int *NRHS, float *A, int *LDA, int *IPIV,
 
 #endif
 
+#define callTime(t,exper)                             \
+  auto t0 = std::chrono::system_clock::now();            \
+  exper;                                                 \
+  auto t1= std::chrono::system_clock::now();            \
+  std::chrono::duration<double, std::milli> ms=t1-t0;    \
+  t=ms.count();
+
+
+
+
 namespace raptor {
+
+template<typename W>
+W getInf(W c){
+  return std::numeric_limits<W>::max()/30.0;
+}
+
 enum LU_SOLVER {
   KLU = 0,
   LAPACK = 1
@@ -97,6 +113,7 @@ enum EXIT_BASE_TYPE {
 struct Statistics_data {
   int iterator_num;
   int empty_iterator_num;
+  double bestUpperobj;
   double estimee_opt_diff;
   int nzn;
   int snzn;
@@ -108,17 +125,23 @@ struct Statistics_data {
   double start_time;
   double using_system_time;
   double objSpeed;
-
+  double lpsolvertime;
+  double shortestpathtime;
+  double totalStaturateLink;
+  double totalNonzero;
   Statistics_data()
       : iterator_num(0),
         empty_iterator_num(0),
         estimee_opt_diff(std::numeric_limits<double>::max()),
+        bestUpperobj(0),
         nzn(0),
         snzn(0),
         minLU(0),
         start_time(0),
         using_system_time(0),
-        objSpeed(0) {}
+        objSpeed(0) {
+    lpsolvertime=shortestpathtime=0;
+  }
 };
 
 struct solverPara {
@@ -131,15 +154,19 @@ struct solverPara {
   double penaltyPriceForFailDemand;
   bool isSetDisturbed;
   int disturbedDigit;
+
+
   solverPara()
-      : solver(KLU),
+      : solver(LAPACK),
         maxIterationNum(1000000),
         info(0),
         objSpeedUpdateRat(0.4),
         perIterationPrint(100),
         isSetpenaltyPrice(false),
         isSetDisturbed(true),
-        disturbedDigit(3) {}
+        disturbedDigit(3) {
+
+  }
 };
 }
 
