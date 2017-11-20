@@ -137,6 +137,9 @@ class CG {
 
   vector<int> un_saturate_links;
 
+  vector<int> un_saturate_link_ids;// the id of un saturate link
+  
+
   vector<unordered_set<int>>
       demand_secondary_path_locs;  // belong to fixed demands' second paths
 
@@ -795,9 +798,7 @@ class CG {
 
   void setLUSOLVER(LU_SOLVER s) { para.solver = s; }
 
-  bool is_status_link(const int link) const {
-    return binfind(saturate_links.begin(), saturate_links.end(), link) > -1;
-  }
+
 
   void setStatusLink(const int link, const int pid) {
     paths[pid].link = link;
@@ -849,22 +850,7 @@ class CG {
 
     saturate_primary_path_locs.erase(link);
   }
-  /**
-   *
-   *
-   * @param i the id of un_saturate link
-   *
-   * @return  the index of the un_saturate link in simplex matrix
-   */
-  int getNIndex(int i) const {
-#ifdef DEBUG
-    assert(lower_bound(un_saturate_links.begin(), un_saturate_links.end(), i) !=
-           un_saturate_links.end());
-#endif
 
-    int j = binfind(un_saturate_links.begin(), un_saturate_links.end(), i);
-    return j + K + S;
-  }
   /**
    *
    *
@@ -889,13 +875,15 @@ class CG {
   void computIndexofLinks() {
     stable_sort(saturate_links.begin(), saturate_links.end());
     un_saturate_links.clear();
-
+    fill(un_saturate_link_ids.begin(), un_saturate_link_ids.end(), -1);
     size_t i = 0;
     for (int j = 0; j < S + N; j++) {
       if (i >= saturate_links.size()) {
+        un_saturate_link_ids[j]=un_saturate_links.size();
         un_saturate_links.push_back(j);
       } else {
         if (j < saturate_links[i]) {
+          un_saturate_link_ids[j]=un_saturate_links.size();
           un_saturate_links.push_back(j);
         } else {
           i++;
@@ -1038,9 +1026,10 @@ class CG {
         min_commodity_cost[i] = path_cost(update_weights, path, (W)0.0);
       }
     }
-
+    
     for (int i = 0; i < N; i++) {
       un_saturate_links.push_back(i);
+      un_saturate_link_ids.push_back(i);
     }
 
     rhs.resize(K + origLink_num + 1, (C)0.0);
@@ -1078,7 +1067,7 @@ class CG {
           std::cout << "objvalue: " << OBJ << endl;
           std::cout << "success fractional bw: " << sobj
                     << ", success rat: " << sobj / (TotalB + 0.01)<< std::endl;
-          std::cout << "The obj gap from opt less or equal than: " << sdata.estimee_opt_diff<<"("<<100*sdata.estimee_opt_diff/OBJ<<"%)"
+          std::cout << "The obj gap from opt less or equal than: " << sdata.estimee_opt_diff<<"("<<100*sdata.estimee_opt_diff/(OBJ-sdata.estimee_opt_diff)<<"%)"
                     << std::endl;
 
           std::cout << "The number of nonzeon element in matrix (CB-D) : "
@@ -1316,8 +1305,8 @@ class CG {
       int ppid = primary_path_loc[pid];
       for (vector<int>::const_iterator lit = paths[ppid].path.begin();
            lit != paths[ppid].path.end(); lit++) {
-        int i =
-            binfind(un_saturate_links.begin(), un_saturate_links.end(), *lit);
+        int i =un_saturate_link_ids[*lit];
+
         if (i > -1) {
           data_N[i] -= data_K[pid];
         }
@@ -1337,8 +1326,8 @@ class CG {
       int ppid = saturate_link_path_loc[saturate_links[lid]];
       for (vector<int>::const_iterator lit = paths[ppid].path.begin();
            lit != paths[ppid].path.end(); lit++) {
-        int i =
-            binfind(un_saturate_links.begin(), un_saturate_links.end(), *lit);
+        int i =un_saturate_link_ids[*lit];
+
         if (i > -1) {
           data_N[i] -= data_S[lid];
         }
@@ -1397,12 +1386,12 @@ class CG {
 
       for (vector<int>::const_iterator it = path.begin(); it != path.end();
            it++) {
-        lambda_N[getNIndex(*it) - S - K] = 1.0;
+        lambda_N[un_saturate_link_ids[*it]] = 1.0;
       }
 
       for (vector<int>::const_iterator it = commodity_path.begin();
            it != commodity_path.end(); it++) {
-        lambda_N[getNIndex(*it) - S - K] -= 1.0;
+        lambda_N[un_saturate_link_ids[*it]] -= 1.0;
       }
 
     } else {
@@ -1501,8 +1490,8 @@ class CG {
 
       for (vector<int>::const_iterator it = path.begin(); it != path.end();
            it++) {
-        int i =
-            binfind(un_saturate_links.begin(), un_saturate_links.end(), *it);
+        int i =un_saturate_link_ids[*it];
+
         if (i > -1) {
           lambda_N[i] = 1.0;
         }
@@ -1825,9 +1814,7 @@ class CG {
         edgeLeftBandwith[*lit] -= X[i + K];
       }
     }
-// for (int i = 0; i < N; i++) {
-//     x_N[i] = edgeLeftBandwith[un_saturate_links[i]];
-// }
+
 
 /**
  * no link overflow
