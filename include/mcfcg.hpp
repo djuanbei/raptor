@@ -23,6 +23,8 @@
 #include <cstring>
 #include <iostream>
 #include <limits>
+#include<sstream>
+#include<fstream>
 #include <unordered_map>
 #include <unordered_set>
 #include <chrono>
@@ -189,6 +191,7 @@ class CG {
   int K, S, N;
   double EPS;
   solverPara para;
+  vector<pair<int, int> >  saturateLinkAndMatrix;
 
   int thread_num;
 
@@ -1069,11 +1072,15 @@ class CG {
       computeRHS();
       double OBJ=computeOBJ();
       sdata.totalStaturateLink+=S;
-      sdata.totalStaturateLink+=sdata.nzn;
+      sdata.totalNonzero+=sdata.nzn;
+      if(para.info>1){
+        saturateLinkAndMatrix.push_back(make_pair(S,sdata.nzn ));
+      }
+      
       if(sdata.bestUpperobj<OBJ-sdata.estimee_opt_diff){
         sdata.bestUpperobj=OBJ-sdata.estimee_opt_diff;
       }
-      if (para.info > 1) {
+      if (para.info > 2) {
         if (sdata.iterator_num % para.perIterationPrint == 0) {
           sdata.using_system_time = systemTime() - sdata.start_time;
           C sobj = success_obj();
@@ -1959,6 +1966,17 @@ class CG {
     std::cout << "success fractional bandwidth: " << sobj << std::endl;
     std::cout << "success fractional bandwidth rat in total demand: "
               << sobj / (TotalB + 0.0) << std::endl;
+    if(para.info>1){
+      std::fstream fs;
+      stringstream sstr;
+      sstr<<"saturate"<<graph.getVertex_num()<<"_"<<graph.getLink_num()<< ".csv";
+      fs.open (sstr.str(),  std::fstream::out|std::fstream::trunc);
+      for(vector<pair<int, int> >::iterator it=saturateLinkAndMatrix.begin(); it!= saturateLinkAndMatrix.end(); it++){
+        fs<<it->first<<","<<it->second<<endl;
+      }
+      fs.close();
+      
+    }
   }
 };
 }

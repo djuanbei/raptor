@@ -137,7 +137,7 @@ void randMCF(int solver, const int V, const int E, const double bw_B, const doub
 
   graph.initial(srcs, snks);
   CG_T cg(graph, weights, caps, demands);
-  cg.setInfo(2);
+  cg.setInfo(4);
   if(solver==0){
     cg.setLUSOLVER(KLU);
   }else{
@@ -501,9 +501,9 @@ int main(int argc, char *argv[]) {
   // MCFexample2(  );
   // randMCF(4, 8, 200, 40, 6, 50);
   if(argc>1){
-    randMCF(1, 5000, 15000, 200, 40, 500, 100);
+    randMCF(1, 5000, 25000, 400, 10, 500, 100);
   }else{
-    randMCF(0, 5000, 15000, 200, 10, 500, 100);
+    randMCF(0, 1000, 5000, 400, 10, 1000, 100);
   }
   // //  Case1(  );
   // double start=cpuTime(  );
