@@ -5,7 +5,7 @@
 #include <fpu_control.h>
 #endif
 
-#include "IntTypes.h"
+#include "myinttype.h"
 
 //-------------------------------------------------------------------------------------------------
 static inline double systemTime(void);  // SYSTEM time in seconds.

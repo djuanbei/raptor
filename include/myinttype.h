@@ -17,6 +17,6 @@
 
 #endif
 
-#include <limits.h>
+#include <climits>
 
 #endif
