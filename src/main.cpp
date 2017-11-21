@@ -502,13 +502,14 @@ int main(int argc, char *
 
   // MCFexample2(  );
   // randMCF(4, 8, 200, 40, 6, 50);
-  cout<<"using time(s), success rat, object value, iteration number, empty iteration,  computing shortest path use time(s), solving linear equation solve use time(s)"<<endl;
+  cout<<"case, using time(s), success rat, object value, iteration number, empty iteration,  computing shortest path use time(s), solving linear equation solve use time(s)"<<endl;
   if(argc>1){
 
     for(int i=1; i< 40; i+=2){
       // cout<<"************************************"<<endl;
       // cout<<1000*i<<endl;
       // cout<<"************************************"<<endl;
+      cout<<"case_"<<1000*i<<"_"<<5000*i;
       randMCF(1, 1000*i, 5000*i, 400, 10, 1000, 100);
     }
   }else{
@@ -516,6 +517,7 @@ int main(int argc, char *
       // cout<<"************************************"<<endl;
       // cout<<1000*i<<endl;
       // cout<<"************************************"<<endl;
+      cout<<"case_"<<1000*i<<"_"<<5000*i;
       randMCF(0, 1000*i, 5000*i, 400, 10, 1000, 100);
     }
   }
