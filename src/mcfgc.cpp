@@ -15,7 +15,6 @@ KLUsolver::~KLUsolver(){
   if(!first){
     first=false;
     klu_free_symbolic(&Symbolic, &Common);
-    klu_free_numeric(&Numeric, &Common);
   }
 }
 
@@ -88,10 +87,17 @@ void KLUsolver::update(int n){
   
 }
 bool KLUsolver::solve(double *b){
-  return klu_solve(Symbolic, Numeric, dim, 1, b, &Common)==1;
+  int re= klu_solve(Symbolic, Numeric, dim, 1, b, &Common);
+  // klu_free_numeric(&Numeric, &Common);
+  return re==1;
+
 }
 bool KLUsolver::tsolve(double *b){
-  return klu_tsolve(Symbolic, Numeric, dim, 1, b, &Common)==1;
+  int re=klu_tsolve(Symbolic, Numeric, dim, 1, b, &Common);
+  // klu_free_numeric(&Numeric, &Common);
+  return re==1;
+  
+
 }
 
 }

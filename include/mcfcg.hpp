@@ -1128,6 +1128,7 @@ class CG {
       pivot(entering_commodity, leaving_base);
 
       S = saturate_links.size();
+
       assert(empty_paths.size()+K+S==paths.size());
       N = origLink_num + 1 - S;
       computIndexofLinks();

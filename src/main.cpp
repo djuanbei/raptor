@@ -137,7 +137,7 @@ void randMCF(int solver, const int V, const int E, const double bw_B, const doub
 
   graph.initial(srcs, snks);
   CG_T cg(graph, weights, caps, demands);
-  cg.setInfo(2);
+  cg.setInfo(3);
   if(solver==0){
     cg.setLUSOLVER(KLU);
   }else{
