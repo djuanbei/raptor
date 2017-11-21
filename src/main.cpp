@@ -19,9 +19,7 @@ using namespace std;
 using namespace raptor;
 using namespace mcmcf;
 
-
-
-void example2(void){
+void example2(void) {
   vector<int> srcs;
   vector<int> snks;
   vector<double> weights, caps;
@@ -47,9 +45,8 @@ void example2(void){
 
   simple_graph graph;
 
-
   typedef CG<simple_graph, double> CG_T;
-  
+
   vector<Demand<double>> demands;
   Demand<double> d1;
   d1.src = 0;
@@ -63,20 +60,18 @@ void example2(void){
 
   demands.push_back(d2);
 
-
   graph.initial(srcs, snks);
   CG_T cg(graph, weights, caps, demands);
   cg.setInfo(1);
   cg.solve();
 }
 
-
-void randMCF(int solver, const int V, const int E, const double bw_B, const double w_B,
-             const int d_num, const double dBWB) {
+void randMCF(int solver, const int V, const int E, const double bw_B,
+             const double w_B, const int d_num, const double dBWB) {
   typedef double T;
 
   simple_graph graph;
-  set<pair<int, int> > hasSet;
+  set<pair<int, int>> hasSet;
   vector<int> srcs;
   vector<int> snks;
   vector<T> caps;
@@ -105,8 +100,8 @@ void randMCF(int solver, const int V, const int E, const double bw_B, const doub
     if (hasSet.find(temp) == hasSet.end()) {
       i++;
 
-      bw = (int)disBW(generator)+1;
-      weight = (int)disWS(generator)+1;
+      bw = (int)disBW(generator) + 1;
+      weight = (int)disWS(generator) + 1;
 
       hasSet.insert(temp);
       srcs.push_back(src);
@@ -118,15 +113,15 @@ void randMCF(int solver, const int V, const int E, const double bw_B, const doub
   i = 0;
 
   typedef CG<simple_graph, T> CG_T;
-  vector<Demand<T> > demands;
+  vector<Demand<T>> demands;
   while (i < d_num) {
     src = rand() % V;
     snk = rand() % V;
     while (src == snk) {
       snk = rand() % V;
     }
-    bw = (int)disDBW(generator)+1;
-    Demand<T>  d;
+    bw = (int)disDBW(generator) + 1;
+    Demand<T> d;
     d.src = src;
     d.snk = snk;
     d.bandwidth = bw;
@@ -138,13 +133,13 @@ void randMCF(int solver, const int V, const int E, const double bw_B, const doub
   graph.initial(srcs, snks);
   CG_T cg(graph, weights, caps, demands);
   cg.setInfo(2);
-  if(solver==0){
+  if (solver == 0) {
     cg.setLUSOLVER(KLU);
-  }else{
+  } else {
     cg.setLUSOLVER(LAPACK);
   }
   // cg.writeKsptoCNF(10, "test.cnf");
-  cg.solve(  );
+  cg.solve();
 }
 
 // void Case1(  ){
@@ -192,7 +187,7 @@ void randGraph(const int V, const int E, const double WW) {
   directed_graph<double, int> graph;
   graph.setInfi(1000000000);
 
-  set<pair<int, int> > hasSet;
+  set<pair<int, int>> hasSet;
   vector<int> srcs;
   vector<int> snks;
   vector<double> weights;
@@ -228,7 +223,7 @@ void randGraph(const int V, const int E, const double WW) {
   double slen = 0;
   size_t num = 10000;
 
-  vector<vector<int> > paths;
+  vector<vector<int>> paths;
   vector<int> dsrcs;
   snk = rand() % V;
   vector<double> dis(graph.getVertex_num());
@@ -314,7 +309,7 @@ void randbiGraph(const int V, const int E, const double WW) {
   undirected_graph<double, int> bgraph;
   graph.setInfi(100000);
 
-  set<pair<int, int> > hasSet;
+  set<pair<int, int>> hasSet;
   vector<int> srcs;
   vector<int> snks;
   vector<double> weights;
@@ -363,12 +358,12 @@ void randbiGraph(const int V, const int E, const double WW) {
             << std::endl;
   size_t tlen = 0;
   size_t tnum = 0;
-  vector<vector<int> > paths;
+  vector<vector<int>> paths;
   int bsucc = 0;
   int succ = 0;
   double bsumdis = 0;
   double sumdis = 0;
-  vector<pair<int, int> > task;
+  vector<pair<int, int>> task;
   vector<int> all_dis(1000);
   double start1 = cpuTime();
   for (i = 0; i < 1000; i++) {
@@ -398,7 +393,7 @@ void randbiGraph(const int V, const int E, const double WW) {
   std::cout << "bi method time  " << cpuTime() - start1 << std::endl;
   start1 = cpuTime();
   i = 0;
-  for (vector<pair<int, int> >::iterator it = task.begin(); it != task.end();
+  for (vector<pair<int, int>>::iterator it = task.begin(); it != task.end();
        it++) {
     vector<int> path, path1, path2, path3;
     src = it->first;
@@ -432,8 +427,7 @@ void randbiGraph(const int V, const int E, const double WW) {
   std::cout << "bi method time  " << cpuTime() - start1 << std::endl;
 }
 
-
-void testAns(char *filename){
+void testAns(char *filename) {
   ifstream ifs;
   ifs.open(filename, std::ifstream::in);
   csv_istream csv_in(ifs);
@@ -441,8 +435,8 @@ void testAns(char *filename){
   vector<double> weights;
   int src, snk;
   double w;
-  while(csv_in>> src && csv_in>> snk){
-    csv_in>> w;
+  while (csv_in >> src && csv_in >> snk) {
+    csv_in >> w;
     srcs.push_back(src);
     snks.push_back(snk);
     srcs.push_back(snk);
@@ -450,40 +444,39 @@ void testAns(char *filename){
     weights.push_back(w);
     weights.push_back(w);
   }
-  double infi_value=1000000000;
+  double infi_value = 1000000000;
   directed_graph<double, int> graph;
   graph.initial(srcs, snks, weights);
-  inc_ksp::yen_ksp<directed_graph<double, int>, vector<double> , double> yen(graph, weights, infi_value);
+  inc_ksp::yen_ksp<directed_graph<double, int>, vector<double>, double> yen(
+      graph, weights, infi_value);
 
-  inc_ksp::yen_next_path<directed_graph<double, int>, vector<double> , double> next_p=yen.next_path(15, 0);
+  inc_ksp::yen_next_path<directed_graph<double, int>, vector<double>, double>
+      next_p = yen.next_path(15, 0);
 
-  int path_num=0;
+  int path_num = 0;
   vector<int> path;
-  set< vector<int> > paths;  
-  while(next_p.next_path(path)){
-    if(!isSimplePath(graph, 15, 0, path)){
-      cout<<"error"<<endl;
+  set<vector<int>> paths;
+  while (next_p.next_path(path)) {
+    if (!isSimplePath(graph, 15, 0, path)) {
+      cout << "error" << endl;
     }
     sort(path.begin(), path.end());
-    if(paths.find(path)!=paths.end()){
-      cout<<"error"<<endl;
+    if (paths.find(path) != paths.end()) {
+      cout << "error" << endl;
     }
     paths.insert(path);
     path_num++;
   }
-  cout<<"the number of simple path connect Hawii and Hartford is: "<<path_num<<endl;
-    
-  
-  
+  cout << "the number of simple path connect Hawii and Hartford is: "
+       << path_num << endl;
 }
 
-int main(int argc, char *
-         argv[]) {
+int main(int argc, char *argv[]) {
   // randMCF(0, 20, 100, 400, 10, 60, 100);
   // example2();
   // //  testAns(argv[1]);
   // return 0;
-  
+
   // ifstream ifs;
   // ifs.open(argv[1], std::ifstream::in);
   // csv_istream csv_in(ifs);
@@ -502,23 +495,25 @@ int main(int argc, char *
 
   // MCFexample2(  );
   // randMCF(4, 8, 200, 40, 6, 50);
-  cout<<"case, using time(s), success rat, object value, iteration number, empty iteration,  computing shortest path use time(s), solving linear equation solve use time(s)"<<endl;
-  if(argc>1){
-
-    for(int i=1; i< 40; i+=2){
+  cout << "case, using time(s), success rat, object value, iteration number, "
+          "empty iteration,  computing shortest path use time(s), solving "
+          "linear equation solve use time(s)"
+       << endl;
+  if (argc > 1) {
+    for (int i = 1; i < 40; i += 2) {
       // cout<<"************************************"<<endl;
       // cout<<1000*i<<endl;
       // cout<<"************************************"<<endl;
-      cout<<"case_"<<1000*i<<"_"<<5000*i;
-      randMCF(1, 1000*i, 5000*i, 400, 10, 1000, 100);
+      cout << "case_" << 1000 * i << "_" << 5000 * i << ",";
+      randMCF(1, 1000 * i, 5000 * i, 300, 10, 1000, 100);
     }
-  }else{
-    for(int i=1; i< 40; i+=2){
+  } else {
+    for (int i = 1; i < 40; i += 2) {
       // cout<<"************************************"<<endl;
       // cout<<1000*i<<endl;
       // cout<<"************************************"<<endl;
-      cout<<"case_"<<1000*i<<"_"<<5000*i;
-      randMCF(0, 1000*i, 5000*i, 400, 10, 1000, 100);
+      cout << "case_" << 1000 * i << "_" << 5000 * i << ",";
+      randMCF(0, 1000 * i, 5000 * i, 300, 10, 1000, 100);
     }
   }
   // //  Case1(  );

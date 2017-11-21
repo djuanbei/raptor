@@ -55,7 +55,7 @@ COPTIMIZE ?= -O2
 CFLAGS    += -I  include -I include/klu # -I  ~/demo/SuiteSparse/include
 
  # -L ~/demo/SuiteSparse/  -lklu -lbtf -lamd -lcolamd -lsuitesparseconfig # $(LIB_WITH_PARTITION) $(LDLIBS)
-LFLAGS    +=-llapack   -L lib  -lklu -lbtf -lamd -lcolamd
+LFLAGS    +=-llapack   -L lib -lcsparse  -lklu -lbtf -lamd -lcolamd  -lm
 
 
 

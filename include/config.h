@@ -67,13 +67,12 @@ static void sgetrs_(char *C, int *N, int *NRHS, float *A, int *LDA, int *IPIV,
 
 #endif
 
-#define callTime(t,exper)                             \
-  auto t0 = std::chrono::system_clock::now();            \
-  exper;                                                 \
-  auto t1= std::chrono::system_clock::now();            \
-  std::chrono::duration<double, std::milli> ms=t1-t0;    \
-  t=ms.count();
-
+#define callTime(t, exper)                                \
+  auto t0 = std::chrono::system_clock::now();             \
+  exper;                                                  \
+  auto t1 = std::chrono::system_clock::now();             \
+  std::chrono::duration<double, std::milli> ms = t1 - t0; \
+  t = ms.count();
 
 namespace raptor {
 struct sparseMatrixElem {
@@ -91,9 +90,9 @@ struct sparseMatrixElem {
   }
 };
 
-template<typename W>
-W getInf(W ){
-  return std::numeric_limits<W>::max()/30.0;
+template <typename W>
+W getInf(W) {
+  return std::numeric_limits<W>::max() / 30.0;
 }
 
 enum LU_SOLVER {
@@ -152,7 +151,7 @@ struct Statistics_data {
         start_time(0),
         using_system_time(0),
         objSpeed(0) {
-    lpsolvertime=shortestpathtime=0;
+    lpsolvertime = shortestpathtime = 0;
   }
 };
 
@@ -167,7 +166,6 @@ struct solverPara {
   bool isSetDisturbed;
   int disturbedDigit;
 
-
   solverPara()
       : solver(LAPACK),
         maxIterationNum(1000000),
@@ -176,9 +174,7 @@ struct solverPara {
         perIterationPrint(100),
         isSetpenaltyPrice(false),
         isSetDisturbed(true),
-        disturbedDigit(3) {
-
-  }
+        disturbedDigit(3) {}
 };
 }
 
