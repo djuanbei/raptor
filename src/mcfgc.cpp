@@ -87,17 +87,10 @@ void KLUsolver::update(int n){
   
 }
 bool KLUsolver::solve(double *b){
-  int re= klu_solve(Symbolic, Numeric, dim, 1, b, &Common);
-  // klu_free_numeric(&Numeric, &Common);
-  return re==1;
-
+  return klu_solve(Symbolic, Numeric, dim, 1, b, &Common)==1;
 }
 bool KLUsolver::tsolve(double *b){
-  int re=klu_tsolve(Symbolic, Numeric, dim, 1, b, &Common);
-  // klu_free_numeric(&Numeric, &Common);
-  return re==1;
-  
-
+  return klu_tsolve(Symbolic, Numeric, dim, 1, b, &Common)==1;
 }
 
 }

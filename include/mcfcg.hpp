@@ -808,7 +808,7 @@ class CG {
     saturate_link_path_loc[link] = pid;
   }
 
-  void addPrimaryPath(const int commodityID) {
+  void addPrimarySaturateLink(const int commodityID) {
     int pid = primary_path_loc[commodityID];
     const vector<int> &new_path = paths[pid].path;
     for (vector<int>::const_iterator it = new_path.begin();
@@ -819,7 +819,7 @@ class CG {
     }
   }
 
-  void deletePrimaryPath(const int commodityID) {
+  void deletePrimarySatuateLinks(const int commodityID) {
     int primary_pid = primary_path_loc[commodityID];
     const vector<int> &orig_path = paths[primary_pid].path;
     for (vector<int>::const_iterator it = orig_path.begin();
@@ -831,6 +831,7 @@ class CG {
   }
 
   void addStatusLink(const int link) {
+    saturate_primary_path_locs[link].clear();
     for (int i = 0; i < K; i++) {
       int pid = primary_path_loc[i];
       if (find(paths[pid].path.begin(), paths[pid].path.end(), link) !=
@@ -839,7 +840,7 @@ class CG {
       }
     }
   }
-  void deleteStatusLink(const int link) {
+  void deleteSaturateLink(const int link) {
     vector<int>::iterator it =
         lower_bound(saturate_links.begin(), saturate_links.end(), link);
 #if DEBUG
@@ -1128,7 +1129,6 @@ class CG {
       pivot(entering_commodity, leaving_base);
 
       S = saturate_links.size();
-
       assert(empty_paths.size()+K+S==paths.size());
       N = origLink_num + 1 - S;
       computIndexofLinks();
@@ -1634,15 +1634,15 @@ class CG {
     sdata.exit = leaving_base.id;
     if (PATH_T == entering_commodity.type) {
       if (DEMAND_T == leaving_base.type) {
-        int exit_commodity_id = leaving_base.id;
-        int exit_primary_pid = primary_path_loc[exit_commodity_id];
+        int  leaving_commodity_id = leaving_base.id;
+        int exit_primary_pid = primary_path_loc[ leaving_commodity_id];
 
         /**
          * leaving primary will been deleted from base
          * matrix
          *
          */
-        deletePrimaryPath(exit_commodity_id);
+        deletePrimarySatuateLinks( leaving_commodity_id);
 
         /**
          * when entering commodity and leaving commodity are
@@ -1666,9 +1666,9 @@ class CG {
            *
            */
 
-          assert(!demand_secondary_path_locs[exit_commodity_id].empty());
+          assert(!demand_secondary_path_locs[ leaving_commodity_id].empty());
           unordered_set<int>::const_iterator it =
-              demand_secondary_path_locs[exit_commodity_id].begin();
+              demand_secondary_path_locs[ leaving_commodity_id].begin();
 
           int pid = *it;
           int link = paths[pid].link;
@@ -1680,8 +1680,8 @@ class CG {
            *
            */
 
-          demand_secondary_path_locs[exit_commodity_id].erase(it);
-          primary_path_loc[exit_commodity_id] = pid;
+          demand_secondary_path_locs[ leaving_commodity_id].erase(it);
+          primary_path_loc[ leaving_commodity_id] = pid;
           paths[pid].link = -1;
 
           demand_secondary_path_locs[entering_commodity.id].insert(
@@ -1690,7 +1690,7 @@ class CG {
           setStatusLink(link, exit_primary_pid);
         }
 
-        addPrimaryPath(exit_commodity_id);
+        addPrimarySaturateLink( leaving_commodity_id);
 
       } else if (STATUS_LINK == leaving_base.type) {
         int pid = saturate_link_path_loc[leaving_base.id];
@@ -1747,40 +1747,41 @@ class CG {
        * entering a saturate link
        *
        */
-      int enter_status_link = entering_commodity.id;
+      int enter_saturate_link = entering_commodity.id;
 
-      int spid = saturate_link_path_loc[enter_status_link];
-      deleteStatusLink(enter_status_link);
-
+      int spid = saturate_link_path_loc[enter_saturate_link];
+      deleteSaturateLink(enter_saturate_link);
+      int leaving_commodity_id = leaving_base.id;
+        
       if (DEMAND_T == leaving_base.type) {
-        int exit_commodity_id = leaving_base.id;
 
-        deletePrimaryPath(exit_commodity_id);
-        empty_paths.push_back(primary_path_loc[leaving_base.id]);
-        paths[primary_path_loc[leaving_base.id]].path.clear();
-        if (paths[spid].owner == leaving_base.id) {
+        deletePrimarySatuateLinks( leaving_commodity_id);
+        empty_paths.push_back(primary_path_loc[leaving_commodity_id]);
+        paths[primary_path_loc[leaving_commodity_id]].path.clear();
+        if (paths[spid].owner == leaving_commodity_id) {
 
-          primary_path_loc[leaving_base.id] = spid;
-          demand_secondary_path_locs[leaving_base.id].erase(spid);
+          primary_path_loc[leaving_commodity_id] = spid;
+          demand_secondary_path_locs[leaving_commodity_id].erase(spid);
         } else {
-          assert(!demand_secondary_path_locs[leaving_base.id].empty());
+          assert(!demand_secondary_path_locs[leaving_commodity_id].empty());
           unordered_set<int>::const_iterator it =
-              demand_secondary_path_locs[leaving_base.id].begin();
+              demand_secondary_path_locs[leaving_commodity_id].begin();
 
           int pid = *it;
           int link = paths[pid].link;
 
           assert(link >= 0);
 
-          demand_secondary_path_locs[leaving_base.id].erase(it);
-          primary_path_loc[leaving_base.id] = pid;
+          demand_secondary_path_locs[leaving_commodity_id].erase(it);
+          primary_path_loc[leaving_commodity_id] = pid;
 
           setStatusLink(link, spid);
         }
 
-        addPrimaryPath(exit_commodity_id);
+        addPrimarySaturateLink( leaving_commodity_id);
       } else if (STATUS_LINK == leaving_base.type) {
         if (leaving_base.id == entering_commodity.id) {
+
           empty_paths.push_back(spid);
           
           demand_secondary_path_locs[paths[spid].owner].erase(spid);
@@ -1799,9 +1800,9 @@ class CG {
         }
 
       } else {
-        saturate_links.push_back(leaving_base.id);
-        stable_sort(saturate_links.begin(), saturate_links.end());
         int link = leaving_base.id;
+        saturate_links.push_back(link);
+        stable_sort(saturate_links.begin(), saturate_links.end());
 
         setStatusLink(link, spid);
 
