@@ -137,7 +137,7 @@ void randMCF(int solver, const int V, const int E, const double bw_B, const doub
 
   graph.initial(srcs, snks);
   CG_T cg(graph, weights, caps, demands);
-  cg.setInfo(3);
+  cg.setInfo(2);
   if(solver==0){
     cg.setLUSOLVER(KLU);
   }else{
@@ -479,6 +479,7 @@ void testAns(char *filename){
 
 int main(int argc, char *
          argv[]) {
+  // randMCF(0, 20, 100, 400, 10, 60, 100);
   // example2();
   // //  testAns(argv[1]);
   // return 0;
@@ -508,7 +509,7 @@ int main(int argc, char *
       // cout<<"************************************"<<endl;
       // cout<<1000*i<<endl;
       // cout<<"************************************"<<endl;
-      randMCF(0, 1000*i, 5000*i, 400, 10, 1000, 100);
+      randMCF(1, 1000*i, 5000*i, 400, 10, 1000, 100);
     }
   }else{
     for(int i=1; i< 40; i+=2){

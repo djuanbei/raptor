@@ -73,6 +73,9 @@ struct KLUsolver {
     dim = 0;
   }
   ~KLUsolver();
+  void setDim(int d){
+    dim=d;
+  }
   void update(int n);
   bool solve(double *b);
   bool tsolve(double *b);
@@ -338,6 +341,8 @@ class CG {
 
       klusolver.elements = elements;
       klusolver.update(S);
+      // klusolver.setDim(S);
+      
       sdata.nzn = klusolver.nonzeroNum;
 
     } else {
@@ -1068,8 +1073,7 @@ class CG {
       if(sdata.bestUpperobj<OBJ-sdata.estimee_opt_diff){
         sdata.bestUpperobj=OBJ-sdata.estimee_opt_diff;
       }
-      if (sdata.iterator_num % para.perIterationPrint == 0)
-        cout<<paths.size()<<endl;
+
       if (para.info > 2) {
         if (sdata.iterator_num % para.perIterationPrint == 0) {
           sdata.using_system_time = systemTime() - sdata.start_time;
@@ -1094,7 +1098,7 @@ class CG {
                     << sdata.nzn << std::endl;
 
           std::cout << "Last entering: " << sdata.enter
-                    << ", last leaving: " << sdata.exit << std::endl;
+                    << ", last leaving: " << sdata.leaving << std::endl;
         }
       }
       if (sdata.iterator_num > para.maxIterationNum) {
@@ -1631,11 +1635,11 @@ class CG {
 
   void pivot(ENTER_VARIABLE &entering_commodity, Leaving_base &leaving_base) {
     sdata.enter = entering_commodity.id;
-    sdata.exit = leaving_base.id;
+    sdata.leaving = leaving_base.id;
     if (PATH_T == entering_commodity.type) {
       if (DEMAND_T == leaving_base.type) {
         int  leaving_commodity_id = leaving_base.id;
-        int exit_primary_pid = primary_path_loc[ leaving_commodity_id];
+        int leaving_primary_pid = primary_path_loc[ leaving_commodity_id];
 
         /**
          * leaving primary will been deleted from base
@@ -1651,8 +1655,8 @@ class CG {
          *
          */
 
-        paths[exit_primary_pid].path = entering_commodity.path;
-        paths[exit_primary_pid].owner = entering_commodity.id;
+        paths[leaving_primary_pid].path = entering_commodity.path;
+        paths[leaving_primary_pid].owner = entering_commodity.id;
 
         if (entering_commodity.id != leaving_base.id) {
           /**
@@ -1685,9 +1689,9 @@ class CG {
           paths[pid].link = -1;
 
           demand_secondary_path_locs[entering_commodity.id].insert(
-              exit_primary_pid);
+              leaving_primary_pid);
 
-          setStatusLink(link, exit_primary_pid);
+          setStatusLink(link, leaving_primary_pid);
         }
 
         addPrimarySaturateLink( leaving_commodity_id);

@@ -4,39 +4,31 @@ namespace raptor {
 namespace mcmcf {
 KLUsolver::~KLUsolver(){
   if(NULL!=Ap){
-    delete [] Ap;
+    delete[] Ap;
+    Ap=NULL;
+
   }
   if(NULL!=Ai){
-    delete [] Ai;
+    delete[] Ai;
+    Ai=NULL;
   }
   if(NULL!=Ax){
-    delete []Ax;
+    delete[]Ax;
+    Ax=NULL;
   }
   if(!first){
-    first=false;
     klu_free_symbolic(&Symbolic, &Common);
+    klu_free_numeric(&Numeric, &Common);
   }
 }
 
 void KLUsolver::update(int n){
 
-  if(NULL!=Ap){
-    delete [] Ap;
-    Ap=NULL;
-  }
-  if(NULL!=Ai){
-    delete [] Ai;
-    Ai=NULL;
-  }
-  if(NULL!=Ax){
-    delete []Ax;
-    Ax=NULL;
-  }
   if(!first){
-    first=false;
     klu_free_symbolic(&Symbolic, &Common);
     klu_free_numeric(&Numeric, &Common);
   }
+  first=false;
   Ap=new int[n+1];
   Ai=new int[elements.size()];
   Ax=new double[elements.size()];
@@ -84,13 +76,24 @@ void KLUsolver::update(int n){
   
   nonzeroNum=nz;
   dim=n;
+  delete [] Ai;
+  delete[] Ap;
+  delete [] Ax;
   
 }
 bool KLUsolver::solve(double *b){
-  return klu_solve(Symbolic, Numeric, dim, 1, b, &Common)==1;
+  // update(dim);
+  return  klu_solve(Symbolic, Numeric, dim, 1, b, &Common)==1;
+  // klu_free_symbolic(&Symbolic, &Common);
+  // klu_free_numeric(&Numeric, &Common);
+  // return re==1;
 }
 bool KLUsolver::tsolve(double *b){
+  // update(dim);
   return klu_tsolve(Symbolic, Numeric, dim, 1, b, &Common)==1;
+  // klu_free_symbolic(&Symbolic, &Common);
+  // klu_free_numeric(&Numeric, &Common);
+  // return re==1;
 }
 
 }

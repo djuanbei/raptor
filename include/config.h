@@ -133,7 +133,7 @@ struct Statistics_data {
   ENTER_BASE_TYPE etype;
   int enter;
   EXIT_BASE_TYPE exitt;
-  int exit;
+  int leaving;
   double start_time;
   double using_system_time;
   double objSpeed;

@@ -66,7 +66,7 @@ struct Data{
   void reset(W inf) {
     int temp;
     const vector<int>& qpassNodes=Q.getPassNodes();
-    assert(qpassNodes.size()< preLink.size());
+    assert(qpassNodes.size()<= preLink.size());
     for(vector<int>::const_iterator it=qpassNodes.begin(); it!=qpassNodes.end(); it++){
       temp=*it;
       preLink[temp]=-1;
