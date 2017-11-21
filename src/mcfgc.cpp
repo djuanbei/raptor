@@ -3,19 +3,6 @@
 namespace raptor {
 namespace mcmcf {
 KLUsolver::~KLUsolver(){
-  if(NULL!=Ap){
-    delete[] Ap;
-    Ap=NULL;
-
-  }
-  if(NULL!=Ai){
-    delete[] Ai;
-    Ai=NULL;
-  }
-  if(NULL!=Ax){
-    delete[]Ax;
-    Ax=NULL;
-  }
   if(!first){
     klu_free_symbolic(&Symbolic, &Common);
     klu_free_numeric(&Numeric, &Common);
@@ -76,9 +63,9 @@ void KLUsolver::update(int n){
   
   nonzeroNum=nz;
   dim=n;
-  delete [] Ai;
+  delete[] Ai;
   delete[] Ap;
-  delete [] Ax;
+  delete[] Ax;
   
 }
 bool KLUsolver::solve(double *b){
