@@ -14,10 +14,38 @@
 #include "mcfcg.hpp"
 
 #include "csvReader.hpp"
+#include "sparse.h"
 
 using namespace std;
 using namespace raptor;
 using namespace mcmcf;
+using namespace sparse;
+
+void testSparse(){
+  vector<sparseMatrixElem> elements;
+  sparseMatrixElem temp;
+  temp.row=0;
+  temp.column=1;
+  temp.value=1;
+  elements.push_back(temp);
+
+  temp.row=1;
+  temp.column=0;
+  elements.push_back(temp);
+
+  temp.row=2;
+  temp.column=2;
+  elements.push_back(temp);
+  SparseSolver solver(elements);
+  double b[3];
+  b[0]=1;
+  b[1]=0;
+  b[2]=0;
+
+  solver.locSolver(b);
+  
+  
+}
 
 void example2(void) {
   vector<int> srcs;
@@ -472,6 +500,8 @@ void testAns(char *filename) {
 }
 
 int main(int argc, char *argv[]) {
+  testSparse();
+  return 0;
   // randMCF(0, 20, 100, 400, 10, 60, 100);
   // example2();
   // //  testAns(argv[1]);

@@ -1625,6 +1625,7 @@ class CG {
     sdata.leaving = leaving_base.id;
     if (PATH_T == entering_commodity.type) {
       if (DEMAND_T == leaving_base.type) {
+        sdata.pivotType=NOCHANGE;
         int leaving_commodity_id = leaving_base.id;
         int leaving_primary_pid = primary_path_loc[leaving_commodity_id];
 
@@ -1684,6 +1685,8 @@ class CG {
         addPrimarySaturateLink(leaving_commodity_id);
 
       } else if (STATUS_LINK == leaving_base.type) {
+
+        sdata.pivotType=NOCHANGE;
         int pid = saturate_link_path_loc[leaving_base.id];
         paths[pid].path = entering_commodity.path;
 
@@ -1700,8 +1703,11 @@ class CG {
         paths[pid].owner = entering_commodity.id;
 
       } else {
+        
         // leaving is un saturate link then from un_saturate
         // link to saturate link
+        sdata.pivotType=ADDLINK;
+        sdata.linkId=leaving_base.id;
         if (empty_paths.empty()) {
           Path npath(entering_commodity.path, entering_commodity.id,
                      leaving_base.id);
