@@ -124,9 +124,9 @@ class CG {
   vector<double> min_commodity_cost;
 
   vector<int> saturate_links;  // contain the index of saturate links
-  
-  vector<int> saturate_link_ids;//the id of  saturate link
-  
+
+  vector<int> saturate_link_ids;  // the id of  saturate link
+
   vector<int> un_saturate_links;
 
   vector<int> un_saturate_link_ids;  // the id of un saturate link
@@ -298,7 +298,7 @@ class CG {
         const vector<int> &path = paths[pid].path;
         for (vector<int>::const_iterator lit = path.begin(); lit != path.end();
              lit++) {
-          int j=saturate_link_ids[*lit];
+          int j = saturate_link_ids[*lit];
           if (j > -1) {
             sparseMatrixElem elem;
             elem.column = i;
@@ -316,7 +316,6 @@ class CG {
       for (unordered_map<int, unordered_set<int>>::const_iterator it =
                saturate_primary_path_locs.begin();
            it != saturate_primary_path_locs.end(); it++) {
-
         int link = it->first;
         int i = getSindex(link) - K;
         for (unordered_set<int>::const_iterator pit = it->second.begin();
@@ -362,7 +361,7 @@ class CG {
         const vector<int> &path = paths[pid].path;
         for (vector<int>::const_iterator lit = path.begin(); lit != path.end();
              lit++) {
-          int j=saturate_link_ids[*lit];
+          int j = saturate_link_ids[*lit];
           if (j > -1) {
             SM[j * S + i] = -1.0;
             sdata.nzn++;
@@ -820,7 +819,7 @@ class CG {
     const vector<int> &orig_path = paths[primary_pid].path;
     for (vector<int>::const_iterator it = orig_path.begin();
          it != orig_path.end(); it++) {
-      if (saturate_link_ids[*it]> -1) {
+      if (saturate_link_ids[*it] > -1) {
         saturate_primary_path_locs[*it].erase(primary_pid);
       }
     }
@@ -837,7 +836,6 @@ class CG {
     }
   }
   void deleteSaturateLink(const int link) {
-    
     vector<int>::iterator it =
         find(saturate_links.begin(), saturate_links.end(), link);
 #if DEBUG
@@ -845,11 +843,11 @@ class CG {
 #endif
 
     saturate_links.erase(it);
-    saturate_link_ids[link]=-1;
+    saturate_link_ids[link] = -1;
 
     int spid = saturate_link_path_loc[link];
     paths[spid].link = -1;
-    
+
     saturate_primary_path_locs.erase(link);
   }
 
@@ -861,8 +859,8 @@ class CG {
    * @return the index of the saturate link in simplex matrix
    */
   int getSindex(int i) const {
-    int j =saturate_link_ids[i];
-    assert(j>-1);
+    int j = saturate_link_ids[i];
+    assert(j > -1);
     return j + K;
   }
 
@@ -876,16 +874,16 @@ class CG {
     fill(un_saturate_link_ids.begin(), un_saturate_link_ids.end(), -1);
     fill(saturate_link_ids.begin(), saturate_link_ids.end(), -1);
 
-    for(size_t i=0; i< saturate_links.size(); i++){
-      saturate_link_ids[saturate_links[i]]=i;
+    for (size_t i = 0; i < saturate_links.size(); i++) {
+      saturate_link_ids[saturate_links[i]] = i;
     }
 
-    int i=0;
+    int i = 0;
 
     for (int j = 0; j < S + N; j++) {
-      if(saturate_link_ids[j]<0){
-        un_saturate_link_ids[j] =i;
-        un_saturate_links[i++]=j;
+      if (saturate_link_ids[j] < 0) {
+        un_saturate_link_ids[j] = i;
+        un_saturate_links[i++] = j;
       }
     }
   }
@@ -1026,8 +1024,8 @@ class CG {
         min_commodity_cost[i] = path_cost(update_weights, path, (W)0.0);
       }
     }
-    saturate_link_ids.resize(N,-1);
-    
+    saturate_link_ids.resize(N, -1);
+
     for (int i = 0; i < N; i++) {
       un_saturate_links.push_back(i);
       un_saturate_link_ids.push_back(i);
@@ -1433,7 +1431,7 @@ class CG {
       fill(b, b + S, 0.0);
       for (vector<int>::const_iterator it = commodity_path.begin();
            it != commodity_path.end(); it++) {
-        int i =saturate_link_ids[*it];
+        int i = saturate_link_ids[*it];
 
         if (i > -1) {
           b[i] = 1.0;
@@ -1442,12 +1440,21 @@ class CG {
 
       for (vector<int>::const_iterator it = path.begin(); it != path.end();
            it++) {
-        int i=saturate_link_ids[*it];
+        int i = saturate_link_ids[*it];
 
         if (i > -1) {
           b[i] -= 1.0;
         }
       }
+#ifdef DEBUG
+      int num = 0;
+      for (int i = 0; i < S; i++) {
+        if (fabs(b[i]) > 1e-6) {
+          num++;
+        }
+      }
+      cout << "dual nonzero right hand side: " << S << " , " << num << endl;
+#endif
       /**
        * lambda_S=( C beta_K-beta_S)/( CB - D )=b/SM
        *
@@ -1626,7 +1633,7 @@ class CG {
     sdata.leaving = leaving_base.id;
     if (PATH_T == entering_commodity.type) {
       if (DEMAND_T == leaving_base.type) {
-        sdata.pivotType=NOCHANGE;
+        sdata.pivotType = NOCHANGE;
         int leaving_commodity_id = leaving_base.id;
         int leaving_primary_pid = primary_path_loc[leaving_commodity_id];
 
@@ -1686,8 +1693,7 @@ class CG {
         addPrimarySaturateLink(leaving_commodity_id);
 
       } else if (STATUS_LINK == leaving_base.type) {
-
-        sdata.pivotType=NOCHANGE;
+        sdata.pivotType = NOCHANGE;
         int pid = saturate_link_path_loc[leaving_base.id];
         paths[pid].path = entering_commodity.path;
 
@@ -1704,22 +1710,22 @@ class CG {
         paths[pid].owner = entering_commodity.id;
 
       } else {
-        
         // leaving is un saturate link then from un_saturate
         // link to saturate link
-        sdata.pivotType=ADDLINK;
-        sdata.linkId=leaving_base.id;
+        sdata.pivotType = ADDLINK;
+        sdata.linkId = leaving_base.id;
         if (empty_paths.empty()) {
           Path npath(entering_commodity.path, entering_commodity.id,
                      leaving_base.id);
 
           paths.push_back(npath);
-          
-          saturate_link_ids[leaving_base.id]=saturate_links.size();
-          assert(find(saturate_links.begin(), saturate_links.end(), leaving_base.id)==saturate_links.end());
-          
+
+          saturate_link_ids[leaving_base.id] = saturate_links.size();
+          assert(find(saturate_links.begin(), saturate_links.end(),
+                      leaving_base.id) == saturate_links.end());
+
           saturate_links.push_back(leaving_base.id);
-          
+
           saturate_link_path_loc[leaving_base.id] = paths.size() - 1;
 
           demand_secondary_path_locs[entering_commodity.id].insert(
@@ -1732,8 +1738,9 @@ class CG {
           paths[pid].path = entering_commodity.path;
           paths[pid].owner = entering_commodity.id;
           paths[pid].link = leaving_base.id;
-          assert(find(saturate_links.begin(), saturate_links.end(), leaving_base.id)==saturate_links.end());
-          saturate_link_ids[leaving_base.id]=saturate_links.size();
+          assert(find(saturate_links.begin(), saturate_links.end(),
+                      leaving_base.id) == saturate_links.end());
+          saturate_link_ids[leaving_base.id] = saturate_links.size();
           saturate_links.push_back(leaving_base.id);
 
           saturate_link_path_loc[leaving_base.id] = pid;
@@ -1800,8 +1807,9 @@ class CG {
 
       } else {
         int link = leaving_base.id;
-        assert(find(saturate_links.begin(), saturate_links.end(), link)==saturate_links.end());
-        saturate_link_ids[link]=saturate_links.size();
+        assert(find(saturate_links.begin(), saturate_links.end(), link) ==
+               saturate_links.end());
+        saturate_link_ids[link] = saturate_links.size();
         saturate_links.push_back(link);
 
         setStatusLink(link, spid);
@@ -1916,6 +1924,7 @@ class CG {
       int ppid = primary_path_loc[oindex];
       b[i] -= getOrigCost(paths[ppid].path);
     }
+
     double t = 0;
     if (KLU == para.solver) {
       callTime(t, klusolver.tsolve(b));

@@ -121,11 +121,11 @@ enum EXIT_BASE_TYPE {
 
 };
 
-enum PivotSaturateMatrix{
-  NOCHANGE=0,
-  ADDLINK=1,
-  DELETELINK=2
-  
+enum PivotSaturateMatrix {
+  NOCHANGE = 0,
+  ADDLINK = 1,
+  DELETELINK = 2
+
 };
 
 struct Statistics_data {
@@ -161,8 +161,8 @@ struct Statistics_data {
         using_system_time(0),
         objSpeed(0) {
     lpsolvertime = shortestpathtime = 0;
-    pivotType=NOCHANGE;
-    linkId=-1;
+    pivotType = NOCHANGE;
+    linkId = -1;
   }
 };
 
