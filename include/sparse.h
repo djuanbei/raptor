@@ -19,6 +19,8 @@ extern "C" {
 #endif
 #include <set>
 #include <vector>
+#include <algorithm>
+#include<cassert>
 
 namespace raptor {
 namespace sparse {
@@ -34,25 +36,61 @@ struct SparseVector {
   }
 };
 
+struct subMatrix{
+  vector<int> rows, columns;
+  
+  subMatrix operator+(const  subMatrix & other)const;
+  void add(const  subMatrix & other);
+  void update(){
+    sort(rows.begin(), rows.end());
+    sort(columns.begin(), columns.end());
+  }
+  
+};
+
 class SparseSolver {
  private:
   cs *lastA;
   cs *lastTA;
   vector<int> lastRowIndex;
-  vector<double> lastRightHandSide;
+  vector<subMatrix> lastSubs;
+  vector<int> lastSubIndex;
 
+  
+  int dim;
+  vector<char> variableMap;
   cs *A;
   cs *TA;
-  vector<int> rowIndex;
-  vector<double> rightHandSide;
+  int Adim;
+  
+  vector<int> variableIndex;
 
-  void minComputableProjection(const SparseVector &b, set<int> &I,
-                               set<int> &J) const;
+  vector<subMatrix> subs;
+  vector<int> subIndex;
 
+  void minComputableProjection(const SparseVector &b, vector<int> &I,
+                               vector<int> &J) const;
+
+  void computableConnectedComponent();
+
+  
  public:
+  SparseSolver();
+  
   SparseSolver(vector<sparseMatrixElem> &elements);
+  
   ~SparseSolver();
 
+
+  /** 
+   * 
+   * @brief update next matrix
+   * @param elements 
+   * 
+   * @return 
+   */
+  void update(vector<sparseMatrixElem> &elements);
+  
   /**
    * @brief local linear equation system solver
    *
