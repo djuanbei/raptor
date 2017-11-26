@@ -72,7 +72,7 @@ struct KLUsolver {
   }
   ~KLUsolver();
   void setDim(int d) { dim = d; }
-  void update(int n);
+  void update(vector<sparseMatrixElem>& els, int n);
   bool solve(double *b);
   bool tsolve(double *b);
 };
@@ -336,9 +336,9 @@ class CG {
         }
       }
 
-      klusolver.elements = elements;
-      klusolver.update(S);
-      // klusolver.setDim(S);
+
+      callTime(t, klusolver.update(elements, S));
+      sdata.lpsolvertime += t;
 
       sdata.nzn = klusolver.nonzeroNum;
 
@@ -1097,7 +1097,7 @@ class CG {
        *
        */
 
-      double t = 0;
+
       callTime(t, ENTER_VARIABLE entering_commodity = chooseEnteringVariable());
       sdata.shortestpathtime += t;
 

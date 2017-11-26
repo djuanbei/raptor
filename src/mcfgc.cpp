@@ -9,7 +9,8 @@ KLUsolver::~KLUsolver() {
   }
 }
 
-void KLUsolver::update(int n) {
+void KLUsolver::update(vector<sparseMatrixElem>& els, int n) {
+  elements=els;
   if (!first) {
     klu_free_symbolic(&Symbolic, &Common);
     klu_free_numeric(&Numeric, &Common);
