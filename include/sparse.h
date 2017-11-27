@@ -17,10 +17,10 @@ extern "C" {
 #ifdef __cplusplus
 }
 #endif
+#include <algorithm>
+#include <cassert>
 #include <set>
 #include <vector>
-#include <algorithm>
-#include<cassert>
 
 namespace raptor {
 namespace sparse {
@@ -30,40 +30,29 @@ struct SparseVector {
   vector<int> locs;
   vector<double> values;
 
-  void clear(){
+  void clear() {
     locs.clear();
     values.clear();
   }
 };
 
-struct subMatrix{
+struct subMatrix {
   vector<int> rows, columns;
-  
-  subMatrix operator+(const  subMatrix & other)const;
-  void add(const  subMatrix & other);
-  void update(){
+
+  subMatrix operator+(const subMatrix &other) const;
+  void add(const subMatrix &other);
+  void update() {
     sort(rows.begin(), rows.end());
     sort(columns.begin(), columns.end());
   }
-  
 };
 
 class SparseSolver {
  private:
-  cs *lastA;
-  cs *lastTA;
-  vector<int> lastRowIndex;
-  vector<subMatrix> lastSubs;
-  vector<int> lastSubIndex;
-
-  
   int dim;
-  vector<char> variableMap;
+
   cs *A;
   cs *TA;
-  int Adim;
-  
-  vector<int> variableIndex;
 
   vector<subMatrix> subs;
   vector<int> subIndex;
@@ -71,26 +60,30 @@ class SparseSolver {
   void minComputableProjection(const SparseVector &b, vector<int> &I,
                                vector<int> &J) const;
 
+  void tminComputableProjection(const SparseVector &b, vector<int> &I,
+                                vector<int> &J) const;
+
+  bool locSolver(SparseVector &sB, csi *Ap, csi *Ai, double *X,
+                 vector<int> &vecI, vector<int> &vecJ) const;
+
   void computableConnectedComponent();
 
-  
  public:
   SparseSolver();
-  
-  SparseSolver(vector<sparseMatrixElem> &elements);
-  
+
+  // SparseSolver(vector<sparseMatrixElem> &elements);
+
   ~SparseSolver();
 
-
-  /** 
-   * 
+  /**
+   *
    * @brief update next matrix
-   * @param elements 
-   * 
-   * @return 
+   * @param elements
+   *
+   * @return
    */
-  void update(vector<sparseMatrixElem> &elements);
-  
+  void update(const vector<sparseMatrixElem> &elements);
+
   /**
    * @brief local linear equation system solver
    *
@@ -134,7 +127,16 @@ class SparseSolver {
    *
    * @return rewrite solution to b
    */
-  bool incSolver(double *b) const;
+  bool incSolver(const double *initSolution, double *b) const;
+
+  /**
+   * @brief incremental linear equation solver A^Tx=b
+   *
+   * @param b  right hand side
+   *
+   * @return rewrite solution to b
+   */
+  bool tincSolver(const double *initSolution, double *b) const;
 };
 }
 }

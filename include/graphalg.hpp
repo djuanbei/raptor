@@ -212,7 +212,7 @@ void dfs_search(const G &graph, const int src, vector<int> &pass_nodes) {
   child_id[src] = 0;
   stack<int> Q;
   Q.push(src);
-
+  pass_nodes.push_back(src);
   while (!Q.empty()) {
     current = Q.top();
     outDegree = graph.getOutDegree(current);
@@ -252,9 +252,12 @@ void bfs_search(const G &graph, const int src, vector<int> &pass_nodes) {
 
   int current, j, link, outDegree, tempSnk;
   vector<int> Q;
+  Q.push_back(src);
+
   vector<bool> pass(vertex_num, false);
   pass[src] = true;
   while (!Q.empty()) {
+    pass_nodes.insert(pass_nodes.end(), Q.begin(), Q.end());
     vector<int> secondQ;
     for (vector<int>::iterator it = Q.begin(); it != Q.end(); it++) {
       current = *it;
@@ -268,6 +271,7 @@ void bfs_search(const G &graph, const int src, vector<int> &pass_nodes) {
         }
       }
     }
+
     Q = secondQ;
   }
 }

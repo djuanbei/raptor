@@ -97,8 +97,8 @@ W getInf(W) {
 
 enum LU_SOLVER {
   KLU = 0,
-  LAPACK = 1
-
+  LAPACK = 1,
+  SPARSE=2
 };
 
 template <typename C>

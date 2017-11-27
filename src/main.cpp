@@ -36,7 +36,9 @@ void testSparse() {
   temp.row = 2;
   temp.column = 2;
   elements.push_back(temp);
-  SparseSolver solver(elements);
+  SparseSolver solver;
+
+  solver.update(elements);
   double b[3];
   b[0] = 1;
   b[1] = 0;
@@ -498,8 +500,8 @@ void testAns(char *filename) {
 }
 
 int main(int argc, char *argv[]) {
-  // testSparse();
-  // return 0;
+  testSparse();
+  return 0;
   // randMCF(0, 20, 100, 400, 10, 60, 100);
   // example2();
   // //  testAns(argv[1]);
