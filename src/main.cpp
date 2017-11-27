@@ -163,8 +163,11 @@ void randMCF(int solver, const int V, const int E, const double bw_B,
   cg.setInfo(2);
   if (solver == 0) {
     cg.setLUSOLVER(KLU);
-  } else {
+  } else if (1==solver){
     cg.setLUSOLVER(LAPACK);
+    
+  }else{
+    cg.setLUSOLVER(SPARSE);
   }
   // cg.writeKsptoCNF(10, "test.cnf");
   cg.solve();
@@ -502,8 +505,8 @@ void testAns(char *filename) {
 int main(int argc, char *argv[]) {
   // testSparse();
   // randMCF(0, 200, 1000, 400, 500, 60, 100);
-  randMCF(0, 1000 , 5000 , 300, 10, 1000, 100);
-  return 0;
+  // randMCF(2, 1000 , 5000 , 300, 10, 1000, 100);
+  // return 0;
 
   // example2();
   // //  testAns(argv[1]);
@@ -531,22 +534,25 @@ int main(int argc, char *argv[]) {
           "empty iteration,  computing shortest path use time(s), solving "
           "linear equation solve use time(s)"
        << endl;
-  if (argc > 1) {
+  if (argc ==1) {
     for (int i = 1; i < 40; i += 2) {
-      // cout<<"************************************"<<endl;
-      // cout<<1000*i<<endl;
-      // cout<<"************************************"<<endl;
-      cout << "case_" << 1000 * i << "_" << 5000 * i << ",";
-      randMCF(1, 1000 * i, 5000 * i, 300, 10, 1000, 100);
-    }
-  } else {
-    for (int i = 1; i < 40; i += 2) {
-      // cout<<"************************************"<<endl;
-      // cout<<1000*i<<endl;
-      // cout<<"************************************"<<endl;
+
       cout << "case_" << 1000 * i << "_" << 5000 * i << ",";
       randMCF(0, 1000 * i, 5000 * i, 300, 10, 1000, 100);
     }
+  } else if(2==argc) {
+    for (int i = 1; i < 40; i += 2) {
+
+      cout << "case_" << 1000 * i << "_" << 5000 * i << ",";
+      randMCF(1, 1000 * i, 5000 * i, 300, 10, 1000, 100);
+    }
+  }else{
+    for (int i = 1; i < 40; i += 2) {
+
+      cout << "case_" << 1000 * i << "_" << 5000 * i << ",";
+      randMCF(2, 1000 * i, 5000 * i, 300, 10, 1000, 100);
+    }
+    
   }
   // //  Case1(  );
   // double start=cpuTime(  );

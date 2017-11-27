@@ -125,9 +125,7 @@ enum PivotSaturateMatrix {
   NOCHANGE = 0,
   ADDLINK = 1,
   DELETELINK = 2,
-  CHANGELINK=3
-  
-
+  CHANGE_SATURATE_LINK=3
 };
 
 struct Statistics_data {
@@ -141,7 +139,7 @@ struct Statistics_data {
   ENTER_BASE_TYPE etype;
   int enter;
   EXIT_BASE_TYPE exitt;
-  int leaving;
+  int exit;
   double start_time;
   double using_system_time;
   double objSpeed;
@@ -151,7 +149,7 @@ struct Statistics_data {
   double totalNonzero;
   PivotSaturateMatrix pivotType;
   int linkId;
-  int enterLink;
+  int exitLink;
   Statistics_data()
       : iterator_num(0),
         empty_iterator_num(0),

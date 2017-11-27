@@ -53,7 +53,7 @@ struct subMatrix {
 class SparseSolver {
  private:
   int dim;
-
+  int nonzero;
   cs *A;
   cs *TA;
 
@@ -77,7 +77,9 @@ class SparseSolver {
   // SparseSolver(vector<SparseMatrixElem> &elements);
 
   ~SparseSolver();
-
+  int getNonzero()const{
+    return nonzero;
+  }
   /**
    *
    * @brief update next matrix
