@@ -124,7 +124,9 @@ enum EXIT_BASE_TYPE {
 enum PivotSaturateMatrix {
   NOCHANGE = 0,
   ADDLINK = 1,
-  DELETELINK = 2
+  DELETELINK = 2,
+  CHANGELINK=3
+  
 
 };
 
@@ -149,6 +151,7 @@ struct Statistics_data {
   double totalNonzero;
   PivotSaturateMatrix pivotType;
   int linkId;
+  int enterLink;
   Statistics_data()
       : iterator_num(0),
         empty_iterator_num(0),

@@ -476,6 +476,19 @@ class CG {
       }
       
       double t = 0;
+      if(sdata.pivotType== NOCHANGE){
+        cout<<"no"<<endl;
+      }
+      if(sdata.pivotType== ADDLINK){
+        cout<<"add"<<endl;
+      }
+      if(sdata.pivotType== CHANGELINK){
+        cout<<"change"<<endl;
+      }
+      if(sdata.pivotType== DELETELINK){
+        cout<<"delete"<<endl;
+      }
+      
       if (KLU == para.solver) {
         callTime(t, klusolver.solve(b));
 
@@ -1470,7 +1483,7 @@ class CG {
         }
       }
 #ifdef DEBUG
-      cout<<"dimension: "<<S<<" nonzero elements: "<<nonzero_bata<<endl;
+      cout<<"path dimension: "<<S<<" nonzero elements: "<<nonzero_bata<<endl;
 #endif
 
       /**
@@ -1601,6 +1614,10 @@ class CG {
     fill(b, b + S, 0.0);
 
     b[getSindex(enterLink.id) - K] = -1.0;
+
+#ifdef DEBUG
+      cout<<"link dimension: "<<S<<" nonzero elements: "<<1<<endl;
+#endif
 
     /**
      * lambda_S=( C beta_K-beta_S)/( CB - D )=b/SM
@@ -1792,10 +1809,15 @@ class CG {
       deleteSaturateLink(enter_saturate_link);
       int leaving_commodity_id = leaving_base.id;
 
+      sdata.pivotType = DELETELINK;
+      sdata.linkId = leaving_base.id;
+      
       if (DEMAND_T == leaving_base.type) {
+
         deletePrimarySatuateLinks(leaving_commodity_id);
         empty_paths.push_back(primary_path_loc[leaving_commodity_id]);
         paths[primary_path_loc[leaving_commodity_id]].path.clear();
+        
         if (paths[spid].owner == leaving_commodity_id) {
           primary_path_loc[leaving_commodity_id] = spid;
           demand_secondary_path_locs[leaving_commodity_id].erase(spid);
@@ -1816,6 +1838,7 @@ class CG {
         }
 
         addPrimarySaturateLink(leaving_commodity_id);
+        
       } else if (STATUS_LINK == leaving_base.type) {
         if (leaving_base.id == entering_commodity.id) {
           empty_paths.push_back(spid);
@@ -1836,7 +1859,11 @@ class CG {
         }
 
       } else {
+        
+        sdata.pivotType = CHANGELINK;
+
         int link = leaving_base.id;
+        sdata.enterLink=link;
         assert(find(saturate_links.begin(), saturate_links.end(), link) ==
                saturate_links.end());
         saturate_link_ids[link] = saturate_links.size();
@@ -1845,6 +1872,7 @@ class CG {
         setStatusLink(link, spid);
 
         addStatusLink(link);
+        
       }
     }
   }
