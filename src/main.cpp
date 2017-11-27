@@ -22,8 +22,8 @@ using namespace mcmcf;
 using namespace sparse;
 
 void testSparse() {
-  vector<sparseMatrixElem> elements;
-  sparseMatrixElem temp;
+  vector<SparseMatrixElem> elements;
+  SparseMatrixElem temp;
   temp.row = 0;
   temp.column = 1;
   temp.value = 1;
@@ -500,9 +500,11 @@ void testAns(char *filename) {
 }
 
 int main(int argc, char *argv[]) {
-  testSparse();
+  // testSparse();
+  // randMCF(0, 200, 1000, 400, 500, 60, 100);
+  randMCF(0, 1000 , 5000 , 300, 10, 1000, 100);
   return 0;
-  // randMCF(0, 20, 100, 400, 10, 60, 100);
+
   // example2();
   // //  testAns(argv[1]);
   // return 0;

@@ -72,14 +72,14 @@ static void sgetrs_(char *C, int *N, int *NRHS, float *A, int *LDA, int *IPIV,
   exper;                                                  \
   auto t1 = std::chrono::system_clock::now();             \
   std::chrono::duration<double, std::milli> ms = t1 - t0; \
-  double t = ms.count();
+  t = ms.count();
 
 namespace raptor {
-struct sparseMatrixElem {
+struct SparseMatrixElem {
   int column, row;
   double value;
-  sparseMatrixElem() : column(0), row(0), value(0) {}
-  bool operator<(const sparseMatrixElem &other) const {
+  SparseMatrixElem() : column(0), row(0), value(0) {}
+  bool operator<(const SparseMatrixElem &other) const {
     if (column < other.column) {
       return true;
     }

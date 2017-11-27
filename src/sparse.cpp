@@ -1,5 +1,6 @@
 #include "sparse.h"
 #include <cassert>
+#include<iostream>
 #include "graph.h"
 #include "graphalg.hpp"
 #include "klu.h"
@@ -33,12 +34,31 @@ void subMatrix::add(const subMatrix& other) {
 
 SparseSolver::SparseSolver() { A = TA = NULL; }
 
-void SparseSolver::update(const vector<sparseMatrixElem>& elements) {
+void SparseSolver::update( vector<SparseMatrixElem>& elements) {
   
   cs* T = cs_spalloc(0, 0, 1, 1, 1); /* allocate result */
-  for (vector<sparseMatrixElem>::const_iterator it = elements.begin();
+  stable_sort(elements.begin(), elements.end());
+  int column = 0;
+  int row = 0;
+  double value = 0;
+  
+  for (vector<SparseMatrixElem>::const_iterator it = elements.begin();
        it != elements.end(); it++) {
-    cs_entry(T, (csi)it->row, (csi)it->column, it->value);
+    int tempColumn =it->column;
+    int tempRow = it->row;
+    if (column == tempColumn && row == tempRow) {
+      value += it->value;
+    }else{
+      if (fabs(value) > 1e-6) {
+        cs_entry(T, row, column, value);
+      }
+      column = tempColumn;
+      row = tempRow;
+      value = it->value;
+    }
+  }
+  if (fabs(value) > 1e-6) {
+    cs_entry(T, row, column, value);
   }
   if(NULL!=A){
     cs_spfree(A);
@@ -247,6 +267,9 @@ void SparseSolver::computableConnectedComponent() {
 }
 
 bool SparseSolver::locSolver(SparseVector& sB) const {
+  if(sB.locs.empty()){
+    return true;
+  }
   csi *Ap = A->p, *Ai = A->i;
   double* X = A->x;
   vector<int> vecI, vecJ;
@@ -254,6 +277,10 @@ bool SparseSolver::locSolver(SparseVector& sB) const {
   minComputableProjection(sB, vecI, vecJ);
 
   assert(vecI.size() == vecJ.size());
+
+#ifdef DEBUG
+  cout<<"dimentsion: "<<dim<<" submatrix dimension: "<<vecI.size()<<endl;
+#endif
 
   return locSolver(sB, Ap, Ai, X, vecI, vecJ);
 }
@@ -265,6 +292,7 @@ bool SparseSolver::locSolver(double* b) const {
       sB.values.push_back(b[i]);
     }
   }
+  
   if (!locSolver(sB)) {
     return false;
   }
@@ -276,6 +304,9 @@ bool SparseSolver::locSolver(double* b) const {
 }
 
 bool SparseSolver::tlocSolver(SparseVector& sB) const {
+  if(sB.locs.empty()){
+    return true;
+  }
   csi *Ap = TA->p, *Ai = TA->i;
   double* X = TA->x;
   vector<int> vecI, vecJ;

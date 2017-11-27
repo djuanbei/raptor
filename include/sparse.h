@@ -9,6 +9,9 @@
  *
  */
 
+#ifndef __SPARSE_LES_H
+#define __SPARSE_LES_H
+
 #include "config.h"
 #ifdef __cplusplus
 extern "C" {
@@ -71,7 +74,7 @@ class SparseSolver {
  public:
   SparseSolver();
 
-  // SparseSolver(vector<sparseMatrixElem> &elements);
+  // SparseSolver(vector<SparseMatrixElem> &elements);
 
   ~SparseSolver();
 
@@ -82,7 +85,7 @@ class SparseSolver {
    *
    * @return
    */
-  void update(const vector<sparseMatrixElem> &elements);
+  void update( vector<SparseMatrixElem> &elements);
 
   /**
    * @brief local linear equation system solver
@@ -140,3 +143,4 @@ class SparseSolver {
 };
 }
 }
+#endif

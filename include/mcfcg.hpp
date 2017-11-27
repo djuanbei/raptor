@@ -32,9 +32,13 @@
 #include "config.h"
 #include "graphalg.hpp"
 #include "klu.h"
+#include "sparse.h"
 #include "util.h"
 
 using namespace std;
+using namespace raptor;
+using namespace sparse;
+
 using milliseconds = std::chrono::duration<double, std::milli>;
 
 namespace raptor {
@@ -64,7 +68,7 @@ struct KLUsolver {
   klu_common Common;
   int nonzeroNum;
   int dim;
-  vector<sparseMatrixElem> elements;
+  vector<SparseMatrixElem> elements;
   KLUsolver() : first(true), Ap(NULL), Ai(NULL), Ax(NULL) {
     klu_defaults(&Common);
     nonzeroNum = 0;
@@ -72,7 +76,7 @@ struct KLUsolver {
   }
   ~KLUsolver();
   void setDim(int d) { dim = d; }
-  void update(vector<sparseMatrixElem> &els, int n);
+  void update(vector<SparseMatrixElem> &els, int n);
   bool solve(double *b);
   bool tsolve(double *b);
 };
@@ -147,6 +151,8 @@ class CG {
   vector<int> candidate_enter;
 
   KLUsolver klusolver;
+  
+  SparseSolver sparseSolver;
 
   vector<C> rhs;
 
@@ -278,16 +284,17 @@ class CG {
     }
     return re;
   }
-  /**
-   * column primary
-   *
-   */
+
   void computeS() {
     if (0 == S) {
       return;
     }
     if (KLU == para.solver) {
-      vector<sparseMatrixElem> elements;
+      /**
+       * row primary
+       *
+       */
+      vector<SparseMatrixElem> elements;
 
       /**
        * -D
@@ -300,7 +307,7 @@ class CG {
              lit++) {
           int j = saturate_link_ids[*lit];
           if (j > -1) {
-            sparseMatrixElem elem;
+            SparseMatrixElem elem;
             elem.column = i;
             elem.row = j;
             elem.value = -1.0;
@@ -327,7 +334,7 @@ class CG {
             int slink = paths[*cit].link;
             int j = getSindex(slink) - K;
 
-            sparseMatrixElem elem;
+            SparseMatrixElem elem;
             elem.column = j;
             elem.row = i;
             elem.value = 1.0;
@@ -335,13 +342,19 @@ class CG {
           }
         }
       }
-
+      double t=0;
       callTime(t, klusolver.update(elements, S));
       sdata.lpsolvertime += t;
+      
+      sparseSolver.update(elements);
 
       sdata.nzn = klusolver.nonzeroNum;
 
     } else {
+      /**
+       * column primary
+       *
+       */
       /**
        * SM= CB - D
        *
@@ -461,6 +474,7 @@ class CG {
           b[i] += rhs[paths[*it].owner];
         }
       }
+      
       double t = 0;
       if (KLU == para.solver) {
         callTime(t, klusolver.solve(b));
@@ -486,7 +500,11 @@ class CG {
               "computed.\n");
           exit(1);
         }
-      } else {
+      }else if(SPARSE==para.solver){
+        
+        
+      }
+      else {
         assert(false);
       }
       sdata.lpsolvertime += t;
@@ -1068,9 +1086,9 @@ class CG {
 
           std::cout << "using time(s) :" << sdata.using_system_time
                     << std::endl;
-          std::cout << "empty iteration num: " << sdata.empty_iterator_num
+          std::cout << "empty iteration nonzero_bata: " << sdata.empty_iterator_num
                     << endl;
-          std::cout << "saturate link num: " << S << endl;
+          std::cout << "saturate link nonzero_bata: " << S << endl;
           std::cout << "objvalue: " << OBJ << endl;
           std::cout << "success fractional bw: " << sobj
                     << ", success rat: " << sobj / (TotalB + 0.01) << std::endl;
@@ -1095,7 +1113,7 @@ class CG {
        *  entering variable choose
        *
        */
-
+      double t=0;
       callTime(t, ENTER_VARIABLE entering_commodity = chooseEnteringVariable());
       sdata.shortestpathtime += t;
 
@@ -1444,43 +1462,55 @@ class CG {
           b[i] -= 1.0;
         }
       }
-#ifdef DEBUG
-      int num = 0;
+
+      int nonzero_bata = 0;
       for (int i = 0; i < S; i++) {
         if (fabs(b[i]) > 1e-6) {
-          num++;
+          nonzero_bata++;
         }
       }
-      cout << "dual nonzero right hand side: " << S << " , " << num << endl;
+#ifdef DEBUG
+      cout<<"dimension: "<<S<<" nonzero elements: "<<nonzero_bata<<endl;
 #endif
+
       /**
        * lambda_S=( C beta_K-beta_S)/( CB - D )=b/SM
        *
        */
+     
       double t = 0;
-      if (KLU == para.solver) {
-        callTime(t, klusolver.solve(b));
-      } else if (LAPACK == para.solver) {
-        copy(SM, SM + S * S, workS);
-        callTime(t, dgesv_(&S, &nrhs, workS, &lda, ipiv, b, &ldb, &info));
+      if(nonzero_bata>0){
+        
+        if (KLU == para.solver) {
 
-        if (info > 0) {
-          assert(false);
-          printf(
-              "The diagonal element of the "
-              "triangular factor of "
-              "Lambda,\n");
-          printf(
-              "U(%i,%i) is zero, so that Lambda is "
-              "singular;\n",
-              info, info);
-          printf(
-              "the solution could not be "
-              "computed.\n");
-          exit(1);
+          callTime(t, klusolver.solve(b));
+
+        
+        } else if (LAPACK == para.solver) {
+          copy(SM, SM + S * S, workS);
+          callTime(t, dgesv_(&S, &nrhs, workS, &lda, ipiv, b, &ldb, &info));
+
+          if (info > 0) {
+            assert(false);
+            printf(
+                "The diagonal element of the "
+                "triangular factor of "
+                "Lambda,\n");
+            printf(
+                "U(%i,%i) is zero, so that Lambda is "
+                "singular;\n",
+                info, info);
+            printf(
+                "the solution could not be "
+                "computed.\n");
+            exit(1);
+          }
+        }else if(SPARSE==para.solver){
+          callTime(t, sparseSolver.locSolver(b));
         }
-      } else {
-        assert(false);
+        else {
+          assert(false);
+        }
       }
       sdata.lpsolvertime += t;
       memcpy(lambda_S, b, S * sizeof(double));
@@ -1491,13 +1521,15 @@ class CG {
        */
 
       lambda_K[enterCommodity.id] = 1.0;
-      for (int i = 0; i < K; i++) {
-        for (unordered_set<int>::iterator it =
-                 demand_secondary_path_locs[i].begin();
-             it != demand_secondary_path_locs[i].end(); it++) {
-          int pindex = *it;
-          int link = paths[pindex].link;
-          lambda_K[i] -= lambda_S[getSindex(link) - K];
+      if(nonzero_bata>0){
+        for (int i = 0; i < K; i++) {
+          for (unordered_set<int>::iterator it =
+                   demand_secondary_path_locs[i].begin();
+               it != demand_secondary_path_locs[i].end(); it++) {
+            int pindex = *it;
+            int link = paths[pindex].link;
+            lambda_K[i] -= lambda_S[getSindex(link) - K];
+          }
         }
       }
 
@@ -1581,9 +1613,7 @@ class CG {
     } else if (LAPACK == para.solver) {
       copy(SM, SM + S * S, workS);
       callTime(t, dgesv_(&S, &nrhs, workS, &lda, ipiv, b, &ldb, &info));
-      // char c = 'S';
-      // dgetrs_(&c, &S, &nrhs, (double *)workS, &lda, ipiv, (double *)b, &ldb,
-      //         &info);
+
       if (info > 0) {
         assert(false);
         printf(
@@ -1597,6 +1627,8 @@ class CG {
         printf("the solution could not be computed.\n");
         exit(1);
       }
+    }else if(SPARSE==para.solver){
+      callTime(t, sparseSolver.locSolver(b));
     }
     sdata.lpsolvertime += t;
     memcpy(lambda_S, b, S * sizeof(double));
