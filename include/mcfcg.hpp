@@ -2110,8 +2110,11 @@ class CG {
       if (KLU == para.solver) {
         sstr << "klusaturate" << graph.getVertex_num() << "_"
              << graph.getLink_num() << ".csv";
-      } else {
+      } else if(LAPACK==para.solver) {
         sstr << "blassaturate" << graph.getVertex_num() << "_"
+             << graph.getLink_num() << ".csv";
+      }else{
+        sstr << "sparsesaturate" << graph.getVertex_num() << "_"
              << graph.getLink_num() << ".csv";
       }
 
