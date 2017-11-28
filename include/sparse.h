@@ -52,11 +52,17 @@ struct subMatrix {
 
 class SparseSolver {
  private:
+  int cap;
   int dim;
   int nonzero;
-  cs *A;
-  cs *TA;
+  int *Ap, *Ai, *TAp, *TAi;
+  double *Ax, *TAx;
   
+  
+  vector<bool> bb;
+  vector<int> row;
+  vector<int> column;
+  vector<bool> deleteColumn;
   
 
   int *p;
@@ -68,15 +74,15 @@ class SparseSolver {
   vector<subMatrix> subs;
   vector<int> subIndex;
 
-
+  void reScale(int s);
   void minComputableProjection(const SparseVector &b, vector<int> &I,
-                               vector<int> &J) const;
+                               vector<int> &J) ;
 
   void tminComputableProjection(const SparseVector &b, vector<int> &I,
-                                vector<int> &J) const;
+                                vector<int> &J) ;
 
-  bool locSolver(SparseVector &sB, csi *Ap, csi *Ai, double *X,
-                 vector<int> &vecI, vector<int> &vecJ) const;
+  bool locSolver(SparseVector &sB, int *ap, int *ai, double *ax,
+                 vector<int> &vecI, vector<int> &vecJ) ;
 
   void computableConnectedComponent();
 
@@ -105,7 +111,7 @@ class SparseSolver {
    *
    * @return  rewrite solution to b
    */
-  bool locSolver(SparseVector &b) const;
+  bool locSolver(SparseVector &b) ;
 
   /**
    * @brief local linear equation system solver
@@ -114,7 +120,7 @@ class SparseSolver {
    *
    * @return  rewrite solution to b
    */
-  bool locSolver(double *b) const;
+  bool locSolver(double *b) ;
 
   /**
    * @brief local linear equation system solver for A^Tx=b
@@ -123,7 +129,7 @@ class SparseSolver {
    *
    * @return  rewrite solution to b
    */
-  bool tlocSolver(SparseVector &b) const;
+  bool tlocSolver(SparseVector &b) ;
 
   /**
    * @brief local linear equation system solver for A^Tx=b
@@ -132,7 +138,7 @@ class SparseSolver {
    *
    * @return  rewrite solution to b
    */
-  bool tlocSolver(double *b) const;
+  bool tlocSolver(double *b) ;
 
   /**
    * @brief incremental linear equation solver
@@ -141,7 +147,7 @@ class SparseSolver {
    *
    * @return rewrite solution to b
    */
-  bool incSolver(const double *initSolution, double *b) const;
+  bool incSolver(const double *initSolution, double *b) ;
 
   /**
    * @brief incremental linear equation solver A^Tx=b
@@ -150,7 +156,7 @@ class SparseSolver {
    *
    * @return rewrite solution to b
    */
-  bool tincSolver(const double *initSolution, double *b) const;
+  bool tincSolver(const double *initSolution, double *b);
 };
 }
 }

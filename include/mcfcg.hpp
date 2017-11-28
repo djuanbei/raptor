@@ -351,10 +351,7 @@ class CG {
       vector<SparseMatrixElem> elements;
       getSparseS( elements);
 
-    
-
       callTime(t, klusolver.update(elements, S));
-    
 
       sdata.nzn = klusolver.nonzeroNum;
 
@@ -497,6 +494,7 @@ class CG {
       if (KLU == para.solver) {
 
         callTime(t, klusolver.solve(b));
+
 
       } else if (LAPACK == para.solver) {
         copy(SM, SM + S * S, workS);
