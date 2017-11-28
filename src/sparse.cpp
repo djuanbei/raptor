@@ -32,10 +32,14 @@ void subMatrix::add(const subMatrix& other) {
 #endif
 }
 
-SparseSolver::SparseSolver() { A = TA = NULL; nonzero=0; }
+SparseSolver::SparseSolver() { A = TA= NULL; nonzero=0;
+  y=NULL;
+  p=index=NULL;
+  
+}
 
 void SparseSolver::update( vector<SparseMatrixElem>& elements) {
-  
+
   cs* T = cs_spalloc(0, 0, 1, 1, 1); /* allocate result */
   stable_sort(elements.begin(), elements.end());
   int column = 0;
@@ -66,12 +70,21 @@ void SparseSolver::update( vector<SparseMatrixElem>& elements) {
   if(NULL!=TA){
     cs_spfree(TA);
   }
+  if(NULL!=y){
+    delete[] y;
+    delete[] p;
+    delete index;
+  }
   
   A = cs_compress(T);
   TA = cs_transpose(A, 1);
   cs_spfree(T); /* clear T */
   dim = A->n;
   nonzero=A->p[dim];
+  y=new double[dim];
+  p=new int[dim+1];
+  index=new int [nonzero];
+  
   computableConnectedComponent();
 }
 
@@ -82,6 +95,16 @@ SparseSolver::~SparseSolver() {
   if (NULL != TA) {
     cs_spfree(TA);
   }
+  if(NULL!=y){
+    delete[] y;
+  }
+  if(NULL!=p){
+    delete[] p;
+  }
+  if(NULL!=index){
+    delete[] index;
+  }
+
 }
 
 void SparseSolver::minComputableProjection(const SparseVector& b,
@@ -89,10 +112,23 @@ void SparseSolver::minComputableProjection(const SparseVector& b,
                                            vector<int>& J) const {
   I.clear();
   J.clear();
+  vector<bool> bb(dim,false);
+  vector<int> row(dim,0);
+
+  csi* tp=TA->p;
+  csi* p=A->p;
+  for(int i=0; i< dim; i++){
+    row[i]=tp[i+1]-tp[i];
+  }
+  
   set<int> passSubs;
+  
   for (vector<int>::const_iterator it = b.locs.begin(); it != b.locs.end();
        it++) {
+
     passSubs.insert(subIndex[*it]);
+    bb[*it]=true;
+
   }
 
   for (set<int>::iterator it = passSubs.begin(); it != passSubs.end(); it++) {
@@ -103,6 +139,55 @@ void SparseSolver::minComputableProjection(const SparseVector& b,
   for (vector<int>::iterator it = J.begin(); it != J.end(); it++) {
     *it -= dim;
   }
+  
+#ifdef DEBUG
+  cout<<"orignal size: "<<I.size()<<endl;
+#endif
+
+  vector<bool> deleteColumn(dim,false);
+  bool state=true;
+  
+  while(state){
+    state=false;
+    
+    vector<int>::iterator it=I.begin();
+    while(it!=I.end()){
+      if((1==row[*it])&& (!bb[*it]) ){
+        int start=tp[*it];
+        int end=tp[*it+1];
+        int c=-1;
+        for(int i=start; i< end; i++){
+          int p=TA->i[i];
+          if(!deleteColumn[p]){
+            c=p;
+          }
+        }
+        
+        state=true;
+        deleteColumn[c]=true;
+        
+        start=p[c];
+        end=p[c+1];
+        
+        for(int i=start; i< end; i++){
+          int r=A->i[i];
+          row[r]-=1;
+        }
+
+        vector<int>::iterator rit=find(J.begin(), J.end(), c);
+        J.erase(rit);
+        it=I.erase(it);
+
+      }else{
+        it++;
+      }
+    }
+  }
+
+#ifdef DEBUG
+  cout<<"final size: "<<I.size()<<endl;
+#endif
+  
   sort(I.begin(), I.end());
   sort(J.begin(), J.end());
 }
@@ -152,7 +237,7 @@ bool SparseSolver::locSolver(SparseVector& sB, csi* Ap, csi* Ai, double* X,
     }
   }
 
-  double* y = new double[vecJ.size()];
+
   fill(y, y + vecJ.size(), 0);
   for (size_t j = 0; j < sB.locs.size(); j++) {
     int k = sB.locs[j];
@@ -170,12 +255,12 @@ bool SparseSolver::locSolver(SparseVector& sB, csi* Ap, csi* Ai, double* X,
   klu_common Common;
   klu_defaults(&Common);
   int n = M->n;
-  int* p = new int[n + 1];
+
   for (int i = 0; i <= n; i++) {
     p[i] = M->p[i];
   }
   int num = M->p[n];
-  int* index = new int[num];
+
   for (int i = 0; i < num; i++) {
     index[i] = M->i[i];
   }
@@ -190,9 +275,7 @@ bool SparseSolver::locSolver(SparseVector& sB, csi* Ap, csi* Ai, double* X,
 
   cs_spfree(M);
   if (1 != re) {
-    delete[] y;
-    delete[] p;
-    delete[] index;
+
     return false;
   }
   /**
@@ -208,10 +291,6 @@ bool SparseSolver::locSolver(SparseVector& sB, csi* Ap, csi* Ai, double* X,
       sB.values.push_back(y[i]);
     }
   }
-  delete[] y;
-  delete[] p;
-  delete[] index;
-
   return true;
 }
 
@@ -278,9 +357,9 @@ bool SparseSolver::locSolver(SparseVector& sB) const {
 
   assert(vecI.size() == vecJ.size());
 
-// #ifdef DEBUG
-//   cout<<"dimentsion: "<<dim<<" submatrix dimension: "<<vecI.size()<<endl;
-// #endif
+#ifdef DEBUG
+  cout<<"dimentsion: "<<dim<<" submatrix dimension: "<<vecI.size()<<endl;
+#endif
 
   return locSolver(sB, Ap, Ai, X, vecI, vecJ);
 }
@@ -292,12 +371,16 @@ bool SparseSolver::locSolver(double* b) const {
       sB.values.push_back(b[i]);
     }
   }
-  // cout<<"sparse vector size: "<<sB.locs.size()<<endl;
+#ifdef DEBUG
+  cout<<"sparse vector size: "<<sB.locs.size()<<endl;
+#endif
   if (!locSolver(sB)) {
     return false;
   }
   fill(b, b + dim, 0);
-  // cout<<"sparse solution vector size: "<<sB.locs.size()<<endl;
+#ifdef DEBUG
+   cout<<"sparse solution vector size: "<<sB.locs.size()<<endl;
+#endif
   for (size_t i = 0; i < sB.locs.size(); i++) {
     b[sB.locs[i]] = sB.values[i];
   }

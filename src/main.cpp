@@ -97,7 +97,7 @@ void example2(void) {
 void randMCF(int solver, const int V, const int E, const double bw_B,
              const double w_B, const int d_num, const double dBWB) {
   typedef double T;
-
+  srand(0);
   simple_graph graph;
   set<pair<int, int>> hasSet;
   vector<int> srcs;

@@ -56,9 +56,18 @@ class SparseSolver {
   int nonzero;
   cs *A;
   cs *TA;
+  
+  
 
+  int *p;
+  int *index;
+  double  *y;
+
+
+ 
   vector<subMatrix> subs;
   vector<int> subIndex;
+
 
   void minComputableProjection(const SparseVector &b, vector<int> &I,
                                vector<int> &J) const;
