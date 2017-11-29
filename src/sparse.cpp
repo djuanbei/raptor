@@ -46,7 +46,7 @@ SparseSolver::SparseSolver() {
   Ax=new double[2*cap];
   TAx=new double[2*cap];
     
-  y=new double[cap];
+  y=new double[2*cap];
   p=new int[cap+1];
   index= new int [2*cap];
   bb.resize(cap);
@@ -77,7 +77,7 @@ void SparseSolver::reScale(int s){
   Ax=new double[2*cap];
   TAx=new double[2*cap];
   
-  y=new double[cap];
+  y=new double[2*cap];
   p=new int[cap+1];
   index= new int [2*cap];
     
@@ -383,14 +383,15 @@ void SparseSolver::tminComputableProjection(const SparseVector& b,
 }
 bool SparseSolver::locSolver(SparseVector& sB, int* ap, int* ai, double* ax,
                              vector<int>& vecI, vector<int>& vecJ)  {
+  
   fill(row.begin(), row.begin()+dim, -1);
   for(size_t i=0; i< vecI.size(); i++){
     row[vecI[i]]=i;
   }
-
-  cs* B = cs_spalloc(0, 0, 1, 1, 1);
-
-  for (size_t j = 0; j < vecJ.size(); j++) {
+  int n=vecI.size();
+  int nz=0;
+  p[0]=0;
+  for(int j=0; j< n; j++){
     int k = vecJ[j];
     int start = ap[k];
     int end = ap[k + 1];
@@ -399,11 +400,21 @@ bool SparseSolver::locSolver(SparseVector& sB, int* ap, int* ai, double* ax,
         
       int i =row[p];
       if (i > -1) {
-        cs_entry(B, i, j, ax[l]);
+        index[nz]=i;
+        y[nz]=ax[l];
+        nz++;
       }
-      
     }
+    p[j+1]=nz;
   }
+
+  klu_symbolic* Symbolic;
+  klu_numeric* Numeric;
+  klu_common Common;
+  klu_defaults(&Common);
+
+  Symbolic = klu_analyze(n, p, index, &Common);
+  Numeric = klu_factor(p, index, y, Symbolic, &Common);
 
 
   fill(y, y + vecJ.size(), 0);
@@ -414,36 +425,14 @@ bool SparseSolver::locSolver(SparseVector& sB, int* ap, int* ai, double* ax,
     y[i] = sB.values[j];
   }
 
-  cs* M = cs_compress(B);
 
-  cs_spfree(B);
-
-  klu_symbolic* Symbolic;
-  klu_numeric* Numeric;
-  klu_common Common;
-  klu_defaults(&Common);
-  int n = M->n;
-
-  for (int i = 0; i <= n; i++) {
-    p[i] = M->p[i];
-  }
-  int num = M->p[n];
-
-  for (int i = 0; i < num; i++) {
-    index[i] = M->i[i];
-  }
-
-  Symbolic = klu_analyze(M->n, p, index, &Common);
-  Numeric = klu_factor(p, index, M->x, Symbolic, &Common);
-
-  int re = klu_solve(Symbolic, Numeric, M->n, 1, y, &Common);
+  int re = klu_solve(Symbolic, Numeric, n, 1, y, &Common);
 
   klu_free_symbolic(&Symbolic, &Common);
   klu_free_numeric(&Numeric, &Common);
 
-  cs_spfree(M);
-  if (1 != re) {
 
+  if (1 != re) {
     return false;
   }
   /**
@@ -597,7 +586,7 @@ bool SparseSolver::tlocSolver(double* b)  {
 
 bool SparseSolver::incSolver(const double *initSolution, double *b) {
   
-  for (csi i = 0; i < dim; i++) {
+  for (int i = 0; i < dim; i++) {
 
     int start = TAp[i];
     int end = TAp[i + 1];
@@ -620,7 +609,7 @@ bool SparseSolver::incSolver(const double *initSolution, double *b) {
 
 bool SparseSolver::tincSolver(const double *initSolution, double *b) {
 
-  for (csi i = 0; i < dim; i++) {
+  for (int i = 0; i < dim; i++) {
 
     int start = Ap[i];
     int end = Ap[i + 1];

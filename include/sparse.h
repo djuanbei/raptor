@@ -13,13 +13,13 @@
 #define __SPARSE_LES_H
 
 #include "config.h"
-#ifdef __cplusplus
-extern "C" {
-#endif
-#include "csparse/cs.h"
-#ifdef __cplusplus
-}
-#endif
+// #ifdef __cplusplus
+// extern "C" {
+// #endif
+// #include "csparse/cs.h"
+// #ifdef __cplusplus
+// }
+// #endif
 #include <algorithm>
 #include <cassert>
 #include <set>
