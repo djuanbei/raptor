@@ -1113,6 +1113,7 @@ class CG {
   bool iteration() {
     while (true) {
       sdata.iterator_num++;
+
       computeRHS();
       double OBJ = computeOBJ();
       sdata.totalStaturateLink += S;

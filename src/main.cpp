@@ -4,6 +4,7 @@
 #include <random>
 #include <set>
 #include <utility>
+#include<cmath>
 #include <vector>
 #include "System.h"
 #include "config.h"
@@ -92,6 +93,13 @@ void example2(void) {
   CG_T cg(graph, weights, caps, demands);
   cg.setInfo(1);
   cg.solve();
+
+
+}
+
+double distance(pair<double,double> &p1, pair<double,double> &p2){
+  double d=(p1.first-p2.first)*(p1.first-p2.first)+(p1.second-p2.second)*(p1.second-p2.second);
+  return  sqrt(d);
 }
 
 void randMCF(int solver, const int V, const int E, const double bw_B,
@@ -104,6 +112,7 @@ void randMCF(int solver, const int V, const int E, const double bw_B,
   vector<int> snks;
   vector<T> caps;
   vector<double> weights;
+  vector<pair<double, double> > points;
 
   std::default_random_engine generator;
   std::uniform_real_distribution<T> disBW(0.0, bw_B);
@@ -111,6 +120,14 @@ void randMCF(int solver, const int V, const int E, const double bw_B,
   std::uniform_real_distribution<T> disWS(0.0, w_B);
 
   std::uniform_real_distribution<T> disDBW(0.0, dBWB);
+  double ddd=10000;
+  std::uniform_real_distribution<T> pdis(0.0, ddd);
+  for(int i=0; i< V; i++){
+    
+    points.push_back(make_pair(pdis(generator), pdis(generator)));
+    
+  }
+
 
   int i = 0;
   int src, snk;
@@ -126,11 +143,14 @@ void randMCF(int solver, const int V, const int E, const double bw_B,
     temp.first = src;
     temp.second = snk;
     if (hasSet.find(temp) == hasSet.end()) {
+
+      weight = distance(points[src], points[snk]);
+      if(weight>ddd/8){
+        continue;
+      }
+
       i++;
-
       bw = (int)disBW(generator) + 1;
-      weight = (int)disWS(generator) + 1;
-
       hasSet.insert(temp);
       srcs.push_back(src);
       snks.push_back(snk);
@@ -156,7 +176,7 @@ void randMCF(int solver, const int V, const int E, const double bw_B,
     demands.push_back(d);
     i++;
   }
-  vector<int> ws(snks.size(), 1);
+  // vector<int> ws(snks.size(), 1);
 
   graph.initial(srcs, snks);
   CG_T cg(graph, weights, caps, demands);
@@ -503,8 +523,8 @@ void testAns(char *filename) {
 }
 
 int main(int argc, char *argv[]) {
-  randMCF(2, 3000, 15000, 300, 10, 1000, 100);
-  return 0;
+  // randMCF(0, 3000, 15000, 300, 10, 1000, 100);
+  // return 0;
   // testSparse();
   // randMCF(0, 200, 1000, 400, 500, 60, 100);
   // randMCF(2, 1000 , 5000 , 300, 10, 1000, 100);

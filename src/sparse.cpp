@@ -412,6 +412,7 @@ void SparseSolver::tminComputableProjection(const SparseVector& b,
       J.push_back(*it);
     }
   }
+  
 
 
 #ifdef DEBUG
