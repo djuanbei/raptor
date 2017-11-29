@@ -13,13 +13,8 @@
 #define __SPARSE_LES_H
 
 #include "config.h"
-// #ifdef __cplusplus
-// extern "C" {
-// #endif
-// #include "csparse/cs.h"
-// #ifdef __cplusplus
-// }
-// #endif
+
+#include "klu.h"
 #include <algorithm>
 #include <cassert>
 #include <set>
@@ -56,6 +51,7 @@ class SparseSolver {
   int dim;
   int nonzero;
   int *Ap, *Ai, *TAp, *TAi;
+  
   double *Ax, *TAx;
   
   
@@ -63,7 +59,11 @@ class SparseSolver {
   vector<int> row;
   vector<int> deleteRow;
   vector<bool> deleteColumn;
-  
+  vector<int> lastVecI, lastVecJ;
+
+  klu_symbolic* Symbolic;
+  klu_numeric* Numeric;
+  klu_common Common;
 
   int *p;
   int *index;

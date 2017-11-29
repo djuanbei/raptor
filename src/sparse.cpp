@@ -2,9 +2,12 @@
 #include <cassert>
 #include<deque>
 #include<iostream>
+#include<cstdlib>
+#include<cstdio>
+#include<cstring>
 #include "graph.h"
 #include "graphalg.hpp"
-#include "klu.h"
+
 #include "util.h"
 namespace raptor {
 namespace sparse {
@@ -43,6 +46,8 @@ SparseSolver::SparseSolver() {
   Ai=new int [2*cap];
   TAp=new int[cap+1];
   TAi=new int[2*cap];
+
+  
   Ax=new double[2*cap];
   TAx=new double[2*cap];
     
@@ -52,6 +57,9 @@ SparseSolver::SparseSolver() {
   bb.resize(cap);
   row.resize(cap);
   deleteColumn.resize(cap);
+  Symbolic=NULL;
+  Numeric=NULL;
+  klu_defaults(&Common);
 
 }
 void SparseSolver::reScale(int s){
@@ -65,7 +73,9 @@ void SparseSolver::reScale(int s){
   delete[] TAi;
   delete[] Ax;
   delete[] TAx;
-  
+
+
+      
   delete[] y;
   delete[] p;
   delete[] index;
@@ -76,6 +86,7 @@ void SparseSolver::reScale(int s){
   TAi=new int[2*cap];
   Ax=new double[2*cap];
   TAx=new double[2*cap];
+
   
   y=new double[2*cap];
   p=new int[cap+1];
@@ -108,7 +119,7 @@ void SparseSolver::update( vector<SparseMatrixElem>& elements) {
     if (c == tempColumn && r == tempRow) {
       value += elements[i].value;
     } else {
-      if (fabs(value) > 1e-6) {
+      if (value!= 0.0) {
         Ai[nz] = r;
         Ax[nz] = value;
         nz++;
@@ -121,7 +132,8 @@ void SparseSolver::update( vector<SparseMatrixElem>& elements) {
       }
 
       if (c != tempColumn) {
-        for (int j = c; j < tempColumn; j++) {
+        Ap[c + 1] = nz;
+        for (int j = c+1; j < tempColumn; j++) {
           Ap[j + 1] = nz;
         }
       }
@@ -130,7 +142,7 @@ void SparseSolver::update( vector<SparseMatrixElem>& elements) {
       value = elements[i].value;
     }
   }
-  if (fabs(value) > 1e-6) {
+  if (value!= 0.0) {
     Ai[nz] = r;
     Ax[nz] = value;
     nz++;
@@ -141,6 +153,7 @@ void SparseSolver::update( vector<SparseMatrixElem>& elements) {
     te.value=value;
     columnElems.push_back(te);
   }
+  int lastDim=dim;
   dim = max(r, c)+1;
   for (int j = c; j < dim; j++) {
     Ap[j + 1] = nz;
@@ -151,13 +164,14 @@ void SparseSolver::update( vector<SparseMatrixElem>& elements) {
   c = 0;
   r = 0;
   nz = 0;
-  
+ 
   for (size_t i = 0; i < columnElems.size(); i++) {
     int tempColumn = columnElems[i].column;
     r = columnElems[i].row;
 
     if(c!=tempColumn){
-      for (int j = c; j < tempColumn; j++) {
+      TAp[c + 1] = nz;
+      for (int j = c+1; j < tempColumn; j++) {
         TAp[j + 1] = nz;
       }
       c=tempColumn;
@@ -171,9 +185,23 @@ void SparseSolver::update( vector<SparseMatrixElem>& elements) {
     TAp[j + 1] = nz;
   }
   
+  bool compute=true;
+  if(dim==lastDim){
+    compute=false;
+    for (size_t i = 0; i < columnElems.size(); i++) {
+      if(subIndex[columnElems[i].column]!=subIndex[columnElems[i].row+dim]){
+        compute=true;
+        break;
+      }
+    }
+  } 
   nonzero=nz;
-  
-  computableConnectedComponent();
+  if(compute){
+    computableConnectedComponent();
+  }
+
+  lastVecI.clear();
+  lastVecJ.clear();
 }
 
 SparseSolver::~SparseSolver() {
@@ -196,6 +224,11 @@ SparseSolver::~SparseSolver() {
   if(NULL!=index){
     delete[] index;
   }
+
+  if(NULL!=Symbolic){
+    klu_free_symbolic(&Symbolic, &Common);
+    klu_free_numeric(&Numeric, &Common);    
+  }
   
 }
 
@@ -204,7 +237,6 @@ void SparseSolver::minComputableProjection(const SparseVector& b,
                                            vector<int>& J)  {
 
   fill(bb.begin(), bb.begin()+dim, false);
-
   
   set<int> passSubs;
   
@@ -229,24 +261,28 @@ void SparseSolver::minComputableProjection(const SparseVector& b,
   fill(deleteColumn.begin(), deleteColumn.begin()+dim, false);
 
   vector<int> waitS;
-  for(vector<int>::iterator it=I.begin(); it!= I.end(); it++){
+  vector<int>::iterator it=I.begin();
+  while(it!=I.end()){
     row[*it]=TAp[*it+1]-TAp[*it];
     if((1==row[*it])&& (!bb[*it]) ){
       waitS.push_back(*it);
+      it=I.erase(it);
+    }else{
+      it++;
     }
   }
-  vector<int> secondS;
-  
+  for (vector<int>::const_iterator it = b.locs.begin(); it != b.locs.end();
+       it++) {
+    row[*it]=2*dim+1;
+  }
 
   while(!waitS.empty()){
     for(vector<int>::iterator it=waitS.begin(); it!=waitS.end(); it++){
-    
       int k=*it;
-
       int start=TAp[k];
       int end=TAp[k+1];
-      int c=-1;
-      for(int i=start; i< end; i++){
+      int c=TAi[start];
+      for(int i=start+1; i< end; i++){
         int p=TAi[i];
         if(!deleteColumn[p]){
           c=p;
@@ -256,17 +292,22 @@ void SparseSolver::minComputableProjection(const SparseVector& b,
         
       start=Ap[c];
       end=Ap[c+1];
-        
-      for(int i=start; i< end; i++){
+      row[Ai[start]]-=1;
+      for(int i=start+1; i< end; i++){
         int r=Ai[i];
         row[r]-=1;
-        if((1==row[r]) &&(!bb[r]) ){
-          secondS.push_back(r);
-        }
       }
     }
-    waitS.swap(secondS);
-    secondS.clear();
+    waitS.clear();
+    vector<int>::iterator it=I.begin();
+    while(it!=I.end()){
+      if((1==row[*it]) ){
+        waitS.push_back(*it);
+        it=I.erase(it);
+      }else{
+        it++;
+      }
+    }
   }
 
   vector<int> TJ;
@@ -277,20 +318,12 @@ void SparseSolver::minComputableProjection(const SparseVector& b,
       J.push_back(*it);
     }
   }
-  vector<int> TI;
-  TI.swap(I);
 
-  for(vector<int>::iterator it=TI.begin(); it!= TI.end(); it++){
-    if(row[*it]>0){
-      I.push_back(*it);
-    }
-  }
   
 
 #ifdef DEBUG
   cout<<"final size: "<<I.size()<<endl;
 #endif
-  
 
 }
 
@@ -299,7 +332,6 @@ void SparseSolver::tminComputableProjection(const SparseVector& b,
                                             vector<int>& J)  {
 
   fill(bb.begin(), bb.begin()+dim, false);
-
     
   set<int> passSubs;
   for (vector<int>::const_iterator it = b.locs.begin(); it != b.locs.end();
@@ -321,21 +353,30 @@ void SparseSolver::tminComputableProjection(const SparseVector& b,
   fill(deleteColumn.begin(), deleteColumn.begin()+dim, false);
 
   vector<int> waitS;
-  for(vector<int>::iterator it=I.begin(); it!= I.end(); it++){
+  vector<int>::iterator it=I.begin();
+
+  while(it!=I.end()){
     row[*it]=Ap[*it+1]-Ap[*it];
     if((1==row[*it])&& (!bb[*it]) ){
       waitS.push_back(*it);
+      it=I.erase(it);
+    }else{
+      it++;
     }
   }
-  vector<int> secondS;
+    
+  for (vector<int>::const_iterator it = b.locs.begin(); it != b.locs.end();
+       it++) {
+    row[*it]=2*dim+1;
+  }
+
   while(!waitS.empty()){
     for(vector<int>::iterator it=waitS.begin(); it!=waitS.end(); it++){
       int k=*it;
-
       int start=Ap[k];
       int end=Ap[k+1];
-      int c=-1;
-      for(int i=start; i< end; i++){
+      int c=Ai[start];;
+      for(int i=start+1; i< end; i++){
         int p=Ai[i];
         if(!deleteColumn[p]){
           c=p;
@@ -343,20 +384,25 @@ void SparseSolver::tminComputableProjection(const SparseVector& b,
       }
 
       deleteColumn[c]=true;
-        
       start=TAp[c];
       end=TAp[c+1];
-        
-      for(int i=start; i< end; i++){
+      
+      row[TAi[start]]--;
+      for(int i=start+1; i< end; i++){
         int r=TAi[i];
         row[r]-=1;
-        if((1==row[r])&& (!bb[r]) ){
-          secondS.push_back(r);
-        } 
       }
     }
-    waitS.swap(secondS);
-    secondS.clear();
+    waitS.clear();
+    vector<int>::iterator it=I.begin();
+    while(it!=I.end()){
+      if((1==row[*it]) ){
+        waitS.push_back(*it);
+        it=I.erase(it);
+      }else{
+        it++;
+      }
+    }
   }
 
   vector<int> TJ;
@@ -367,18 +413,11 @@ void SparseSolver::tminComputableProjection(const SparseVector& b,
     }
   }
 
-  vector<int> TI;
-  TI.swap(I);
-  for(vector<int>::iterator it=TI.begin(); it!= TI.end(); it++){
-    if(row[*it]>0){
-      I.push_back(*it);
-    }
-  }
 
 #ifdef DEBUG
   cout<<"final size: "<<I.size()<<endl;
 #endif
-  
+
 
 }
 bool SparseSolver::locSolver(SparseVector& sB, int* ap, int* ai, double* ax,
@@ -408,16 +447,17 @@ bool SparseSolver::locSolver(SparseVector& sB, int* ap, int* ai, double* ax,
     p[j+1]=nz;
   }
 
-  klu_symbolic* Symbolic;
-  klu_numeric* Numeric;
-  klu_common Common;
-  klu_defaults(&Common);
+  if(NULL!=Symbolic){
+    klu_free_symbolic(&Symbolic, &Common);
+    klu_free_numeric(&Numeric, &Common);    
+  }
+
 
   Symbolic = klu_analyze(n, p, index, &Common);
   Numeric = klu_factor(p, index, y, Symbolic, &Common);
 
 
-  fill(y, y + vecJ.size(), 0);
+  fill(y, y + n, 0);
   for (size_t j = 0; j < sB.locs.size(); j++) {
     int k = sB.locs[j];
     int i = row[k];
@@ -427,9 +467,6 @@ bool SparseSolver::locSolver(SparseVector& sB, int* ap, int* ai, double* ax,
 
 
   int re = klu_solve(Symbolic, Numeric, n, 1, y, &Common);
-
-  klu_free_symbolic(&Symbolic, &Common);
-  klu_free_numeric(&Numeric, &Common);
 
 
   if (1 != re) {
@@ -500,11 +537,9 @@ void SparseSolver::computableConnectedComponent() {
                 tempR.push_back(r);
               }
             }            
-            
           }
           tempC.clear();
         }
-
         subs.push_back(temp);
       }
     }
@@ -515,19 +550,59 @@ bool SparseSolver::locSolver(SparseVector& sB)  {
   if(sB.locs.empty()){
     return true;
   }
-
-
-  vector<int> vecI, vecJ;
-
-  minComputableProjection(sB, vecI, vecJ);
-
-  assert(vecI.size() == vecJ.size());
-
+  bool contain=true;
+  for(vector<int>::iterator it=sB.locs.begin(); it!= sB.locs.end(); it++){
+    if(find(lastVecI.begin(), lastVecI.end(), *it)==lastVecI.end()){
+      contain =false;
+      break;
+    }
+  }
+  if(!contain){
+    lastVecI.clear();
+    lastVecJ.clear();
+    minComputableProjection(sB, lastVecI, lastVecJ);
 #ifdef DEBUG
-  cout<<"dimentsion: "<<dim<<" submatrix dimension: "<<vecI.size()<<endl;
+    cout<<"dimentsion: "<<dim<<" submatrix dimension: "<<lastVecI.size()<<endl;
 #endif
+    
+    return locSolver(sB, Ap, Ai, Ax, lastVecI, lastVecJ);
+  }else{
+    
+    int n=lastVecI.size();
+    fill(row.begin(), row.begin()+dim, -1);
+    for(int i=0; i< n; i++){
+      row[lastVecI[i]]=i;
+    }
 
-  return locSolver(sB, Ap, Ai, Ax, vecI, vecJ);
+    fill(y, y + n, 0);
+    for (size_t j = 0; j < sB.locs.size(); j++) {
+      int k = sB.locs[j];
+      int i = row[k];
+      assert(i > -1);
+      y[i] = sB.values[j];
+    }
+    int re = klu_solve(Symbolic, Numeric, n, 1, y, &Common);
+
+    if (1 != re) {
+      return false;
+    }
+    /**
+     * lifting
+     *
+     */
+
+    sB.clear();
+    for (int i = 0; i < n; i++) {
+      if (fabs(y[i]) > 1e-6) {
+        int k = lastVecJ[i];
+        sB.locs.push_back(k);
+        sB.values.push_back(y[i]);
+      }
+    }
+    return true;    
+    
+  }
+
 }
 bool SparseSolver::locSolver(double* b)  {
   SparseVector sB;
@@ -563,6 +638,7 @@ bool SparseSolver::tlocSolver(SparseVector& sB)  {
   tminComputableProjection(sB, vecI, vecJ);
 
   assert(vecI.size() == vecJ.size());
+  
   return locSolver(sB, TAp, TAi, TAx, vecI, vecJ);
 }
 

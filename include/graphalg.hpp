@@ -47,6 +47,7 @@ struct LESSOR_T {
 template<typename W>
 struct Data{
   int vertex_num;
+  W inf;
   typedef pair<W, int> PII;
   vector<int> preLink;
   vector<W> dis;
@@ -58,28 +59,56 @@ struct Data{
   LESSOR_T<PII> order;
 
   Data():vertex_num(0),Q(order), bQ(order){
+    inf=getInf((W)0.0);
   }
-  Data(int num, W inf):vertex_num(num),preLink(num, -1), dis(num, inf),
+  Data(int num, W infi):vertex_num(num),preLink(num, -1), dis(num, infi),
                          check( num, 0), Q(order, num), bpreLink(num, -1),
-                         bdis(num, inf), bQ(order, num) {
+                         bdis(num, infi), bQ(order, num) {
+    inf=infi;
+    
   }
-  void reset(W inf) {
+  void reset(W infi) {
     int temp;
     const vector<int>& qpassNodes=Q.getPassNodes();
     assert(qpassNodes.size()<= preLink.size());
-    for(vector<int>::const_iterator it=qpassNodes.begin(); it!=qpassNodes.end(); it++){
-      temp=*it;
-      preLink[temp]=-1;
-      check[temp]=0;      
+    
+
+    if(inf>=infi){
+      for(vector<int>::const_iterator it=qpassNodes.begin(); it!=qpassNodes.end(); it++){
+        temp=*it;
+        preLink[temp]=-1;
+        check[temp]=0;
+        dis[temp]=infi;
+      }      
+    }else{
+      for(vector<int>::const_iterator it=qpassNodes.begin(); it!=qpassNodes.end(); it++){
+        temp=*it;
+        preLink[temp]=-1;
+        check[temp]=0;
+        
+      }
+      fill(dis.begin(), dis.end(), infi);
     }
-    const vector<int>& bqpassNodes=bQ.getPassNodes();
-    for(vector<int>::const_iterator it= bqpassNodes.begin(); it!= bqpassNodes.end(); it++){
-      temp=*it;
-      bpreLink[temp]=-1;
-      check[temp]=0;
+    if(inf>=infi){
+      const vector<int>& bqpassNodes=bQ.getPassNodes();
+      for(vector<int>::const_iterator it= bqpassNodes.begin(); it!= bqpassNodes.end(); it++){
+        temp=*it;
+        bpreLink[temp]=-1;
+        check[temp]=0;
+        bdis[temp]=infi;
+      }
+    }else{
+
+      const vector<int>& bqpassNodes=bQ.getPassNodes();
+      for(vector<int>::const_iterator it= bqpassNodes.begin(); it!= bqpassNodes.end(); it++){
+        temp=*it;
+        bpreLink[temp]=-1;
+        check[temp]=0;
+      }
+      fill(bdis.begin(), bdis.end(), infi);      
     }
-    fill(dis.begin(), dis.end(), inf);
-    fill(bdis.begin(), bdis.end(), inf);
+    
+    inf=infi;
     Q.clear();
     bQ.clear();
   }
@@ -103,10 +132,8 @@ static Data<W>& getData(int vertex_num, W inf, int &id, bool isGet=true){
   static  std::vector< Data<W> > datas;
  
   static  vector<char> isUsed;
-  
 
   static std::mutex mtx;
-
 
 
   #pragma omp critical
@@ -125,7 +152,7 @@ static Data<W>& getData(int vertex_num, W inf, int &id, bool isGet=true){
       if(id<0){
         Data<W>  d(vertex_num,  inf );
         id=datas.size();
-        int thread_num=8;
+        int thread_num=2;
         for(int i=0; i< thread_num; i++){
           datas.push_back(d);
           isUsed.push_back(0);          
