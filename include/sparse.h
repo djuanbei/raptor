@@ -61,7 +61,7 @@ class SparseSolver {
   
   vector<bool> bb;
   vector<int> row;
-  vector<int> column;
+  vector<int> deleteRow;
   vector<bool> deleteColumn;
   
 

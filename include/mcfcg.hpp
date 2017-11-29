@@ -1061,7 +1061,7 @@ class CG {
           temp_cap[*it] -= bw;
         }
 
-        paths[i].path = path;
+        paths[i].path.swap(path);
         paths[i].owner = i;
         primary_path_loc[i] = i;
       }
@@ -1071,7 +1071,7 @@ class CG {
       if (!success[i]) {
         vector<int> path;
         path.push_back(origLink_num);
-        paths[i].path = path;
+        paths[i].path.swap(path);
         paths[i].owner = i;
         primary_path_loc[i] = i;
         success[i] = true;
@@ -1259,7 +1259,7 @@ class CG {
                                 candidate_enter.begin() + i + 1);
           enter_variable.id = id;
           enter_variable.type = PATH_T;
-          enter_variable.path = path;
+          enter_variable.path.swap( path);
 
           sdata.objSpeed = (para.objSpeedUpdateRat) * sdata.objSpeed +
                            (1 - (para.objSpeedUpdateRat)) * diff;
@@ -1338,7 +1338,7 @@ class CG {
             max_gaps[tid] = temp_diff;
 
             enter_variables[tid].id = i;
-            enter_variables[tid].path = path[tid];
+            enter_variables[tid].path.swap( path[tid]);
           }
         }
       }
@@ -1735,7 +1735,7 @@ class CG {
          *
          */
 
-        paths[exit_primary_pid].path = entering_commodity.path;
+        paths[exit_primary_pid].path.swap( entering_commodity.path);
         paths[exit_primary_pid].owner = entering_commodity.id;
 
         if (entering_commodity.id != exit_base.id) {
@@ -1779,7 +1779,7 @@ class CG {
       } else if (STATUS_LINK == exit_base.type) {
         sdata.pivotType = NOCHANGE;
         int pid = saturate_link_path_loc[exit_base.id];
-        paths[pid].path = entering_commodity.path;
+        paths[pid].path.swap( entering_commodity.path);
 
         /**
          * when the owner of the exit path is not owner
@@ -1819,7 +1819,7 @@ class CG {
           int pid = empty_paths.back();
           empty_paths.pop_back();
 
-          paths[pid].path = entering_commodity.path;
+          paths[pid].path.swap( entering_commodity.path);
           paths[pid].owner = entering_commodity.id;
           paths[pid].link = exit_base.id;
           assert(find(saturate_links.begin(), saturate_links.end(),
