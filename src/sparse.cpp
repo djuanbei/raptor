@@ -59,7 +59,9 @@ SparseSolver::SparseSolver() {
   deleteColumn.resize(cap);
   Symbolic=NULL;
   Numeric=NULL;
+#ifdef USING_KLU
   klu_defaults(&Common);
+#endif
 
 }
 void SparseSolver::reScale(int s){
@@ -226,8 +228,10 @@ SparseSolver::~SparseSolver() {
   }
 
   if(NULL!=Symbolic){
+#ifdef USING_KLU
     klu_free_symbolic(&Symbolic, &Common);
-    klu_free_numeric(&Numeric, &Common);    
+    klu_free_numeric(&Numeric, &Common);
+#endif
   }
   
 }
@@ -449,13 +453,16 @@ bool SparseSolver::locSolver(SparseVector& sB, int* ap, int* ai, double* ax,
   }
 
   if(NULL!=Symbolic){
+#ifdef USING_KLU
     klu_free_symbolic(&Symbolic, &Common);
-    klu_free_numeric(&Numeric, &Common);    
+    klu_free_numeric(&Numeric, &Common);
+#endif
   }
 
-
+#ifdef USING_KLU
   Symbolic = klu_analyze(n, p, index, &Common);
   Numeric = klu_factor(p, index, y, Symbolic, &Common);
+#endif
 
 
   fill(y, y + n, 0);
@@ -465,9 +472,12 @@ bool SparseSolver::locSolver(SparseVector& sB, int* ap, int* ai, double* ax,
     assert(i > -1);
     y[i] = sB.values[j];
   }
-
-
+  
+#ifdef USING_KLU
   int re = klu_solve(Symbolic, Numeric, n, 1, y, &Common);
+#else
+  int re=0;
+#endif
 
 
   if (1 != re) {
@@ -582,7 +592,11 @@ bool SparseSolver::locSolver(SparseVector& sB)  {
       assert(i > -1);
       y[i] = sB.values[j];
     }
+#ifdef USING_KLU
     int re = klu_solve(Symbolic, Numeric, n, 1, y, &Common);
+#else
+    int re=0;
+#endif
 
     if (1 != re) {
       return false;

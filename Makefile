@@ -31,7 +31,7 @@ ifeq ($(SRCSUF),cpp)
 	# CC=g++  -DUSING_LAPACK
 	CLANG=clang++
 
-	CFLAGS     =  -pedantic -W -Werror   -std=c++11    -DHAVE_CONFIG_H -Wlong-long
+	CFLAGS     =  -pedantic -W -Werror   -std=c++11    -DHAVE_CONFIG_H -Wlong-long -Wno-unused-parameter
 	LFLAGS    =   -pedantic -W -Werror
 else
 	CC=gcc
@@ -55,7 +55,8 @@ COPTIMIZE ?= -O2
 CFLAGS    += -I  include -I include/klu # -I  ~/demo/SuiteSparse/include
 
  # -L ~/demo/SuiteSparse/  -lklu -lbtf -lamd -lcolamd -lsuitesparseconfig # $(LIB_WITH_PARTITION) $(LDLIBS)
-LFLAGS    +=-llapack   -L lib -lcsparse  -lklu -lbtf -lamd -lcolamd  -lm
+# LFLAGS    +=-llapack   -L lib   -lklu -lbtf -lamd -lcolamd  -lm
+LFLAGS    +=-llapack     -lm
 
 
 

@@ -67,6 +67,7 @@ static inline double systemTime(void) {
 
 #include <mach/clock.h>
 #include <mach/mach.h>
+static inline double cpuTime(void) { return (double)clock() / CLOCKS_PER_SEC; }
 
 static inline double systemTime(void) {
   struct timespec ts;

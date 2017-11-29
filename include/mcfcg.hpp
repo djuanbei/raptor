@@ -70,7 +70,9 @@ struct KLUsolver {
   int dim;
   vector<SparseMatrixElem> elements;
   KLUsolver() : first(true), Ap(NULL), Ai(NULL), Ax(NULL) {
+#ifdef USING_KLU
     klu_defaults(&Common);
+#endif
     nonzeroNum = 0;
     dim = 0;
   }
@@ -1328,8 +1330,6 @@ class CG {
             max_diffs[tid] = temp_diff;
           }
           opt_gap[tid] += temp_diff * demands[i].bandwidth;
-
-          temp_diff;  //*= leftBandwith(path[tid]) + EPS;
 
           if (temp_diff > max_gaps[tid]) {
             if (temp_diff > 10000 * EPS) {

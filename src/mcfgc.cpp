@@ -4,12 +4,15 @@ namespace raptor {
 namespace mcmcf {
 KLUsolver::~KLUsolver() {
   if (!first) {
+#ifdef USING_KLU
     klu_free_symbolic(&Symbolic, &Common);
     klu_free_numeric(&Numeric, &Common);
+#endif
   }
 }
 
 void KLUsolver::update(vector<SparseMatrixElem> &els, int n) {
+#ifdef USING_KLU
   elements = els;
   if (!first) {
     klu_free_symbolic(&Symbolic, &Common);
@@ -65,12 +68,21 @@ void KLUsolver::update(vector<SparseMatrixElem> &els, int n) {
   delete[] Ai;
   delete[] Ap;
   delete[] Ax;
+#endif
 }
 bool KLUsolver::solve(double *b) {
+#ifdef USING_KLU
   return klu_solve(Symbolic, Numeric, dim, 1, b, &Common) == 1;
+#else
+  return true;
+#endif
 }
 bool KLUsolver::tsolve(double *b) {
+#ifdef USING_KLU
   return klu_tsolve(Symbolic, Numeric, dim, 1, b, &Common) == 1;
+#else
+  return true;
+#endif
 }
 }
 }
