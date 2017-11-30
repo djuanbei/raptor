@@ -744,6 +744,7 @@ class CG {
     X = new double[K + N];
     Lambda = new double[K + N];
     Mu= new double[N];
+    fill(Mu, Mu+N, 0.0);
     
     fill(X, X + N, 0.0);
     ipiv = new int[N];
@@ -815,6 +816,7 @@ class CG {
     }
     if(NULL!=Mu){
       delete[] Mu;
+      Mu=NULL;
     }
     if (NULL != ipiv) {
       delete[] ipiv;

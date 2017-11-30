@@ -145,7 +145,7 @@ void randMCF(int solver, const int V, const int E, const double bw_B,
     if (hasSet.find(temp) == hasSet.end()) {
 
       weight = distance(points[src], points[snk]);
-      if(weight>ddd/8){
+      if(weight>ddd/3){
         continue;
       }
 
@@ -176,7 +176,6 @@ void randMCF(int solver, const int V, const int E, const double bw_B,
     demands.push_back(d);
     i++;
   }
-  // vector<int> ws(snks.size(), 1);
 
   graph.initial(srcs, snks);
   CG_T cg(graph, weights, caps, demands);
@@ -523,7 +522,7 @@ void testAns(char *filename) {
 }
 
 int main(int argc, char *argv[]) {
-  randMCF(1, 300, 1500, 300, 10, 100, 100);
+  randMCF(2, 30, 80, 300, 10, 30, 100);
   return 0;
   // testSparse();
   // randMCF(0, 200, 1000, 400, 500, 60, 100);

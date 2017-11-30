@@ -69,7 +69,7 @@ class Fixed_heap {
   
   void resize( int  cap){
     heap.resize(cap);
-    indices.resize(cap);
+    indices.resize(cap,-1);
     fill(indices.begin(), indices.end(), -1);
     size=0;
   }
