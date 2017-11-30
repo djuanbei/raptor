@@ -27,7 +27,6 @@ class Fixed_heap {
   Comp lt;  // The heap is a minimum-heap with respect to this comparator
   int size;
   vector<E> pass_nodes;
-  
 
   // Index "traversal" functions
   static inline int left(int i) { return (i << 1) | 1; }
@@ -63,15 +62,15 @@ class Fixed_heap {
   }
 
  public:
-  Fixed_heap(const Comp &c):lt(c), size(0){}
+  Fixed_heap(const Comp &c) : lt(c), size(0) {}
   Fixed_heap(const Comp &c, int cap)
       : heap(cap), indices(cap, -1), lt(c), size(0) {}
-  
-  void resize( int  cap){
+
+  void resize(int cap) {
     heap.resize(cap);
-    indices.resize(cap,-1);
+    indices.resize(cap, -1);
     fill(indices.begin(), indices.end(), -1);
-    size=0;
+    size = 0;
   }
 
   bool empty() const { return 0 == size; }
@@ -93,7 +92,7 @@ class Fixed_heap {
 
   void pop() {
     indices[heap[0].second] = -1;
-    size--;    
+    size--;
     if (size > 0) {
       heap[0] = heap[size];
       indices[heap[0].second] = 0;
@@ -102,19 +101,15 @@ class Fixed_heap {
   }
 
   int len() const { return size; }
-  
-  const vector<E> & getPassNodes() const{
-    return pass_nodes;
-  }
+
+  const vector<E> &getPassNodes() const { return pass_nodes; }
 
   void clear() {
-
-    for(int  i=0; i< size  ; i++){
-      indices[heap[i].second]=-1;
+    for (int i = 0; i < size; i++) {
+      indices[heap[i].second] = -1;
     }
     size = 0;
     pass_nodes.clear();
-    
   }
 };
 
@@ -179,7 +174,7 @@ class SFixed_heap {
   void pop() {
     indices[heap[0]] = -1;
     size--;
-    if(size>0){
+    if (size > 0) {
       heap[0] = heap[size];
       indices[heap[0]] = 0;
       percolateDown(0);

@@ -14,11 +14,11 @@
 
 #include "config.h"
 
-#include "klu.h"
 #include <algorithm>
 #include <cassert>
 #include <set>
 #include <vector>
+#include "klu.h"
 
 namespace raptor {
 namespace sparse {
@@ -51,38 +51,35 @@ class SparseSolver {
   int dim;
   int nonzero;
   int *Ap, *Ai, *TAp, *TAi;
-  
+
   double *Ax, *TAx;
-  
-  
+
   vector<char> bb;
   vector<int> row;
   vector<int> deleteRow;
   vector<char> deleteColumn;
   vector<int> lastVecI, lastVecJ;
 
-  klu_symbolic* Symbolic;
-  klu_numeric* Numeric;
+  klu_symbolic *Symbolic;
+  klu_numeric *Numeric;
   klu_common Common;
 
   int *p;
   int *index;
-  double  *y;
+  double *y;
 
-
- 
   vector<subMatrix> subs;
   vector<int> subIndex;
 
   void reScale(int s);
   void minComputableProjection(const SparseVector &b, vector<int> &I,
-                               vector<int> &J) ;
+                               vector<int> &J);
 
   void tminComputableProjection(const SparseVector &b, vector<int> &I,
-                                vector<int> &J) ;
+                                vector<int> &J);
 
   bool locSolver(SparseVector &sB, int *ap, int *ai, double *ax,
-                 vector<int> &vecI, vector<int> &vecJ) ;
+                 vector<int> &vecI, vector<int> &vecJ);
 
   void computableConnectedComponent();
 
@@ -92,9 +89,7 @@ class SparseSolver {
   // SparseSolver(vector<SparseMatrixElem> &elements);
 
   ~SparseSolver();
-  int getNonzero()const{
-    return nonzero;
-  }
+  int getNonzero() const { return nonzero; }
   /**
    *
    * @brief update next matrix
@@ -102,7 +97,7 @@ class SparseSolver {
    *
    * @return
    */
-  void update( vector<SparseMatrixElem> &elements);
+  void update(vector<SparseMatrixElem> &elements);
 
   /**
    * @brief local linear equation system solver
@@ -111,7 +106,7 @@ class SparseSolver {
    *
    * @return  rewrite solution to b
    */
-  bool locSolver(SparseVector &b) ;
+  bool locSolver(SparseVector &b);
 
   /**
    * @brief local linear equation system solver
@@ -120,7 +115,7 @@ class SparseSolver {
    *
    * @return  rewrite solution to b
    */
-  bool locSolver(double *b) ;
+  bool locSolver(double *b);
 
   /**
    * @brief local linear equation system solver for A^Tx=b
@@ -129,7 +124,7 @@ class SparseSolver {
    *
    * @return  rewrite solution to b
    */
-  bool tlocSolver(SparseVector &b) ;
+  bool tlocSolver(SparseVector &b);
 
   /**
    * @brief local linear equation system solver for A^Tx=b
@@ -138,7 +133,7 @@ class SparseSolver {
    *
    * @return  rewrite solution to b
    */
-  bool tlocSolver(double *b) ;
+  bool tlocSolver(double *b);
 
   /**
    * @brief incremental linear equation solver
@@ -147,7 +142,7 @@ class SparseSolver {
    *
    * @return rewrite solution to b
    */
-  bool incSolver(const double *initSolution, double *b) ;
+  bool incSolver(const double *initSolution, double *b);
 
   /**
    * @brief incremental linear equation solver A^Tx=b

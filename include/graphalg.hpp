@@ -13,7 +13,8 @@
 
 #include <algorithm>
 #include <limits>
-#include<map>
+#include <map>
+#include <mutex>
 #include <queue>
 #include <stack>
 #include <unordered_set>
@@ -21,9 +22,8 @@
 #include <vector>
 #include "graph.h"
 #include "heap.hpp"
-#include <mutex> 
 
-#if  (defined(__APPLE__) && defined(__MACH__))
+#if (defined(__APPLE__) && defined(__MACH__))
 
 #else
 #include <omp.h>
@@ -39,13 +39,12 @@ using std::stack;
 using std::pair;
 using namespace std;
 
-
 template <typename T>
 struct LESSOR_T {
   bool operator()(const T &x, const T &y) const { return x.first < y.first; }
 };
-template<typename W>
-struct Data{
+template <typename W>
+struct Data {
   int vertex_num;
   W inf;
   typedef pair<W, int> PII;
@@ -58,112 +57,113 @@ struct Data{
   Fixed_heap<W, int, LESSOR_T<PII>> bQ;
   LESSOR_T<PII> order;
 
-  Data():vertex_num(0),Q(order), bQ(order){
-    inf=getInf((W)0.0);
-  }
-  Data(int num, W infi):vertex_num(num),preLink(num, -1), dis(num, infi),
-                         check( num, 0), Q(order, num), bpreLink(num, -1),
-                         bdis(num, infi), bQ(order, num) {
-    inf=infi;
-    
+  Data() : vertex_num(0), Q(order), bQ(order) { inf = getInf((W)0.0); }
+  Data(int num, W infi)
+      : vertex_num(num),
+        preLink(num, -1),
+        dis(num, infi),
+        check(num, 0),
+        Q(order, num),
+        bpreLink(num, -1),
+        bdis(num, infi),
+        bQ(order, num) {
+    inf = infi;
   }
   void reset(W infi) {
     int temp;
-    const vector<int>& qpassNodes=Q.getPassNodes();
-    assert(qpassNodes.size()<= preLink.size());
-    
+    const vector<int> &qpassNodes = Q.getPassNodes();
+    assert(qpassNodes.size() <= preLink.size());
 
-    if(inf>=infi){
-      for(vector<int>::const_iterator it=qpassNodes.begin(); it!=qpassNodes.end(); it++){
-        temp=*it;
-        preLink[temp]=-1;
-        check[temp]=0;
-        dis[temp]=infi;
-      }      
-    }else{
-      for(vector<int>::const_iterator it=qpassNodes.begin(); it!=qpassNodes.end(); it++){
-        temp=*it;
-        preLink[temp]=-1;
-        check[temp]=0;
-        
+    if (inf >= infi) {
+      for (vector<int>::const_iterator it = qpassNodes.begin();
+           it != qpassNodes.end(); it++) {
+        temp = *it;
+        preLink[temp] = -1;
+        check[temp] = 0;
+        dis[temp] = infi;
+      }
+    } else {
+      for (vector<int>::const_iterator it = qpassNodes.begin();
+           it != qpassNodes.end(); it++) {
+        temp = *it;
+        preLink[temp] = -1;
+        check[temp] = 0;
       }
       fill(dis.begin(), dis.end(), infi);
     }
-    if(inf>=infi){
-      const vector<int>& bqpassNodes=bQ.getPassNodes();
-      for(vector<int>::const_iterator it= bqpassNodes.begin(); it!= bqpassNodes.end(); it++){
-        temp=*it;
-        bpreLink[temp]=-1;
-        check[temp]=0;
-        bdis[temp]=infi;
+    if (inf >= infi) {
+      const vector<int> &bqpassNodes = bQ.getPassNodes();
+      for (vector<int>::const_iterator it = bqpassNodes.begin();
+           it != bqpassNodes.end(); it++) {
+        temp = *it;
+        bpreLink[temp] = -1;
+        check[temp] = 0;
+        bdis[temp] = infi;
       }
-    }else{
-
-      const vector<int>& bqpassNodes=bQ.getPassNodes();
-      for(vector<int>::const_iterator it= bqpassNodes.begin(); it!= bqpassNodes.end(); it++){
-        temp=*it;
-        bpreLink[temp]=-1;
-        check[temp]=0;
+    } else {
+      const vector<int> &bqpassNodes = bQ.getPassNodes();
+      for (vector<int>::const_iterator it = bqpassNodes.begin();
+           it != bqpassNodes.end(); it++) {
+        temp = *it;
+        bpreLink[temp] = -1;
+        check[temp] = 0;
       }
-      fill(bdis.begin(), bdis.end(), infi);      
+      fill(bdis.begin(), bdis.end(), infi);
     }
-    
-    inf=infi;
+
+    inf = infi;
     Q.clear();
     bQ.clear();
   }
-  
 };
-/** 
- * 
+/**
+ *
  * @brief has some when  parallel invoke
- * @param vertex_num 
- * @param inf 
- * @param id 
- * @param isGet 
- * 
- * @return 
+ * @param vertex_num
+ * @param inf
+ * @param id
+ * @param isGet
+ *
+ * @return
  */
 
-template<typename W>
-static Data<W>& getData(int vertex_num, W inf, int &id, bool isGet=true){
+template <typename W>
+static Data<W> &getData(int vertex_num, W inf, int &id, bool isGet = true) {
   typedef pair<W, int> PII;
-  
-  static  std::vector< Data<W> > datas;
- 
-  static  vector<char> isUsed;
+
+  static std::vector<Data<W>> datas;
+
+  static vector<char> isUsed;
 
   static std::mutex mtx;
 
-
-  #pragma omp critical
+#pragma omp critical
   {
-    if(isGet)
-    {
-      id=-1;
-      for (size_t i=0; i< datas.size(); i++){
-        if(!isUsed[i] &&  datas[i].vertex_num>=vertex_num){
-          id=i;
-          isUsed[id]=1;
+    if (isGet) {
+      id = -1;
+      for (size_t i = 0; i < datas.size(); i++) {
+        if (!isUsed[i] && datas[i].vertex_num >= vertex_num) {
+          id = i;
+          isUsed[id] = 1;
           datas[id].reset(inf);
           break;
         }
       }
-      if(id<0){
-        Data<W>  d(vertex_num,  inf );
-        id=datas.size();
-        int thread_num=2;
-        for(int i=0; i< thread_num; i++){
+      if (id < 0) {
+        Data<W> d(vertex_num, inf);
+        id = datas.size();
+        int thread_num = 2;
+        for (int i = 0; i < thread_num; i++) {
           datas.push_back(d);
-          isUsed.push_back(0);          
+          isUsed.push_back(0);
         }
       }
-    }else{
-      isUsed[id]=0;
+    } else {
+      isUsed[id] = 0;
     }
   }
-  
-  return datas[id];  
+
+  return datas[id];
 }
 
 template <typename WV, typename W>
@@ -612,16 +612,15 @@ bool bidijkstra_shortest_path(const G &graph, const WV &NW, const int src,
   }
 #ifdef STATIC_TABLE
   int did;
-  Data<W> &data=getData(vertex_num, inf, did);
-  
-  vector<int>& preLink=data.preLink;
-  vector<W>& dis=data.dis;
-  vector<char>& check=data.check;
+  Data<W> &data = getData(vertex_num, inf, did);
+
+  vector<int> &preLink = data.preLink;
+  vector<W> &dis = data.dis;
+  vector<char> &check = data.check;
 #else
 
-
   vector<int> preLink(vertex_num, -1);
-  vector<W> dis(vertex_num,inf);
+  vector<W> dis(vertex_num, inf);
   vector<char> check(vertex_num, 0);
 #endif
 
@@ -631,30 +630,29 @@ bool bidijkstra_shortest_path(const G &graph, const WV &NW, const int src,
   int current;
   W weight;
 #ifdef STATIC_TABLE
-  Fixed_heap<W, int, LESSOR_T<PII>>& Q=data.Q;
+  Fixed_heap<W, int, LESSOR_T<PII>> &Q = data.Q;
 #else
   Fixed_heap<W, int, LESSOR_T<PII>> Q(order, vertex_num);
 #endif
 
   dis[src] = 0;
-  preLink[src]=0;
+  preLink[src] = 0;
   Q.push(make_pair(0.0, src));
 #ifdef STATIC_TABLE
-  vector<int>& bpreLink=data.bpreLink;
-  vector<W>& bdis=data.bdis;
-#else 
+  vector<int> &bpreLink = data.bpreLink;
+  vector<W> &bdis = data.bdis;
+#else
   vector<int> bpreLink(vertex_num, -1);
   vector<W> bdis(vertex_num, inf);
 #endif
-  
 
 #ifdef STATIC_TABLE
-  Fixed_heap<W, int, LESSOR_T<PII>>& bQ=data.bQ;
-#else 
+  Fixed_heap<W, int, LESSOR_T<PII>> &bQ = data.bQ;
+#else
   Fixed_heap<W, int, LESSOR_T<PII>> bQ(order, vertex_num);
 #endif
   bdis[snk] = 0;
-  bpreLink[snk]=0;
+  bpreLink[snk] = 0;
   bQ.push(make_pair(0.0, snk));
   bool re = false;
   W best_dis = inf;

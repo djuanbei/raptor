@@ -156,7 +156,7 @@ class CG {
   vector<int> candidate_enter;
 
   KLUsolver klusolver;
-  
+
   SparseSolver sparseSolver;
 
   // vector<C> rhs;
@@ -164,7 +164,7 @@ class CG {
   double *X;
   double *Lambda;
   double *Mu;
-  
+
   int *ipiv;
   double *b;
 
@@ -295,8 +295,7 @@ class CG {
    *
    */
 
-  void getSparseS( vector<SparseMatrixElem>& elements){
-
+  void getSparseS(vector<SparseMatrixElem> &elements) {
     /**
      * -D
      */
@@ -343,24 +342,22 @@ class CG {
         }
       }
     }
-    
   }
 
   void computeS() {
     if (0 == S) {
       return;
     }
-    double t=0;
+    double t = 0;
     if (KLU == para.solver) {
-
       vector<SparseMatrixElem> elements;
-      getSparseS( elements);
+      getSparseS(elements);
 
       callTime(t, klusolver.update(elements, S));
 
       sdata.nzn = klusolver.nonzeroNum;
 
-    } else if(LAPACK==para.solver) {
+    } else if (LAPACK == para.solver) {
       /**
        * column primary
        *
@@ -413,13 +410,11 @@ class CG {
           }
         }
       }
-    }else if(SPARSE==para.solver){
-
+    } else if (SPARSE == para.solver) {
       vector<SparseMatrixElem> elements;
-      getSparseS( elements);
-      callTime(t,sparseSolver.update(elements));
-      sdata.nzn=sparseSolver.getNonzero();
-      
+      getSparseS(elements);
+      callTime(t, sparseSolver.update(elements));
+      sdata.nzn = sparseSolver.getNonzero();
     }
     sdata.lpsolvertime += t;
   }
@@ -458,7 +453,6 @@ class CG {
    *x_N  =  ( C rhs_K -rhs_S )/(CB-D)=( C rhs_K -rhs_S )/(SM)
    **/
   void computeRHS() {
-
     x_K = X;
     x_S = X + K;
     x_N = X + K + S;
@@ -492,14 +486,11 @@ class CG {
           b[i] += rhs[paths[*it].owner];
         }
       }
-      
+
       double t = 0;
 
-      
       if (KLU == para.solver) {
-
         callTime(t, klusolver.solve(b));
-
 
       } else if (LAPACK == para.solver) {
         copy(SM, SM + S * S, workS);
@@ -522,11 +513,9 @@ class CG {
               "computed.\n");
           exit(1);
         }
-      }else if(SPARSE==para.solver){
-        
+      } else if (SPARSE == para.solver) {
         callTime(t, sparseSolver.incSolver(x_S, b));
-      }
-      else {
+      } else {
         assert(false);
       }
       sdata.lpsolvertime += t;
@@ -544,9 +533,8 @@ class CG {
      * x_K=rhs_K-B x_S
      *
      */
-    memcpy(x_K, rhs, K*sizeof(double));
+    memcpy(x_K, rhs, K * sizeof(double));
 
-    
     for (int i = 0; i < K; i++) {
       const unordered_set<int> &pathindices = demand_secondary_path_locs[i];
       for (unordered_set<int>::const_iterator it = pathindices.begin();
@@ -687,7 +675,7 @@ class CG {
     orignal_caps.resize(ws.size());
     vector<int> srcs, snks;
     linkMap.resize(ws.size());
-    rhs=NULL;
+    rhs = NULL;
     /**
      *  Reorder links' id to improve
      * graph get adjacent nodes speed
@@ -748,9 +736,9 @@ class CG {
     b = new double[N];
     X = new double[K + N];
     Lambda = new double[K + N];
-    Mu= new double[N];
-    fill(Mu, Mu+N, 0.0);
-    
+    Mu = new double[N];
+    fill(Mu, Mu + N, 0.0);
+
     fill(X, X + N, 0.0);
     ipiv = new int[N];
 
@@ -811,17 +799,17 @@ class CG {
       delete[] Lambda;
       Lambda = NULL;
     }
-    if(NULL!=rhs){
+    if (NULL != rhs) {
       delete[] rhs;
-      rhs=NULL;
+      rhs = NULL;
     }
     if (NULL != X) {
       delete[] X;
       X = NULL;
     }
-    if(NULL!=Mu){
+    if (NULL != Mu) {
       delete[] Mu;
-      Mu=NULL;
+      Mu = NULL;
     }
     if (NULL != ipiv) {
       delete[] ipiv;
@@ -891,12 +879,12 @@ class CG {
 #endif
 
     saturate_links.erase(it);
-    
-    for(int i=saturate_link_ids[link]; i+1< S; i++){
-      x_S[i]=x_S[i+1];
-      Mu[i]=Mu[i+1];
+
+    for (int i = saturate_link_ids[link]; i + 1 < S; i++) {
+      x_S[i] = x_S[i + 1];
+      Mu[i] = Mu[i + 1];
     }
-    
+
     saturate_link_ids[link] = -1;
 
     int spid = saturate_link_path_loc[link];
@@ -905,26 +893,23 @@ class CG {
     saturate_primary_path_locs.erase(link);
   }
 
-  void changeSaturateLink(const int link1, const int link2){
+  void changeSaturateLink(const int link1, const int link2) {
     vector<int>::iterator it =
         find(saturate_links.begin(), saturate_links.end(), link1);
-    *it=link2;
-    
+    *it = link2;
+
     saturate_link_ids[link2] = saturate_link_ids[link1];
-    
+
     saturate_link_ids[link1] = -1;
 
-    
     int spid = saturate_link_path_loc[link1];
     paths[spid].link = link2;
-    
-    saturate_primary_path_locs.erase(link1);
-    
-    saturate_link_path_loc[link2] = spid;
-    
 
-    addStatusLink(link2);    
-    
+    saturate_primary_path_locs.erase(link1);
+
+    saturate_link_path_loc[link2] = spid;
+
+    addStatusLink(link2);
   }
 
   /**
@@ -1106,7 +1091,7 @@ class CG {
       un_saturate_links.push_back(i);
       un_saturate_link_ids.push_back(i);
     }
-    rhs=new double [K + origLink_num + 1];
+    rhs = new double[K + origLink_num + 1];
     // rhs.resize(K + origLink_num + 1, (C)0.0);
     for (int i = 0; i < K; i++) {
       rhs[i] = demands[i].bandwidth;
@@ -1146,8 +1131,8 @@ class CG {
 
           std::cout << "using time(s) :" << sdata.using_system_time
                     << std::endl;
-          std::cout << "empty iteration nonzero_bata: " << sdata.empty_iterator_num
-                    << endl;
+          std::cout << "empty iteration nonzero_bata: "
+                    << sdata.empty_iterator_num << endl;
           std::cout << "saturate link nonzero_bata: " << S << endl;
           std::cout << "objvalue: " << OBJ << endl;
           std::cout << "success fractional bw: " << sobj
@@ -1173,7 +1158,7 @@ class CG {
        *  entering variable choose
        *
        */
-      double t=0;
+      double t = 0;
       callTime(t, ENTER_VARIABLE entering_commodity = chooseEnteringVariable());
       sdata.shortestpathtime += t;
 
@@ -1269,7 +1254,7 @@ class CG {
                                 candidate_enter.begin() + i + 1);
           enter_variable.id = id;
           enter_variable.type = PATH_T;
-          enter_variable.path.swap( path);
+          enter_variable.path.swap(path);
 
           sdata.objSpeed = (para.objSpeedUpdateRat) * sdata.objSpeed +
                            (1 - (para.objSpeedUpdateRat)) * diff;
@@ -1346,7 +1331,7 @@ class CG {
             max_gaps[tid] = temp_diff;
 
             enter_variables[tid].id = i;
-            enter_variables[tid].path.swap( path[tid]);
+            enter_variables[tid].path.swap(path[tid]);
           }
         }
       }
@@ -1528,22 +1513,20 @@ class CG {
         }
       }
 #ifdef DEBUG
-      cout<<"path dimension: "<<S<<" nonzero elements: "<<nonzero_bata<<endl;
+      cout << "path dimension: " << S << " nonzero elements: " << nonzero_bata
+           << endl;
 #endif
 
       /**
        * lambda_S=( C beta_K-beta_S)/( CB - D )=b/SM
        *
        */
-     
-      double t = 0;
-      if(nonzero_bata>0){
-        
-        if (KLU == para.solver) {
 
+      double t = 0;
+      if (nonzero_bata > 0) {
+        if (KLU == para.solver) {
           callTime(t, klusolver.solve(b));
 
-        
         } else if (LAPACK == para.solver) {
           copy(SM, SM + S * S, workS);
           callTime(t, dgesv_(&S, &nrhs, workS, &lda, ipiv, b, &ldb, &info));
@@ -1563,10 +1546,9 @@ class CG {
                 "computed.\n");
             exit(1);
           }
-        }else if(SPARSE==para.solver){
+        } else if (SPARSE == para.solver) {
           callTime(t, sparseSolver.locSolver(b));
-        }
-        else {
+        } else {
           assert(false);
         }
       }
@@ -1579,7 +1561,7 @@ class CG {
        */
 
       lambda_K[enterCommodity.id] = 1.0;
-      if(nonzero_bata>0){
+      if (nonzero_bata > 0) {
         for (int i = 0; i < K; i++) {
           for (unordered_set<int>::iterator it =
                    demand_secondary_path_locs[i].begin();
@@ -1661,7 +1643,7 @@ class CG {
     b[getSindex(exitLink.id) - K] = -1.0;
 
 #ifdef DEBUG
-      cout<<"link dimension: "<<S<<" nonzero elements: "<<1<<endl;
+    cout << "link dimension: " << S << " nonzero elements: " << 1 << endl;
 #endif
 
     /**
@@ -1689,7 +1671,7 @@ class CG {
         printf("the solution could not be computed.\n");
         exit(1);
       }
-    }else if(SPARSE==para.solver){
+    } else if (SPARSE == para.solver) {
       callTime(t, sparseSolver.locSolver(b));
     }
     sdata.lpsolvertime += t;
@@ -1743,7 +1725,7 @@ class CG {
          *
          */
 
-        paths[exit_primary_pid].path.swap( entering_commodity.path);
+        paths[exit_primary_pid].path.swap(entering_commodity.path);
         paths[exit_primary_pid].owner = entering_commodity.id;
 
         if (entering_commodity.id != exit_base.id) {
@@ -1787,7 +1769,7 @@ class CG {
       } else if (STATUS_LINK == exit_base.type) {
         sdata.pivotType = NOCHANGE;
         int pid = saturate_link_path_loc[exit_base.id];
-        paths[pid].path.swap( entering_commodity.path);
+        paths[pid].path.swap(entering_commodity.path);
 
         /**
          * when the owner of the exit path is not owner
@@ -1827,7 +1809,7 @@ class CG {
           int pid = empty_paths.back();
           empty_paths.pop_back();
 
-          paths[pid].path.swap( entering_commodity.path);
+          paths[pid].path.swap(entering_commodity.path);
           paths[pid].owner = entering_commodity.id;
           paths[pid].link = exit_base.id;
           assert(find(saturate_links.begin(), saturate_links.end(),
@@ -1849,7 +1831,6 @@ class CG {
        *
        */
 
-      
       if (DEMAND_T == exit_base.type) {
         int enter_saturate_link = entering_commodity.id;
 
@@ -1860,12 +1841,10 @@ class CG {
         sdata.pivotType = DELETELINK;
         sdata.linkId = exit_base.id;
 
-
-        
         deletePrimarySatuateLinks(exit_commodity_id);
         empty_paths.push_back(primary_path_loc[exit_commodity_id]);
         paths[primary_path_loc[exit_commodity_id]].path.clear();
-        
+
         if (paths[spid].owner == exit_commodity_id) {
           primary_path_loc[exit_commodity_id] = spid;
           demand_secondary_path_locs[exit_commodity_id].erase(spid);
@@ -1886,9 +1865,8 @@ class CG {
         }
 
         addPrimarySaturateLink(exit_commodity_id);
-        
-      } else if (STATUS_LINK == exit_base.type) {
 
+      } else if (STATUS_LINK == exit_base.type) {
         int enter_saturate_link = entering_commodity.id;
 
         int spid = saturate_link_path_loc[enter_saturate_link];
@@ -1897,7 +1875,7 @@ class CG {
 
         sdata.pivotType = DELETELINK;
         sdata.linkId = exit_base.id;
-        
+
         if (exit_base.id == entering_commodity.id) {
           empty_paths.push_back(spid);
 
@@ -1917,8 +1895,6 @@ class CG {
         }
 
       } else {
-        
-
         int enter_saturate_link = entering_commodity.id;
 
         int spid = saturate_link_path_loc[enter_saturate_link];
@@ -1928,12 +1904,10 @@ class CG {
         sdata.pivotType = CHANGE_SATURATE_LINK;
 
         int link = exit_base.id;
-        
-        sdata.exitLink=link;
-        
-        changeSaturateLink(enter_saturate_link, link );
 
-        
+        sdata.exitLink = link;
+
+        changeSaturateLink(enter_saturate_link, link);
       }
     }
   }
@@ -2064,9 +2038,9 @@ class CG {
         printf("the solution could not be computed.\n");
         exit(1);
       }
-    }else if(SPARSE==para.solver){
+    } else if (SPARSE == para.solver) {
       sparseSolver.tincSolver(Mu, b);
-      memcpy(Mu, b, S*sizeof(double));
+      memcpy(Mu, b, S * sizeof(double));
     }
     sdata.lpsolvertime += t;
     update_weights = orignal_weights;
@@ -2116,10 +2090,10 @@ class CG {
       if (KLU == para.solver) {
         sstr << "klusaturate" << graph.getVertex_num() << "_"
              << graph.getLink_num() << ".csv";
-      } else if(LAPACK==para.solver) {
+      } else if (LAPACK == para.solver) {
         sstr << "blassaturate" << graph.getVertex_num() << "_"
              << graph.getLink_num() << ".csv";
-      }else{
+      } else {
         sstr << "sparsesaturate" << graph.getVertex_num() << "_"
              << graph.getLink_num() << ".csv";
       }

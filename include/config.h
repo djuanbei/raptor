@@ -67,8 +67,6 @@ static void sgetrs_(char *C, int *N, int *NRHS, float *A, int *LDA, int *IPIV,
 
 #endif
 
-
-
 namespace raptor {
 struct SparseMatrixElem {
   int column, row;
@@ -90,11 +88,7 @@ W getInf(W) {
   return std::numeric_limits<W>::max() / 30.0;
 }
 
-enum LU_SOLVER {
-  KLU = 0,
-  LAPACK = 1,
-  SPARSE=2
-};
+enum LU_SOLVER { KLU = 0, LAPACK = 1, SPARSE = 2 };
 
 template <typename C>
 struct Demand {
@@ -120,7 +114,7 @@ enum PivotSaturateMatrix {
   NOCHANGE = 0,
   ADDLINK = 1,
   DELETELINK = 2,
-  CHANGE_SATURATE_LINK=3
+  CHANGE_SATURATE_LINK = 3
 };
 
 struct Statistics_data {
