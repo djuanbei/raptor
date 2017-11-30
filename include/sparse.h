@@ -55,10 +55,10 @@ class SparseSolver {
   double *Ax, *TAx;
   
   
-  vector<bool> bb;
+  vector<char> bb;
   vector<int> row;
   vector<int> deleteRow;
-  vector<bool> deleteColumn;
+  vector<char> deleteColumn;
   vector<int> lastVecI, lastVecJ;
 
   klu_symbolic* Symbolic;

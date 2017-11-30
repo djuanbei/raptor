@@ -9,19 +9,23 @@ KLUsolver::~KLUsolver() {
     klu_free_numeric(&Numeric, &Common);
 #endif
   }
+  delete[] Ai;
+  delete[] Ap;
+  delete[] Ax;
 }
 
-void KLUsolver::update(vector<SparseMatrixElem> &els, int n) {
+void KLUsolver::update(vector<SparseMatrixElem> &elements, int n) {
 #ifdef USING_KLU
-  elements = els;
+  if(n>cap|| (int)elements.size()>2*cap){
+    int d=max(n,(int)elements.size()/2);
+    reScale(d);
+  }
   if (!first) {
     klu_free_symbolic(&Symbolic, &Common);
     klu_free_numeric(&Numeric, &Common);
   }
   first = false;
-  Ap = new int[n + 1];
-  Ai = new int[elements.size()];
-  Ax = new double[elements.size()];
+
   stable_sort(elements.begin(), elements.end());
 
   int column = 0;
@@ -65,9 +69,7 @@ void KLUsolver::update(vector<SparseMatrixElem> &els, int n) {
 
   nonzeroNum = nz;
   dim = n;
-  delete[] Ai;
-  delete[] Ap;
-  delete[] Ax;
+
 #endif
 }
 bool KLUsolver::solve(double *b) {
@@ -83,6 +85,19 @@ bool KLUsolver::tsolve(double *b) {
 #else
   return true;
 #endif
+}
+void KLUsolver::reScale(int s){
+  cap=s;
+  cap+=2;
+  cap*=1.3;
+  if(NULL!=Ap){
+    delete[] Ap;
+    delete[] Ai;
+    delete[] Ax;
+  }
+  Ap=new int[cap+1];
+  Ai=new int[2*cap];
+  Ax=new double[2*cap];
 }
 }
 }

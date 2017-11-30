@@ -60,6 +60,7 @@ struct Exit_base {
 
 struct KLUsolver {
   bool first;
+  int cap;
   int *Ap;
   int *Ai;
   double *Ax;
@@ -68,19 +69,21 @@ struct KLUsolver {
   klu_common Common;
   int nonzeroNum;
   int dim;
-  vector<SparseMatrixElem> elements;
+  // vector<SparseMatrixElem> elements;
   KLUsolver() : first(true), Ap(NULL), Ai(NULL), Ax(NULL) {
 #ifdef USING_KLU
     klu_defaults(&Common);
 #endif
     nonzeroNum = 0;
     dim = 0;
+    reScale(100);
   }
   ~KLUsolver();
   void setDim(int d) { dim = d; }
   void update(vector<SparseMatrixElem> &els, int n);
   bool solve(double *b);
   bool tsolve(double *b);
+  void reScale(int s);
 };
 
 template <typename G, typename C, typename W = double>
@@ -528,11 +531,13 @@ class CG {
       }
       sdata.lpsolvertime += t;
       memcpy(x_S, b, S * sizeof(double));
+#ifdef DEBUG
       for (int i = 0; i < S; i++) {
         int link = saturate_links[i];
         int spid = saturate_link_path_loc[link];
         assert(b[i] <= rhs[paths[spid].owner]);
       }
+#endif
     }
 
     /**

@@ -7,6 +7,30 @@
 
 #include "myinttype.h"
 
+#define callTime(t, exper)                                \
+  auto t0 = std::chrono::system_clock::now();             \
+  exper;                                                  \
+  auto t1 = std::chrono::system_clock::now();             \
+  std::chrono::duration<double, std::milli> ms = t1 - t0; \
+  t = ms.count();
+
+
+#define LOOPEXP(start, end, A, B, op)                         \
+  {                                                        \
+  int i=start;                                             \
+  for(; i+3< end; i+=4){                                   \
+    A[i] =A[i] op  B[i];                                        \
+    A[i+1] =A[i+1] op B[i+1];                                    \
+    A[i+2] =A[i+2] op B[i+2];                                    \
+    A[i+3] = A[i+3] op B[i+3];                                    \
+  }                                                        \
+  for(; i< end; i++) {                                     \
+    A[i]= A[i] op B[i];                                        \
+  }}                                                       \
+
+
+
+
 //-------------------------------------------------------------------------------------------------
 static inline double systemTime(void);  // SYSTEM time in seconds.
 static inline double cpuTime(void);     // CPU-time in seconds.

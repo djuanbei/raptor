@@ -121,12 +121,12 @@ void randMCF(int solver, const int V, const int E, const double bw_B,
 
   std::uniform_real_distribution<T> disDBW(0.0, dBWB);
   double ddd=10000;
-  std::uniform_real_distribution<T> pdis(0.0, ddd);
-  for(int i=0; i< V; i++){
+  // std::uniform_real_distribution<T> pdis(0.0, ddd);
+  // for(int i=0; i< V; i++){
     
-    points.push_back(make_pair(pdis(generator), pdis(generator)));
+  //   points.push_back(make_pair(pdis(generator), pdis(generator)));
     
-  }
+  // }
 
 
   int i = 0;
@@ -143,11 +143,11 @@ void randMCF(int solver, const int V, const int E, const double bw_B,
     temp.first = src;
     temp.second = snk;
     if (hasSet.find(temp) == hasSet.end()) {
-
-      weight = distance(points[src], points[snk]);
-      if(weight>ddd/3){
-        continue;
-      }
+      weight=      disWS(generator)+1;
+      // weight = distance(points[src], points[snk]);
+      // if(weight>ddd/3){
+      //   continue;
+      // }
 
       i++;
       bw = (int)disBW(generator) + 1;
@@ -522,8 +522,8 @@ void testAns(char *filename) {
 }
 
 int main(int argc, char *argv[]) {
-  randMCF(2, 30, 80, 300, 10, 30, 100);
-  return 0;
+  // randMCF(0, 3000, 15000, 300, 10, 1000, 100);
+  // return 0;
   // testSparse();
   // randMCF(0, 200, 1000, 400, 500, 60, 100);
   // randMCF(2, 1000 , 5000 , 300, 10, 1000, 100);
