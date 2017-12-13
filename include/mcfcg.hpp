@@ -35,6 +35,13 @@
 #include "sparse.h"
 #include "util.h"
 
+#ifdef CPLEX_SOLVER
+#include <ilcplex/ilocplex.h>
+ILOSTLBEGIN
+#define RC_EPS 1.0e-6
+
+#endif
+
 using namespace std;
 using namespace raptor;
 using namespace sparse;
@@ -324,7 +331,8 @@ class CG {
              saturate_primary_path_locs.begin();
          it != saturate_primary_path_locs.end(); it++) {
       int link = it->first;
-      int i = getSindex(link) - K;
+      int i =saturate_link_ids[link];// getSindex(link) - K;
+      assert(i>-1);
       for (unordered_set<int>::const_iterator pit = it->second.begin();
            pit != it->second.end(); pit++) {
         int oindex = paths[*pit].owner;
@@ -332,8 +340,9 @@ class CG {
                  demand_secondary_path_locs[oindex].begin();
              cit != demand_secondary_path_locs[oindex].end(); cit++) {
           int slink = paths[*cit].link;
-          int j = getSindex(slink) - K;
-
+          int j =saturate_link_ids[slink];//  getSindex(slink) - K;
+          assert(j>-1);
+          
           SparseMatrixElem elem;
           elem.column = j;
           elem.row = i;
@@ -396,7 +405,8 @@ class CG {
                saturate_primary_path_locs.begin();
            it != saturate_primary_path_locs.end(); it++) {
         int link = it->first;
-        int i = getSindex(link) - K;
+        int i =saturate_link_ids[link];//  getSindex(link) - K;
+        assert(i>-1);
         for (unordered_set<int>::const_iterator pit = it->second.begin();
              pit != it->second.end(); pit++) {
           int oindex = paths[*pit].owner;
@@ -404,7 +414,7 @@ class CG {
                    demand_secondary_path_locs[oindex].begin();
                cit != demand_secondary_path_locs[oindex].end(); cit++) {
             int slink = paths[*cit].link;
-            int j = getSindex(slink) - K;
+            int j =saturate_link_ids[slink];// getSindex(slink) - K;
             SM[i * S + j] += 1.0;
             sdata.nzn++;
           }
@@ -539,7 +549,7 @@ class CG {
       const unordered_set<int> &pathindices = demand_secondary_path_locs[i];
       for (unordered_set<int>::const_iterator it = pathindices.begin();
            it != pathindices.end(); it++) {
-        x_K[i] -= x_S[getSindex(paths[*it].link) - K];
+        x_K[i] -= x_S[saturate_link_ids[paths[*it].link]];
       }
     }
     /**
@@ -919,11 +929,11 @@ class CG {
    *
    * @return the index of the saturate link in simplex matrix
    */
-  int getSindex(int i) const {
-    int j = saturate_link_ids[i];
-    assert(j > -1);
-    return j + K;
-  }
+  // int getSindex(int i) const {
+  //   int j = saturate_link_ids[i];
+  //   assert(j > -1);
+  //   return j + K;
+  // }
 
   double getOrigCost(const vector<int> &path) const {
     return path_cost(orignal_weights, path, 0.0);
@@ -948,12 +958,41 @@ class CG {
       }
     }
   }
+  
+#ifdef CPLEX_SOLVER
+  bool CPLEX_solve(){
+      IloEnv env;
+      IloInt  i, j;
+      
+      IloNum  penalty;
+      IloNumArray srcs(env);
+      IloNumArray snks(env);
+      IloNumArray bws(env);
+      IloNumArray weights(env);
+      IloNumArray dsrcs(env);
+      IloNumArray dsnks(env);
+      IloNumArray dbws(env);
+      penalty=inf;
+      IloModel cutOpt (env);
+      
+      
+
+    return true;
+  }
+  
+#endif
 
   bool solve() {
     sdata.start_time = systemTime();
     initial_solution();
+#ifdef CPLEX_SOLVER
+    bool re=CPLEX_solve();
+    
+#else
+
 
     bool re = iteration();
+#endif
 
     if (para.info > 0) {
       printResult();
@@ -1568,7 +1607,7 @@ class CG {
                it != demand_secondary_path_locs[i].end(); it++) {
             int pindex = *it;
             int link = paths[pindex].link;
-            lambda_K[i] -= lambda_S[getSindex(link) - K];
+            lambda_K[i] -= lambda_S[saturate_link_ids[link]];
           }
         }
       }
@@ -1640,7 +1679,7 @@ class CG {
      */
     fill(b, b + S, 0.0);
 
-    b[getSindex(exitLink.id) - K] = -1.0;
+    b[saturate_link_ids[exitLink.id]] = -1.0;
 
 #ifdef DEBUG
     cout << "link dimension: " << S << " nonzero elements: " << 1 << endl;
@@ -1689,7 +1728,7 @@ class CG {
         int pindex = *it;
         int link = paths[pindex].link;
         assert(link >= 0);
-        lambda_K[i] -= lambda_S[getSindex(link) - K];
+        lambda_K[i] -= lambda_S[saturate_link_ids[link]];
       }
     }
 
