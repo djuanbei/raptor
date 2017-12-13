@@ -36,6 +36,7 @@
 #include "util.h"
 
 #ifdef CPLEX_SOLVER
+
 #include <ilcplex/ilocplex.h>
 ILOSTLBEGIN
 #define RC_EPS 1.0e-6
@@ -331,8 +332,8 @@ class CG {
              saturate_primary_path_locs.begin();
          it != saturate_primary_path_locs.end(); it++) {
       int link = it->first;
-      int i =saturate_link_ids[link];// getSindex(link) - K;
-      assert(i>-1);
+      int i = saturate_link_ids[link];  // getSindex(link) - K;
+      assert(i > -1);
       for (unordered_set<int>::const_iterator pit = it->second.begin();
            pit != it->second.end(); pit++) {
         int oindex = paths[*pit].owner;
@@ -340,9 +341,9 @@ class CG {
                  demand_secondary_path_locs[oindex].begin();
              cit != demand_secondary_path_locs[oindex].end(); cit++) {
           int slink = paths[*cit].link;
-          int j =saturate_link_ids[slink];//  getSindex(slink) - K;
-          assert(j>-1);
-          
+          int j = saturate_link_ids[slink];  //  getSindex(slink) - K;
+          assert(j > -1);
+
           SparseMatrixElem elem;
           elem.column = j;
           elem.row = i;
@@ -405,8 +406,8 @@ class CG {
                saturate_primary_path_locs.begin();
            it != saturate_primary_path_locs.end(); it++) {
         int link = it->first;
-        int i =saturate_link_ids[link];//  getSindex(link) - K;
-        assert(i>-1);
+        int i = saturate_link_ids[link];  //  getSindex(link) - K;
+        assert(i > -1);
         for (unordered_set<int>::const_iterator pit = it->second.begin();
              pit != it->second.end(); pit++) {
           int oindex = paths[*pit].owner;
@@ -414,7 +415,7 @@ class CG {
                    demand_secondary_path_locs[oindex].begin();
                cit != demand_secondary_path_locs[oindex].end(); cit++) {
             int slink = paths[*cit].link;
-            int j =saturate_link_ids[slink];// getSindex(slink) - K;
+            int j = saturate_link_ids[slink];  // getSindex(slink) - K;
             SM[i * S + j] += 1.0;
             sdata.nzn++;
           }
@@ -922,18 +923,7 @@ class CG {
     addStatusLink(link2);
   }
 
-  /**
-   *
-   *
-   * @param i the id of saturate link
-   *
-   * @return the index of the saturate link in simplex matrix
-   */
-  // int getSindex(int i) const {
-  //   int j = saturate_link_ids[i];
-  //   assert(j > -1);
-  //   return j + K;
-  // }
+
 
   double getOrigCost(const vector<int> &path) const {
     return path_cost(orignal_weights, path, 0.0);
@@ -958,38 +948,129 @@ class CG {
       }
     }
   }
-  
+
 #ifdef CPLEX_SOLVER
-  bool CPLEX_solve(){
-      IloEnv env;
-      IloInt  i, j;
-      
-      IloNum  penalty;
-      IloNumArray srcs(env);
-      IloNumArray snks(env);
+
+  void report3(IloCplex &masterSolver, int start, double penalty,
+               IloNumVarArray usedVariable) {
+    double OBJ = masterSolver.getObjValue();
+    for (int i = 0; i < start; i++) {
+      OBJ -= masterSolver.getValue(usedVariable[i]) * penalty;
+    }
+    cout << "Minimum cost: " << OBJ << endl;
+
+    double succ = 0;
+
+    for (IloInt j = start; j < usedVariable.getSize(); j++) {
+      succ += masterSolver.getValue(usedVariable[j]);
+    }
+    cout << "Maximum success bw: " << succ << endl;
+  }
+
+  bool CPLEX_solve() {
+    IloEnv env;
+    try {
+      IloInt i, j;
+      IloNum penalty = inf;
+
       IloNumArray bws(env);
-      IloNumArray weights(env);
-      IloNumArray dsrcs(env);
-      IloNumArray dsnks(env);
+
       IloNumArray dbws(env);
-      penalty=inf;
-      IloModel cutOpt (env);
-      
-      
+
+      for (size_t i = 0; i < orignal_caps.size(); i++) {
+        bws.add(orignal_caps[i]);
+      }
+
+      for (size_t k = 0; k < demands.size(); k++) {
+        dbws.add(demands[k].bandwidth);
+      }
+      int commodityNum = demands.size();
+      bws.add(TotalB + 1);
+
+      /// MASTER-OPTIMIZATION PROBLEM ///
+
+      IloModel mcfModel(env);
+      IloObjective totalPrice = IloAdd(mcfModel, IloMinimize(env));
+
+      IloRangeArray demandCons =
+          IloAdd(mcfModel, IloRangeArray(env, dbws, IloInfinity));
+      IloRangeArray linkCons = IloAdd(mcfModel, IloRangeArray(env, 0, bws));
+
+      IloNumVarArray usedVariable(env);
+
+      IloInt linkNum = bws.getSize() - 1;
+
+      vector<vector<int>> lastSP(commodityNum);
+
+      for (j = 0; j < commodityNum; j++) {
+        usedVariable.add(IloNumVar(totalPrice(penalty) + demandCons[j](1) +
+                                   linkCons[linkNum](1)));
+      }
+
+      IloCplex masterSolver(mcfModel);
+
+      /// COLUMN-GENERATION PROCEDURE ///
+      vector<double> price(linkNum);
+
+      IloNumArray newPathVarible(env, linkNum);
+
+      /// COLUMN-GENERATION PROCEDURE ///
+      bool state = true;
+      for (; state;) {
+        /// OPTIMIZE OVER CURRENT PATTERNS ///
+        state = false;
+        masterSolver.solve();
+        // report1 (masterSolver, usedVariable, Fill);
+
+        for (i = 0; i < linkNum; i++) {
+          price[i] = orignal_weights[i] - masterSolver.getDual(linkCons[i]);
+        }
+        vector<int> path;
+        for (int i = 0; i < commodityNum; i++) {
+          /// FIND AND ADD A NEW PATTERN ///
+          if (bidijkstra_shortest_path(graph, price, demands[i].src,
+                                       demands[i].snk, path, inf_weight)) {
+            if (lastSP[i].empty() || (path_cost(price, lastSP[i], 0.0) >
+                                      path_cost(price, path, 0.0))) {
+              lastSP[i] = path;
+              state = true;
+              for (int i = 0; i < linkNum; i++) {
+                newPathVarible[i] = 0;
+              }
+              for (vector<int>::iterator it = path.begin(); it != path.end();
+                   it++) {
+                newPathVarible[*it] = 1;
+              }
+              double unitPrice = path_cost(orignal_weights, path, 0.0);
+              usedVariable.add(IloNumVar(totalPrice(unitPrice) +
+                                         demandCons[i](1) +
+                                         linkCons(newPathVarible)));
+            }
+          }
+        }
+      }
+      cout << "Solution status: " << masterSolver.getStatus() << endl;
+      double pp = penalty;
+      report3(masterSolver, commodityNum, pp, usedVariable);
+    } catch (IloException &ex) {
+      cerr << "Error: " << ex << endl;
+    } catch (...) {
+      cerr << "Error" << endl;
+    }
+    env.end();
 
     return true;
   }
-  
+
 #endif
 
   bool solve() {
     sdata.start_time = systemTime();
     initial_solution();
 #ifdef CPLEX_SOLVER
-    bool re=CPLEX_solve();
-    
+    bool re = CPLEX_solve();
+    cout << "total take " << systemTime() - sdata.start_time << endl;
 #else
-
 
     bool re = iteration();
 #endif
@@ -1262,7 +1343,8 @@ class CG {
     }
 
     /**
-     * If there is a dual value of  saturate link is negative then this link is
+     * If there is a dual value of  saturate link is negative then this link
+     * is
      * a entering variable
      */
 
@@ -1334,7 +1416,8 @@ class CG {
       W old_cost =
           path_cost(update_weights, paths[primary_path_loc[i]].path, (W)0.0);
       /**
-       * If the possible biggest reduce objective value is less than exist found
+       * If the possible biggest reduce objective value is less than exist
+       * found
        * one then continue
        *
        */
