@@ -522,7 +522,7 @@ void testAns(char *filename) {
 }
 
 int main(int argc, char *argv[]) {
-  randMCF(0, 30, 150, 300, 10, 1000, 100);
+  randMCF(0, 30, 150, 300, 10, 120, 200);
   return 0;
   // testSparse();
   // randMCF(0, 200, 1000, 400, 500, 60, 100);
@@ -551,7 +551,7 @@ int main(int argc, char *argv[]) {
 
   // MCFexample2(  );
   // randMCF(4, 8, 200, 40, 6, 50);
-  cout << "case, using time(s), success rat, object value, iteration number, "
+  cout << "case, using time(s), success rat, success bandwidth, object_value, iteration number, "
           "empty iteration,  computing shortest path use time(s), solving "
           "linear equation solve use time(s)"
        << endl;

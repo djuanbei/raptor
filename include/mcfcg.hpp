@@ -268,8 +268,8 @@ class CG {
     for (int i = 0; i < K; i++) {
       int pid = primary_path_loc[i];
 
-      if (paths[pid].back() < origLink_num) {
-        double p_cost = path_cost(orignal_weights, paths[pid], 0.0);
+      if (paths[pid].path.back() < origLink_num) {
+        double p_cost = path_cost(orignal_weights, paths[pid].path, 0.0);
 
         re += p_cost * x_K[i];
       }
@@ -278,8 +278,8 @@ class CG {
     for (int i = 0; i < S; i++) {
       int link = saturate_links[i];
       int pid = saturate_link_path_loc[link];
-      if (paths[pid].back() < origLink_num) {
-        double p_cost = path_cost(orignal_weights, paths[pid], 0.0);
+      if (paths[pid].path.back() < origLink_num) {
+        double p_cost = path_cost(orignal_weights, paths[pid].path, 0.0);
 
         re += p_cost * x_S[i];
       }
@@ -922,8 +922,6 @@ class CG {
 
     addStatusLink(link2);
   }
-
-
 
   double getOrigCost(const vector<int> &path) const {
     return path_cost(orignal_weights, path, 0.0);
@@ -2179,8 +2177,9 @@ class CG {
     if (para.info > 1) {
       sdata.using_system_time = systemTime() - sdata.start_time;
       C sobj = success_obj();
+      double OBJ = computeObj();
       std::cout << systemTime() - sdata.start_time << ","
-                << sobj / (TotalB + 0.0) << "," << sobj << ","
+                << sobj / (TotalB + 0.0) << "," << sobj << "," << OBJ << ","
                 << sdata.iterator_num << "," << sdata.empty_iterator_num << ","
                 << sdata.shortestpathtime / 1000.0 << ","
                 << sdata.lpsolvertime / 1000.0 << std::endl;

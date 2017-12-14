@@ -432,7 +432,7 @@ bool SparseSolver::locSolver(SparseVector& sB, int* ap, int* ai, double* ax,
     }
     p[j + 1] = nz;
   }
-  
+
 #ifdef USING_KLU
   if (NULL != Symbolic) {
     klu_free_symbolic(&Symbolic, &Common);
