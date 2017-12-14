@@ -18,6 +18,7 @@
 
 #endif
 
+#include <glpk.h>
 #include <algorithm>
 #include <cassert>
 #include <chrono>
@@ -1065,9 +1066,134 @@ class CG {
 
 #endif
 
+  bool GlkpSolve() {
+    glp_term_out(GLP_OFF);
+    // Creates the GLPK problem instance.
+    glp_prob *lp = glp_create_prob();
+    glp_set_prob_name(lp, "Multi-commodity flow problem");
+    // The objective function will be minimized.
+    glp_set_obj_dir(lp, GLP_MIN);
+    // Adds the constraints (rows)
+    int commodityNum = demands.size();
+    int linkNum = orignal_caps.size();
+
+    glp_add_rows(lp, commodityNum + linkNum + 1);
+    for (int i = 1; i <= commodityNum; i++) {
+      glp_set_row_bnds(lp, i, GLP_FX, demands[i].bandwidth, 0);
+    }
+    for (int i = 1; i <= linkNum; i++) {
+      glp_set_row_bnds(lp, i + commodityNum, GLP_UP, 0, orignal_caps[i]);
+    }
+    glp_set_row_bnds(lp, commodityNum + linkNum + 1, GLP_DB, 0, TotalB + 1);
+
+    // Adds the variables (columns) and also set the coefficients of the
+    // objective function.
+    glp_add_cols(lp, commodityNum);
+
+    for (int i = 1; i <= commodityNum; i++) {
+      glp_set_col_bnds(lp, i, GLP_LO, 0, 0);  // x[i] >= 0
+      glp_set_obj_coef(lp, i, inf);           // c[i] = inf
+    }
+    int m = commodityNum + linkNum + 1;
+    const int size = 2*commodityNum+4 ;
+
+    int A_row[size], A_column[size];
+    double A_value[size];
+    int index = 1;
+    for (int j = 1; j <= commodityNum; j++) {
+      // Adds this intial column to A
+      A_column[index] = j;   // column j
+      A_row[index] = j;     // line j
+      A_value[index] = 1.0;  // a[j,j] = 1
+      index++;
+
+      A_column[index] = j;                         // column j
+      A_row[index] = commodityNum + linkNum + 1;  // line commodityNum + linkNum + 1
+      A_value[index] = 1.0;                        // a[commodityNum + linkNum + 1,j] = 1
+      index++;
+    }
+
+    // Loads the A matrix.
+    glp_load_matrix(lp, index-1, A_row, A_column, A_value);
+
+
+    int n = commodityNum;
+    vector<vector<int>> lastSP(commodityNum);
+    vector<double> price(linkNum);
+    //
+    // PROBLEM SOLVING ITERATIONS
+    //
+    int columnIndex[3 + linkNum];
+    double columnValue[3 + linkNum];
+    bool stop = false;
+    do {
+      stop = true;
+      // Solve the current iteration's linear program using SIMPLEX.
+      int statusCode = glp_simplex(lp, NULL);
+      // The SIMPLEX return code should be 0; means no errors.
+      assert(statusCode == 0);
+
+      // Gets the dual variables
+
+      for (int i = 0; i < linkNum; i++) {
+        price[i] = orignal_weights[i] - glp_get_row_dual(lp, i + commodityNum+1);
+      }
+
+      vector<int> path;
+      for (int i = 0; i < commodityNum; i++) {
+        /// FIND AND ADD A NEW PATTERN ///
+        if (bidijkstra_shortest_path(graph, price, demands[i].src,
+                                     demands[i].snk, path, inf_weight)) {
+          if (lastSP[i].empty() || (path_cost(price, lastSP[i], 0.0) >
+                                    path_cost(price, path, 0.0))) {
+            lastSP[i] = path;
+            stop = false;
+            columnIndex[1] = i+1;
+            columnValue[1] = 1.0;
+
+            for (size_t j = 0; j < path.size(); j++) {
+              columnIndex[j + 2] = commodityNum + 1 + path[j];
+              columnValue[j + 2] = 1.0;
+            }
+            glp_add_cols(lp, 1);
+            int j = glp_get_num_cols(lp);
+            double unitPrice = path_cost(orignal_weights, path, 0.0);
+            glp_set_col_bnds(lp, j, GLP_LO, 0, 0);
+            glp_set_obj_coef(lp, j, unitPrice);
+            int m=1+path.size();
+            glp_set_mat_col(lp, j, m, columnIndex, columnValue);
+
+            n = n + 1;
+          }
+        }
+      }
+
+      assert(n == glp_get_num_cols(lp));
+    } while (not stop);
+
+    double OBJ = glp_get_obj_val(lp);
+    for (int i = 1; i <= commodityNum; i++) {
+      OBJ -= glp_get_col_prim(lp, i) * inf;
+    }
+    cout<<fixed<<endl;
+    cout << "Minimum cost: " << OBJ << endl;
+
+    double succ = 0;
+
+    for (int j = commodityNum; j < n+1; j++) {
+      succ += glp_get_col_prim(lp, j);
+    }
+    cout << "Maximum success bw: " << succ << endl;
+    glp_delete_prob(lp);
+    return true;
+  }
+
   bool solve() {
     sdata.start_time = systemTime();
     initial_solution();
+    GlkpSolve();
+    cout << "total take " << systemTime() - sdata.start_time << endl;
+    sdata.start_time = systemTime();
 #ifdef CPLEX_SOLVER
     bool re = CPLEX_solve();
     cout << "total take " << systemTime() - sdata.start_time << endl;

@@ -28,13 +28,13 @@ RCOBJS     = $(addsuffix r,  $(COBJS))
 ifeq ($(SRCSUF),cpp)
 	# CC=g++  -fopenmp -DUSING_LAPACK  -DSTATIC_TABLE
 	# CC=g++   -DUSING_LAPACK  -DSTATIC_TABLE -DUSING_KLU
-	CC=g++-5   -DUSING_LAPACK   -DUSING_KLU # -DCPLEX_SOLVER -DIL_STD
+	CC=g++-5 -std=c++11   -DUSING_LAPACK   -DUSING_KLU # -DCPLEX_SOLVER -DIL_STD
 	# CC=g++  -DUSING_LAPACK
 	CLANG=clang++
 
-	CFLAGS     =  -pedantic -W -Werror   -std=c++11    -DHAVE_CONFIG_H -Wlong-long -Wno-unused-parameter
+	# CFLAGS     =  -pedantic -W -Werror   -std=c++11    -DHAVE_CONFIG_H -Wlong-long -Wno-unused-parameter
 
-	LFLAGS    =   -pedantic -W -Werror
+	# LFLAGS    =   -pedantic -W -Werror
 else
 	CC=gcc
 	CLANG=clang
@@ -57,7 +57,7 @@ COPTIMIZE ?= -O2
 CFLAGS    += -I  include -I include/klu 
 
  # -L ~/demo/SuiteSparse/  -lklu -lbtf -lamd -lcolamd -lsuitesparseconfig # $(LIB_WITH_PARTITION) $(LDLIBS)
-LFLAGS    +=-llapack   -L lib   -lklu -lbtf -lamd -lcolamd  
+LFLAGS    +=-llapack   -L lib   -lklu -lbtf -lamd -lcolamd  -lglpk -lm
 # LFLAGS    +=-llapack     -lm
 
 
