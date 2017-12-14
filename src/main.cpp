@@ -522,7 +522,8 @@ void testAns(char *filename) {
 }
 
 int main(int argc, char *argv[]) {
-  randMCF(0, 30, 150, 300, 10, 120, 200);
+ 
+  randMCF(0, 5000 , 25000 , 300, 10, 1000, 100);
   return 0;
   // testSparse();
   // randMCF(0, 200, 1000, 400, 500, 60, 100);
