@@ -932,9 +932,7 @@ class CG {
   }
 
   void computIndexofLinks() {
-    un_saturate_links.resize(N);
 
-    fill(un_saturate_link_ids.begin(), un_saturate_link_ids.end(), -1);
     fill(saturate_link_ids.begin(), saturate_link_ids.end(), -1);
 
     for (size_t i = 0; i < saturate_links.size(); i++) {
@@ -947,9 +945,13 @@ class CG {
       if (saturate_link_ids[j] < 0) {
         un_saturate_link_ids[j] = i;
         un_saturate_links[i++] = j;
+      }else{
+        un_saturate_link_ids[j]=-1;
       }
     }
+
   }
+
 
 #ifdef CPLEX_SOLVER
 
@@ -1191,9 +1193,10 @@ class CG {
   bool solve() {
     sdata.start_time = systemTime();
     initial_solution();
-    GlkpSolve();
-    cout << "total take " << systemTime() - sdata.start_time << endl;
-    sdata.start_time = systemTime();
+    // GlkpSolve();
+    // cout << "total take " << systemTime() - sdata.start_time << endl;
+
+    // sdata.start_time = systemTime();
 #ifdef CPLEX_SOLVER
     bool re = CPLEX_solve();
     cout << "total take " << systemTime() - sdata.start_time << endl;
@@ -1356,18 +1359,19 @@ class CG {
       sdata.iterator_num++;
 
       computeRHS();
-      double OBJ = computeOBJ();
-      sdata.totalStaturateLink += S;
-      sdata.totalNonzero += sdata.nzn;
-      if (para.info > 1) {
-        saturateLinkAndMatrix.push_back(make_pair(S, sdata.nzn));
-      }
 
-      if (sdata.bestUpperobj < OBJ - sdata.estimee_opt_diff) {
-        sdata.bestUpperobj = OBJ - sdata.estimee_opt_diff;
-      }
 
       if (para.info > 2) {
+        double OBJ = computeOBJ();
+        sdata.totalStaturateLink += S;
+        sdata.totalNonzero += sdata.nzn;
+        if (para.info > 1) {
+          saturateLinkAndMatrix.push_back(make_pair(S, sdata.nzn));
+        }
+
+        if (sdata.bestUpperobj < OBJ - sdata.estimee_opt_diff) {
+          sdata.bestUpperobj = OBJ - sdata.estimee_opt_diff;
+        }
         if (sdata.iterator_num % para.perIterationPrint == 0) {
           sdata.using_system_time = systemTime() - sdata.start_time;
           C sobj = success_obj();
