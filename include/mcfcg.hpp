@@ -133,9 +133,9 @@ class CG {
   C TotalB;
 
   vector<Path> paths;  // all the paths save in this vector
-  
-  vector<vector<int> > lastSP;
-  
+
+  vector<vector<int>> lastSP;
+
   vector<int> empty_paths;  // the location which  is delete path
 
   vector<C> dual_solution;  // only link have dual value
@@ -743,7 +743,7 @@ class CG {
     K = demands.size();
     demand_secondary_path_locs.resize(K);
     lastSP.resize(K);
-    
+
     S = 0;
     N = origLink_num + 1;
 
@@ -1370,7 +1370,6 @@ class CG {
         W new_cost = path_cost(update_weights, path, (W)0.0);
         W diff = old_cost - new_cost;
 
-
         if (diff > 10000 * EPS && diff > sdata.objSpeed &&
             leftBandwith(path) > (demands[id].bandwidth / 10.0)) {
           candidate_enter.erase(candidate_enter.begin(),
@@ -1385,10 +1384,8 @@ class CG {
         }
       }
     }
-    
 
     candidate_enter.clear();
-    
 
     sdata.estimee_opt_diff = 0;
     vector<double> opt_gap(thread_num, 0);
@@ -1399,8 +1396,8 @@ class CG {
     vector<vector<int>> path(thread_num);
     vector<ENTER_VARIABLE> enter_variables(thread_num);
 
-    int chid=-1;
-    max_diff=EPS;
+    int chid = -1;
+    max_diff = EPS;
     for (int i = 0; i < thread_num; i++) {
       enter_variables[i].type = PATH_T;
       enter_variables[i].id = -1;
@@ -1419,25 +1416,24 @@ class CG {
       }
       int src = demands[i].src;
       int snk = demands[i].snk;
-      if(!lastSP[i].empty()){
+      if (!lastSP[i].empty()) {
         W old_cost =
-          path_cost(update_weights, paths[primary_path_loc[i]].path, (W)0.0);
+            path_cost(update_weights, paths[primary_path_loc[i]].path, (W)0.0);
         W new_cost = path_cost(update_weights, lastSP[i], (W)0.0);
-        if(old_cost-new_cost>max_diff){
-          max_diff=old_cost-new_cost;
-          chid=i;
+        if (old_cost - new_cost > max_diff) {
+          max_diff = old_cost - new_cost;
+          chid = i;
         }
       }
     }
-    if(chid>-1){
-      enter_variable.type=PATH_T;
-      enter_variable.id=chid;
-      enter_variable.path=lastSP[chid];
+    if (chid > -1) {
+      enter_variable.type = PATH_T;
+      enter_variable.id = chid;
+      enter_variable.path = lastSP[chid];
       lastSP[chid].clear();
       return enter_variable;
     }
-    
-    
+
 #pragma omp parallel for
     for (int i = 0; i < K; i++) {
 #ifdef _OPENMP
@@ -1477,14 +1473,11 @@ class CG {
         }
 
         W temp_diff = (old_cost - new_cost);
-        if(lastSP[i]!=path[tid]){
-          lastSP[i]=path[tid];
-
+        if (lastSP[i] != path[tid]) {
+          lastSP[i] = path[tid];
         }
 
         if (temp_diff > EPS) {
-
-
           if (temp_diff > max_diffs[tid]) {
             max_diffs[tid] = temp_diff;
           }
@@ -1503,8 +1496,6 @@ class CG {
         }
       }
     }
-
-
 
     chid = 0;
     double max_gap = max_gaps[0];

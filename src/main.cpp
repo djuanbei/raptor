@@ -519,6 +519,7 @@ void testAns(char *filename) {
   }
   cout << "the number of simple path connect Hawii and Hartford is: "
        << path_num << endl;
+  
 }
 
 int main(int argc, char *argv[]) {
