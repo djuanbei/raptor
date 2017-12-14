@@ -483,7 +483,14 @@ class CG {
        * -rhs_S
        *
        */
-      for (int i = 0; i < S; i++) {
+      int i = 0;
+      for (i = 0; i + 3 < S; i += 4) {
+        b[i] = -rhs[K + saturate_links[i]];
+        b[i + 1] = -rhs[K + saturate_links[i + 1]];
+        b[i + 2] = -rhs[K + saturate_links[i + 2]];
+        b[i + 3] = -rhs[K + saturate_links[i + 3]];
+      }
+      for (; i < S; i++) {
         b[i] = -rhs[K + saturate_links[i]];
       }
       /**
@@ -932,7 +939,6 @@ class CG {
   }
 
   void computIndexofLinks() {
-
     fill(saturate_link_ids.begin(), saturate_link_ids.end(), -1);
 
     for (size_t i = 0; i < saturate_links.size(); i++) {
@@ -945,13 +951,11 @@ class CG {
       if (saturate_link_ids[j] < 0) {
         un_saturate_link_ids[j] = i;
         un_saturate_links[i++] = j;
-      }else{
-        un_saturate_link_ids[j]=-1;
+      } else {
+        un_saturate_link_ids[j] = -1;
       }
     }
-
   }
-
 
 #ifdef CPLEX_SOLVER
 
@@ -1084,7 +1088,7 @@ class CG {
       glp_set_row_bnds(lp, i, GLP_FX, demands[i].bandwidth, 0);
     }
     for (int i = 1; i <= linkNum; i++) {
-      glp_set_row_bnds(lp, i + commodityNum, GLP_UP, 0, orignal_caps[i]);
+      glp_set_row_bnds(lp, i + commodityNum, GLP_UP, 0, update_caps[i]);
     }
     glp_set_row_bnds(lp, commodityNum + linkNum + 1, GLP_DB, 0, TotalB + 1);
 
@@ -1097,7 +1101,7 @@ class CG {
       glp_set_obj_coef(lp, i, inf);           // c[i] = inf
     }
     int m = commodityNum + linkNum + 1;
-    const int size = 2*commodityNum+4 ;
+    const int size = 2 * commodityNum + 4;
 
     int A_row[size], A_column[size];
     double A_value[size];
@@ -1105,19 +1109,19 @@ class CG {
     for (int j = 1; j <= commodityNum; j++) {
       // Adds this intial column to A
       A_column[index] = j;   // column j
-      A_row[index] = j;     // line j
+      A_row[index] = j;      // line j
       A_value[index] = 1.0;  // a[j,j] = 1
       index++;
 
-      A_column[index] = j;                         // column j
-      A_row[index] = commodityNum + linkNum + 1;  // line commodityNum + linkNum + 1
-      A_value[index] = 1.0;                        // a[commodityNum + linkNum + 1,j] = 1
+      A_column[index] = j;  // column j
+      A_row[index] =
+          commodityNum + linkNum + 1;  // line commodityNum + linkNum + 1
+      A_value[index] = 1.0;            // a[commodityNum + linkNum + 1,j] = 1
       index++;
     }
 
     // Loads the A matrix.
-    glp_load_matrix(lp, index-1, A_row, A_column, A_value);
-
+    glp_load_matrix(lp, index - 1, A_row, A_column, A_value);
 
     int n = commodityNum;
     vector<vector<int>> lastSP(commodityNum);
@@ -1138,7 +1142,8 @@ class CG {
       // Gets the dual variables
 
       for (int i = 0; i < linkNum; i++) {
-        price[i] = orignal_weights[i] - glp_get_row_dual(lp, i + commodityNum+1);
+        price[i] =
+            orignal_weights[i] - glp_get_row_dual(lp, i + commodityNum + 1);
       }
 
       vector<int> path;
@@ -1150,7 +1155,7 @@ class CG {
                                     path_cost(price, path, 0.0))) {
             lastSP[i] = path;
             stop = false;
-            columnIndex[1] = i+1;
+            columnIndex[1] = i + 1;
             columnValue[1] = 1.0;
 
             for (size_t j = 0; j < path.size(); j++) {
@@ -1162,7 +1167,7 @@ class CG {
             double unitPrice = path_cost(orignal_weights, path, 0.0);
             glp_set_col_bnds(lp, j, GLP_LO, 0, 0);
             glp_set_obj_coef(lp, j, unitPrice);
-            int m=1+path.size();
+            int m = 1 + path.size();
             glp_set_mat_col(lp, j, m, columnIndex, columnValue);
 
             n = n + 1;
@@ -1177,12 +1182,12 @@ class CG {
     for (int i = 1; i <= commodityNum; i++) {
       OBJ -= glp_get_col_prim(lp, i) * inf;
     }
-    cout<<fixed<<endl;
+    cout << fixed << endl;
     cout << "Minimum cost: " << OBJ << endl;
 
     double succ = 0;
 
-    for (int j = commodityNum; j < n+1; j++) {
+    for (int j = commodityNum+1; j < n + 1; j++) {
       succ += glp_get_col_prim(lp, j);
     }
     cout << "Maximum success bw: " << succ << endl;
@@ -1191,12 +1196,12 @@ class CG {
   }
 
   bool solve() {
-    sdata.start_time = systemTime();
     initial_solution();
-    // GlkpSolve();
-    // cout << "total take " << systemTime() - sdata.start_time << endl;
+    sdata.start_time = systemTime();
+    GlkpSolve();
+    cout << "total take " << systemTime() - sdata.start_time << endl;
 
-    // sdata.start_time = systemTime();
+    sdata.start_time = systemTime();
 #ifdef CPLEX_SOLVER
     bool re = CPLEX_solve();
     cout << "total take " << systemTime() - sdata.start_time << endl;
@@ -1359,7 +1364,6 @@ class CG {
       sdata.iterator_num++;
 
       computeRHS();
-
 
       if (para.info > 2) {
         double OBJ = computeOBJ();
@@ -1659,7 +1663,7 @@ class CG {
 
     vector<int> left_dataK;
     for (int i = 0; i < K; i++) {
-      if (fabs(data_K[i]) > EPS) {
+      if (data_K[i] != 0) {
         left_dataK.push_back(i);
       }
     }
@@ -1680,7 +1684,7 @@ class CG {
     vector<int> left_dataS;
 
     for (int i = 0; i < S; i++) {
-      if (fabs(data_S[i]) > EPS) {
+      if (data_S[i] != 0) {
         left_dataS.push_back(i);
       }
     }
@@ -1914,11 +1918,10 @@ class CG {
      *A lambda= beta
      */
 
-    fill(Lambda, Lambda + K + S + N, 0.0);
     lambda_K = Lambda;
     lambda_S = Lambda + K;
     lambda_N = Lambda + K + S;
-
+    fill(lambda_N, lambda_N + N, 0.0);
     int nrhs = 1;
     int lda = S;
     int ldb = S;
@@ -1973,6 +1976,7 @@ class CG {
      */
 
     for (int i = 0; i < K; i++) {
+      lambda_K[i] = 0;
       for (unordered_set<int>::iterator it =
                demand_secondary_path_locs[i].begin();
            it != demand_secondary_path_locs[i].end(); it++) {
