@@ -151,10 +151,10 @@ class CG {
 
   vector<int> un_saturate_link_ids;  // the id of un saturate link
 
-  vector<unordered_set<int>>
+  vector<vector<int>>
       demand_secondary_path_locs;  // belong to fixed demands' second paths
 
-  unordered_map<int, unordered_set<int>>
+  unordered_map<int, vector<int>>
       saturate_primary_path_locs;  // primary paths which
                                    // corross the saturate link
 
@@ -301,6 +301,11 @@ class CG {
     }
     return re;
   }
+
+  void deleteElem(vector<int> &data, int key) {
+    vector<int>::iterator it = find(data.begin(), data.end(), key);
+    data.erase(it);
+  }
   /**
    * row primary
    *
@@ -331,20 +336,20 @@ class CG {
      *  CB
      *
      */
-    for (unordered_map<int, unordered_set<int>>::const_iterator it =
+    for (unordered_map<int, vector<int>>::const_iterator it =
              saturate_primary_path_locs.begin();
          it != saturate_primary_path_locs.end(); it++) {
       int link = it->first;
-      int i = saturate_link_ids[link];  // getSindex(link) - K;
+      int i = saturate_link_ids[link];  
       assert(i > -1);
-      for (unordered_set<int>::const_iterator pit = it->second.begin();
+      for (vector<int>::const_iterator pit = it->second.begin();
            pit != it->second.end(); pit++) {
         int oindex = paths[*pit].owner;
-        for (unordered_set<int>::const_iterator cit =
+        for (vector<int>::const_iterator cit =
                  demand_secondary_path_locs[oindex].begin();
              cit != demand_secondary_path_locs[oindex].end(); cit++) {
           int slink = paths[*cit].link;
-          int j = saturate_link_ids[slink];  //  getSindex(slink) - K;
+          int j = saturate_link_ids[slink]; 
           assert(j > -1);
 
           SparseMatrixElem elem;
@@ -405,16 +410,16 @@ class CG {
        *  CB
        *
        */
-      for (unordered_map<int, unordered_set<int>>::const_iterator it =
+      for (unordered_map<int, vector<int>>::const_iterator it =
                saturate_primary_path_locs.begin();
            it != saturate_primary_path_locs.end(); it++) {
         int link = it->first;
         int i = saturate_link_ids[link];  //  getSindex(link) - K;
         assert(i > -1);
-        for (unordered_set<int>::const_iterator pit = it->second.begin();
+        for (vector<int>::const_iterator pit = it->second.begin();
              pit != it->second.end(); pit++) {
           int oindex = paths[*pit].owner;
-          for (unordered_set<int>::const_iterator cit =
+          for (vector<int>::const_iterator cit =
                    demand_secondary_path_locs[oindex].begin();
                cit != demand_secondary_path_locs[oindex].end(); cit++) {
             int slink = paths[*cit].link;
@@ -501,9 +506,9 @@ class CG {
       for (int i = 0; i < S; i++) {
         int link = saturate_links[i];
 
-        const unordered_set<int> &pps = saturate_primary_path_locs[link];
-        for (unordered_set<int>::const_iterator it = pps.begin();
-             it != pps.end(); it++) {
+        const vector<int> &pps = saturate_primary_path_locs[link];
+        for (vector<int>::const_iterator it = pps.begin(); it != pps.end();
+             it++) {
           b[i] += rhs[paths[*it].owner];
         }
       }
@@ -557,8 +562,8 @@ class CG {
     memcpy(x_K, rhs, K * sizeof(double));
 
     for (int i = 0; i < K; i++) {
-      const unordered_set<int> &pathindices = demand_secondary_path_locs[i];
-      for (unordered_set<int>::const_iterator it = pathindices.begin();
+      const vector<int> &pathindices = demand_secondary_path_locs[i];
+      for (vector<int>::const_iterator it = pathindices.begin();
            it != pathindices.end(); it++) {
         x_K[i] -= x_S[saturate_link_ids[paths[*it].link]];
       }
@@ -730,7 +735,7 @@ class CG {
       inf_weight = para.penaltyPriceForFailDemand;
 
     } else {
-      inf_weight = max_w * sqrt(graph.getVertex_num()) + 1;
+      inf_weight = max_w * graph.getVertex_num() + 1;
     }
 
     inf = inf_weight;
@@ -867,7 +872,7 @@ class CG {
     for (vector<int>::const_iterator it = new_path.begin();
          it != new_path.end(); it++) {
       if (saturate_link_ids[*it] > -1) {
-        saturate_primary_path_locs[*it].insert(pid);
+        saturate_primary_path_locs[*it].push_back(pid);
       }
     }
   }
@@ -878,7 +883,8 @@ class CG {
     for (vector<int>::const_iterator it = orig_path.begin();
          it != orig_path.end(); it++) {
       if (saturate_link_ids[*it] > -1) {
-        saturate_primary_path_locs[*it].erase(primary_pid);
+        deleteElem(saturate_primary_path_locs[*it], primary_pid);
+        // saturate_primary_path_locs[*it].erase(primary_pid);
       }
     }
   }
@@ -889,7 +895,7 @@ class CG {
       int pid = primary_path_loc[i];
       if (find(paths[pid].path.begin(), paths[pid].path.end(), link) !=
           paths[pid].path.end()) {
-        saturate_primary_path_locs[link].insert(pid);
+        saturate_primary_path_locs[link].push_back(pid);
       }
     }
   }
@@ -1028,7 +1034,6 @@ class CG {
         /// OPTIMIZE OVER CURRENT PATTERNS ///
         state = false;
         masterSolver.solve();
-        // report1 (masterSolver, usedVariable, Fill);
 
         for (i = 0; i < linkNum; i++) {
           price[i] = orignal_weights[i] - masterSolver.getDual(linkCons[i]);
@@ -1085,10 +1090,10 @@ class CG {
 
     glp_add_rows(lp, commodityNum + linkNum + 1);
     for (int i = 1; i <= commodityNum; i++) {
-      glp_set_row_bnds(lp, i, GLP_FX, demands[i].bandwidth, 0);
+      glp_set_row_bnds(lp, i, GLP_FX, demands[i - 1].bandwidth, 0);
     }
     for (int i = 1; i <= linkNum; i++) {
-      glp_set_row_bnds(lp, i + commodityNum, GLP_UP, 0, update_caps[i]);
+      glp_set_row_bnds(lp, i + commodityNum, GLP_UP, 0, update_caps[i - 1]);
     }
     glp_set_row_bnds(lp, commodityNum + linkNum + 1, GLP_DB, 0, TotalB + 1);
 
@@ -1101,7 +1106,7 @@ class CG {
       glp_set_obj_coef(lp, i, inf);           // c[i] = inf
     }
     int m = commodityNum + linkNum + 1;
-    const int size = 2 * commodityNum + 4;
+    const int size = 2 * commodityNum + 2;
 
     int A_row[size], A_column[size];
     double A_value[size];
@@ -1167,8 +1172,8 @@ class CG {
             double unitPrice = path_cost(orignal_weights, path, 0.0);
             glp_set_col_bnds(lp, j, GLP_LO, 0, 0);
             glp_set_obj_coef(lp, j, unitPrice);
-            int m = 1 + path.size();
-            glp_set_mat_col(lp, j, m, columnIndex, columnValue);
+
+            glp_set_mat_col(lp, j, 1 + path.size(), columnIndex, columnValue);
 
             n = n + 1;
           }
@@ -1179,15 +1184,16 @@ class CG {
     } while (not stop);
 
     double OBJ = glp_get_obj_val(lp);
+
     for (int i = 1; i <= commodityNum; i++) {
       OBJ -= glp_get_col_prim(lp, i) * inf;
     }
-    cout << fixed << endl;
+    cout << fixed;
     cout << "Minimum cost: " << OBJ << endl;
 
     double succ = 0;
 
-    for (int j = commodityNum+1; j < n + 1; j++) {
+    for (int j = commodityNum + 1; j < n + 1; j++) {
       succ += glp_get_col_prim(lp, j);
     }
     cout << "Maximum success bw: " << succ << endl;
@@ -1201,14 +1207,13 @@ class CG {
     GlkpSolve();
     cout << "total take " << systemTime() - sdata.start_time << endl;
 
-    sdata.start_time = systemTime();
 #ifdef CPLEX_SOLVER
-    bool re = CPLEX_solve();
+    CPLEX_solve();
     cout << "total take " << systemTime() - sdata.start_time << endl;
-#else
 
-    bool re = iteration();
 #endif
+    sdata.start_time = systemTime();
+    bool re = iteration();
 
     if (para.info > 0) {
       printResult();
@@ -1661,43 +1666,30 @@ class CG {
     double *data_S = data + K;
     double *data_N = data + K + S;
 
-    vector<int> left_dataK;
-    for (int i = 0; i < K; i++) {
-      if (data_K[i] != 0) {
-        left_dataK.push_back(i);
-      }
-    }
+    for (int pid = 0; pid < K; pid++) {
+      if (data_K[pid] != 0) {
+        int ppid = primary_path_loc[pid];
+        for (vector<int>::const_iterator lit = paths[ppid].path.begin();
+             lit != paths[ppid].path.end(); lit++) {
+          int i = un_saturate_link_ids[*lit];
 
-    for (size_t k = 0; k < left_dataK.size(); k++) {
-      int pid = left_dataK[k];
-      int ppid = primary_path_loc[pid];
-      for (vector<int>::const_iterator lit = paths[ppid].path.begin();
-           lit != paths[ppid].path.end(); lit++) {
-        int i = un_saturate_link_ids[*lit];
-
-        if (i > -1) {
-          data_N[i] -= data_K[pid];
+          if (i > -1) {
+            data_N[i] -= data_K[pid];
+          }
         }
       }
     }
 
-    vector<int> left_dataS;
+    for (int lid = 0; lid < S; lid++) {
+      if (data_S[lid] != 0) {
+        int ppid = saturate_link_path_loc[saturate_links[lid]];
+        for (vector<int>::const_iterator lit = paths[ppid].path.begin();
+             lit != paths[ppid].path.end(); lit++) {
+          int i = un_saturate_link_ids[*lit];
 
-    for (int i = 0; i < S; i++) {
-      if (data_S[i] != 0) {
-        left_dataS.push_back(i);
-      }
-    }
-
-    for (size_t k = 0; k < left_dataS.size(); k++) {
-      int lid = left_dataS[k];
-      int ppid = saturate_link_path_loc[saturate_links[lid]];
-      for (vector<int>::const_iterator lit = paths[ppid].path.begin();
-           lit != paths[ppid].path.end(); lit++) {
-        int i = un_saturate_link_ids[*lit];
-
-        if (i > -1) {
-          data_N[i] -= data_S[lid];
+          if (i > -1) {
+            data_N[i] -= data_S[lid];
+          }
         }
       }
     }
@@ -1857,8 +1849,7 @@ class CG {
       lambda_K[enterCommodity.id] = 1.0;
       if (nonzero_bata > 0) {
         for (int i = 0; i < K; i++) {
-          for (unordered_set<int>::iterator it =
-                   demand_secondary_path_locs[i].begin();
+          for (vector<int>::iterator it = demand_secondary_path_locs[i].begin();
                it != demand_secondary_path_locs[i].end(); it++) {
             int pindex = *it;
             int link = paths[pindex].link;
@@ -1977,8 +1968,7 @@ class CG {
 
     for (int i = 0; i < K; i++) {
       lambda_K[i] = 0;
-      for (unordered_set<int>::iterator it =
-               demand_secondary_path_locs[i].begin();
+      for (vector<int>::iterator it = demand_secondary_path_locs[i].begin();
            it != demand_secondary_path_locs[i].end(); it++) {
         int pindex = *it;
         int link = paths[pindex].link;
@@ -2035,7 +2025,7 @@ class CG {
            */
 
           assert(!demand_secondary_path_locs[exit_commodity_id].empty());
-          unordered_set<int>::const_iterator it =
+          vector<int>::const_iterator it =
               demand_secondary_path_locs[exit_commodity_id].begin();
 
           int pid = *it;
@@ -2052,7 +2042,7 @@ class CG {
           primary_path_loc[exit_commodity_id] = pid;
           paths[pid].link = -1;
 
-          demand_secondary_path_locs[entering_commodity.id].insert(
+          demand_secondary_path_locs[entering_commodity.id].push_back(
               exit_primary_pid);
 
           setStatusLink(link, exit_primary_pid);
@@ -2072,8 +2062,10 @@ class CG {
          */
 
         if (entering_commodity.id != paths[pid].owner) {
-          demand_secondary_path_locs[paths[pid].owner].erase(pid);
-          demand_secondary_path_locs[entering_commodity.id].insert(pid);
+
+          deleteElem(demand_secondary_path_locs[paths[pid].owner], pid);
+
+          demand_secondary_path_locs[entering_commodity.id].push_back(pid);
         }
         paths[pid].owner = entering_commodity.id;
 
@@ -2096,7 +2088,7 @@ class CG {
 
           saturate_link_path_loc[exit_base.id] = paths.size() - 1;
 
-          demand_secondary_path_locs[entering_commodity.id].insert(
+          demand_secondary_path_locs[entering_commodity.id].push_back(
               paths.size() - 1);
 
         } else {
@@ -2112,7 +2104,7 @@ class CG {
           saturate_links.push_back(exit_base.id);
 
           saturate_link_path_loc[exit_base.id] = pid;
-          demand_secondary_path_locs[entering_commodity.id].insert(pid);
+          demand_secondary_path_locs[entering_commodity.id].push_back(pid);
         }
 
         int link = exit_base.id;
@@ -2141,10 +2133,11 @@ class CG {
 
         if (paths[spid].owner == exit_commodity_id) {
           primary_path_loc[exit_commodity_id] = spid;
-          demand_secondary_path_locs[exit_commodity_id].erase(spid);
+
+          deleteElem(demand_secondary_path_locs[exit_commodity_id], spid);
         } else {
           assert(!demand_secondary_path_locs[exit_commodity_id].empty());
-          unordered_set<int>::const_iterator it =
+          vector<int>::const_iterator it =
               demand_secondary_path_locs[exit_commodity_id].begin();
 
           int pid = *it;
@@ -2173,14 +2166,16 @@ class CG {
         if (exit_base.id == entering_commodity.id) {
           empty_paths.push_back(spid);
 
-          demand_secondary_path_locs[paths[spid].owner].erase(spid);
+          deleteElem(demand_secondary_path_locs[paths[spid].owner], spid);
+
           paths[spid].owner = -1;
           paths[spid].path.clear();
         } else {
           int pid = saturate_link_path_loc[exit_base.id];
           empty_paths.push_back(pid);
           paths[pid].path.clear();
-          demand_secondary_path_locs[paths[pid].owner].erase(pid);
+
+          deleteElem(demand_secondary_path_locs[paths[pid].owner], pid);
 
           paths[pid].owner = -1;
           paths[pid].link = -1;
@@ -2348,6 +2343,7 @@ class CG {
   }
 
   void printResult() {
+    // verify();
     std::cout << fixed;
     if (para.info > 1) {
       sdata.using_system_time = systemTime() - sdata.start_time;
@@ -2401,6 +2397,20 @@ class CG {
         fs << it->first << "," << it->second << endl;
       }
       fs.close();
+    }
+  }
+  bool verify(void) {
+    cout << "verify" << endl;
+    for (int i = 0; i < K + S; i++) {
+      if (X[i] < -EPS) {
+        cout << "can not have negative assigin " << endl;
+      }
+    }
+    update_edge_left_bandwith();
+    for (size_t i = 0; i < edgeLeftBandwith.size(); i++) {
+      if (edgeLeftBandwith[i] < -EPS) {
+        cout << "over assigin" << endl;
+      }
     }
   }
 };
