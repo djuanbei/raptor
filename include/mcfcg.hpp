@@ -170,7 +170,7 @@ class CG {
 
   SparseSolver sparseSolver;
 
-  // vector<C> rhs;
+
   double *rhs;
   double *X;
   double *Lambda;
@@ -601,17 +601,12 @@ class CG {
     double minK = numeric_limits<double>::max();
     double temp;
     int i = 0;
-    while (i < K) {
-      if (lambda_K[i] > EPS) {
-        reK = i;
-        minK = x_K[i] / lambda_K[i];
-        break;
-      }
-      i++;
-    }
-    while (i < K) {
-      if (lambda_K[i] > EPS) {
-        temp = x_K[i] / lambda_K[i];
+    
+    int num=K+S+N;
+
+    while (i < num) {
+      if (Lambda[i] > EPS) {
+        temp = X[i] / Lambda[i];
         if (temp < minK) {
           reK = i;
           minK = temp;
@@ -619,78 +614,23 @@ class CG {
       }
       i++;
     }
-
-    int reS = -1;
-    double minS = numeric_limits<double>::max();
-    i = 0;
-    while (i < S) {
-      if (lambda_S[i] > EPS) {
-        reS = i;
-        minS = x_S[i] / lambda_S[i];
-        break;
-      }
-      i++;
+    assert(reK>-1);
+    if (minK <= EPS / 100.0) {
+        sdata.empty_iterator_num++;
     }
-
-    while (i < S) {
-      if (lambda_S[i] > EPS) {
-        temp = x_S[i] / lambda_S[i];
-        if (temp < minS) {
-          reS = i;
-          minS = temp;
-        }
-      }
-      i++;
-    }
-
-    int reN = -1;
-    double minN = numeric_limits<double>::max();
-
-    i = 0;
-    while (i < N) {
-      if (lambda_N[i] > EPS) {
-        reN = i;
-        minN = x_N[i] / lambda_N[i];
-        break;
-      }
-      i++;
-    }
-
-    while (i < N) {
-      if (lambda_N[i] > EPS) {
-        temp = x_N[i] / lambda_N[i];
-        if (temp < minN) {
-          reN = i;
-          minN = temp;
-        }
-      }
-      i++;
-    }
-
     Exit_base re;
-
-    if (minK <= minS && minK <= minN) {
+    if(reK<K){
       re.id = reK;
       re.type = DEMAND_T;
-      if (minK <= EPS / 100.0) {
-        sdata.empty_iterator_num++;
-      }
-      return re;
-    }
-    if (minS <= minN) {
-      re.id = saturate_links[reS];
+    }else if(reK<K+S){
+      re.id = saturate_links[reK-K];
       re.type = STATUS_LINK;
-      if (minS <= EPS / 100.0) {
-        sdata.empty_iterator_num++;
-      }
-      return re;
-    }
-    re.id = un_saturate_links[reN];
-    re.type = OTHER_LINK;
-    if (minN <= EPS / 100.0) {
-      sdata.empty_iterator_num++;
+    }else{
+      re.id = un_saturate_links[reK-K-S];
+      re.type = OTHER_LINK;
     }
     return re;
+
   }
 
  public:
@@ -1365,6 +1305,7 @@ class CG {
   }
 
   bool iteration() {
+    vector<ENTER_VARIABLE>  enterVariables;
     while (true) {
       sdata.iterator_num++;
 
@@ -1419,10 +1360,10 @@ class CG {
        *
        */
       double t = 0;
-      callTime(t, ENTER_VARIABLE entering_commodity = chooseEnteringVariable());
+      callTime(t,  chooseEnteringVariable(enterVariables));
       sdata.shortestpathtime += t;
 
-      if (entering_commodity.id < 0) {
+      if (enterVariables.empty()) {
         return true;
       }
 
@@ -1431,13 +1372,13 @@ class CG {
        *  exit base  choose
        *
        */
-      if (PATH_T == entering_commodity.type) {
-        exit_base = getExitBasebyPath(entering_commodity);
+      if (PATH_T == enterVariables[0].type) {
+        exit_base = getExitBasebyPath(enterVariables[0]);
       } else {
-        exit_base = getExitBasebyStatusLink(entering_commodity);
+        exit_base = getExitBasebyStatusLink(enterVariables[0]);
       }
 
-      pivot(entering_commodity, exit_base);
+      pivot(enterVariables[0], exit_base);
 
       S = saturate_links.size();
       assert(empty_paths.size() + K + S == paths.size());
@@ -1465,7 +1406,8 @@ class CG {
    *
    * @return
    */
-  ENTER_VARIABLE chooseEnteringVariable() {
+  void chooseEnteringVariable(vector<ENTER_VARIABLE> & enterVariables) {
+    enterVariables.clear();
     ENTER_VARIABLE enter_variable;
     enter_variable.type = LINK_T;
     enter_variable.id = -1;
@@ -1489,7 +1431,8 @@ class CG {
      */
 
     if (enter_variable.id >= 0) {
-      return enter_variable;
+      enterVariables.push_back(enter_variable);
+      return;
     }
 
     /**
@@ -1519,7 +1462,8 @@ class CG {
 
           sdata.objSpeed = (para.objSpeedUpdateRat) * sdata.objSpeed +
                            (1 - (para.objSpeedUpdateRat)) * diff;
-          return enter_variable;
+          enterVariables.push_back(enter_variable);
+          return;
         }
       }
     }
@@ -1570,7 +1514,8 @@ class CG {
       enter_variable.id = chid;
       enter_variable.path = lastSP[chid];
       lastSP[chid].clear();
-      return enter_variable;
+      enterVariables.push_back(enter_variable);
+      return ;
     }
 
 #pragma omp parallel for
@@ -1654,7 +1599,9 @@ class CG {
 
     sdata.objSpeed = (para.objSpeedUpdateRat) * sdata.objSpeed +
                      (1 - (para.objSpeedUpdateRat)) * max_diffs[chid];
-    return enter_variables[chid];
+    if(enter_variables[chid].id>-1){
+      enterVariables.push_back(enter_variables[chid]);
+    }
   }
 
   /**
