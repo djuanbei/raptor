@@ -1,4 +1,3 @@
-
 /**
  * @file   mcfgc.h
  * @author Liyun Dai <dlyun2009@gmail.com>
@@ -139,7 +138,7 @@ class CG {
 
   vector<int> empty_paths;  // the location which  is delete path
 
-  vector<C> dual_solution;  // only link have dual value
+  // vector<C> dual_solution;  // only link have dual value
 
   vector<double> min_commodity_cost;
 
@@ -175,6 +174,7 @@ class CG {
   double *X;
   double *Lambda;
   double *Mu;
+  double * dual_solution; // it to value
 
   int *ipiv;
   double *b;
@@ -414,7 +414,7 @@ class CG {
                saturate_primary_path_locs.begin();
            it != saturate_primary_path_locs.end(); it++) {
         int link = it->first;
-        int i = saturate_link_ids[link];  //  getSindex(link) - K;
+        int i = saturate_link_ids[link]; 
         assert(i > -1);
         for (vector<int>::const_iterator pit = it->second.begin();
              pit != it->second.end(); pit++) {
@@ -423,7 +423,7 @@ class CG {
                    demand_secondary_path_locs[oindex].begin();
                cit != demand_secondary_path_locs[oindex].end(); cit++) {
             int slink = paths[*cit].link;
-            int j = saturate_link_ids[slink];  // getSindex(slink) - K;
+            int j = saturate_link_ids[slink];
             SM[i * S + j] += 1.0;
             sdata.nzn++;
           }
@@ -704,6 +704,7 @@ class CG {
     X = new double[K + N];
     Lambda = new double[K + N];
     Mu = new double[N];
+    dual_solution =new double[N];
     fill(Mu, Mu + N, 0.0);
 
     fill(X, X + N, 0.0);
@@ -732,21 +733,21 @@ class CG {
       TotalB += it->bandwidth;
     }
 
-    if (para.isSetDisturbed) {
-      double domain = pow(10, para.disturbedDigit) + 1;
-      double multiRat = 1.0 / domain;
+    // if (para.isSetDisturbed) {
+    //   double domain = pow(10, para.disturbedDigit) + 1;
+    //   double multiRat = 1.0 / domain;
 
-      if (minNonzero > 1) {
-        for (size_t i = 0; i < update_caps.size(); i++) {
-          update_caps[i] += multiRat * (rand() / (RAND_MAX + 0.0));
-        }
+    //   if (minNonzero > 1) {
+    //     for (size_t i = 0; i < update_caps.size(); i++) {
+    //       update_caps[i] += multiRat * (rand() / (RAND_MAX + 0.0));
+    //     }
 
-      } else {
-        for (size_t i = 0; i < update_caps.size(); i++) {
-          update_caps[i] += multiRat * minNonzero * (rand() / (RAND_MAX + 0.0));
-        }
-      }
-    }
+    //   } else {
+    //     for (size_t i = 0; i < update_caps.size(); i++) {
+    //       update_caps[i] += multiRat * minNonzero * (rand() / (RAND_MAX + 0.0));
+    //     }
+    //   }
+    // }
     /**
      *add a  dummy link which can setup all demands
      *
@@ -777,6 +778,11 @@ class CG {
     if (NULL != Mu) {
       delete[] Mu;
       Mu = NULL;
+    }
+    if(NULL!=dual_solution){
+      delete[] dual_solution;
+      dual_solution=NULL;
+      
     }
     if (NULL != ipiv) {
       delete[] ipiv;
@@ -824,7 +830,7 @@ class CG {
          it != orig_path.end(); it++) {
       if (saturate_link_ids[*it] > -1) {
         deleteElem(saturate_primary_path_locs[*it], primary_pid);
-        // saturate_primary_path_locs[*it].erase(primary_pid);
+
       }
     }
   }
@@ -847,10 +853,11 @@ class CG {
 #endif
 
     saturate_links.erase(it);
-
-    for (int i = saturate_link_ids[link]; i + 1 < S; i++) {
-      x_S[i] = x_S[i + 1];
-      Mu[i] = Mu[i + 1];
+    if (SPARSE == para.solver) {    
+      for (int i = saturate_link_ids[link]; i + 1 < S; i++) {
+        x_S[i] = x_S[i + 1];
+        Mu[i] = Mu[i + 1];
+      }
     }
 
     saturate_link_ids[link] = -1;
@@ -885,7 +892,6 @@ class CG {
   }
 
   void computIndexofLinks() {
-    fill(saturate_link_ids.begin(), saturate_link_ids.end(), -1);
 
     for (size_t i = 0; i < saturate_links.size(); i++) {
       saturate_link_ids[saturate_links[i]] = i;
@@ -1077,6 +1083,8 @@ class CG {
     int columnIndex[3 + linkNum];
     double columnValue[3 + linkNum];
     bool stop = false;
+
+
     do {
       stop = true;
       // Solve the current iteration's linear program using SIMPLEX.
@@ -1098,6 +1106,7 @@ class CG {
                                      demands[i].snk, path, inf_weight)) {
           if (lastSP[i].empty() || (path_cost(price, lastSP[i], 0.0) >
                                     path_cost(price, path, 0.0))) {
+
             lastSP[i] = path;
             stop = false;
             columnIndex[1] = i + 1;
@@ -1137,6 +1146,7 @@ class CG {
       succ += glp_get_col_prim(lp, j);
     }
     cout << "Maximum success bw: " << succ << endl;
+    cout<<"variable num: "<<n-commodityNum<<endl;
     glp_delete_prob(lp);
     return true;
   }
@@ -1301,15 +1311,16 @@ class CG {
       rhs[i + K] = update_caps[i];
     }
 
-    dual_solution.resize(N + 1, 0);
+    // dual_solution.resize(N + 1, 0);
   }
 
   bool iteration() {
     vector<ENTER_VARIABLE>  enterVariables;
+    
+    computeRHS();
     while (true) {
       sdata.iterator_num++;
 
-      computeRHS();
 
       if (para.info > 2) {
         double OBJ = computeOBJ();
@@ -1354,7 +1365,7 @@ class CG {
         return false;
       }
 
-      update_edge_left_bandwith();
+      // update_edge_left_bandwith();
       /**
        *  entering variable choose
        *
@@ -1387,14 +1398,25 @@ class CG {
 
       computeS();
 
-      update_edge_cost();
+#pragma omp sections 
+      {
+#pragma omp section
+        {
 
-      /**
-       * column primary
-       *
-       */
-      if (LAPACK == para.solver) {
-        transposeS();
+          update_edge_cost();
+        }
+        
+#pragma omp section
+        {
+          /**
+           * column primary
+           *
+           */
+          if (LAPACK == para.solver) {
+            transposeS();
+          }
+          computeRHS();
+        }
       }
     }
   }
@@ -1416,10 +1438,11 @@ class CG {
      *
      */
     double max_diff = -EPS;
+
     for (int i = 0; i < S; i++) {
       int link = saturate_links[i];
-      if (dual_solution[link] < max_diff) {
-        max_diff = dual_solution[link];
+      if (dual_solution[i] < max_diff) {
+        max_diff = dual_solution[i];
         enter_variable.id = link;
       }
     }
@@ -1452,8 +1475,8 @@ class CG {
         W new_cost = path_cost(update_weights, path, (W)0.0);
         W diff = old_cost - new_cost;
 
-        if (diff > 10000 * EPS && diff > sdata.objSpeed &&
-            leftBandwith(path) > (demands[id].bandwidth / 10.0)) {
+        if (diff > 10000 * EPS && diff > sdata.objSpeed){
+
           candidate_enter.erase(candidate_enter.begin(),
                                 candidate_enter.begin() + i + 1);
           enter_variable.id = id;
@@ -1720,13 +1743,13 @@ class CG {
        *
        */
 
-      fill(b, b + S, 0.0);
+
       for (vector<int>::const_iterator it = commodity_path.begin();
            it != commodity_path.end(); it++) {
         int i = saturate_link_ids[*it];
 
         if (i > -1) {
-          b[i] = 1.0;
+          lambda_S[i] = 1.0;
         }
       }
 
@@ -1735,17 +1758,18 @@ class CG {
         int i = saturate_link_ids[*it];
 
         if (i > -1) {
-          b[i] -= 1.0;
+          lambda_S[i] -= 1.0;
         }
       }
-
       int nonzero_bata = 0;
       for (int i = 0; i < S; i++) {
-        if (fabs(b[i]) > 1e-6) {
+        if (fabs(lambda_S[i]) > 1e-6) {
           nonzero_bata++;
         }
       }
+
 #ifdef DEBUG
+
       cout << "path dimension: " << S << " nonzero elements: " << nonzero_bata
            << endl;
 #endif
@@ -1758,11 +1782,11 @@ class CG {
       double t = 0;
       if (nonzero_bata > 0) {
         if (KLU == para.solver) {
-          callTime(t, klusolver.solve(b));
+          callTime(t, klusolver.solve(lambda_S));
 
         } else if (LAPACK == para.solver) {
           copy(SM, SM + S * S, workS);
-          callTime(t, dgesv_(&S, &nrhs, workS, &lda, ipiv, b, &ldb, &info));
+          callTime(t, dgesv_(&S, &nrhs, workS, &lda, ipiv, lambda_S, &ldb, &info));
 
           if (info > 0) {
             assert(false);
@@ -1780,13 +1804,13 @@ class CG {
             exit(1);
           }
         } else if (SPARSE == para.solver) {
-          callTime(t, sparseSolver.locSolver(b));
+          callTime(t, sparseSolver.locSolver(lambda_S));
         } else {
           assert(false);
         }
       }
       sdata.lpsolvertime += t;
-      memcpy(lambda_S, b, S * sizeof(double));
+
 
       /**
        * lambda_K=beta_K-B lambda_S
@@ -1859,7 +1883,7 @@ class CG {
     lambda_K = Lambda;
     lambda_S = Lambda + K;
     lambda_N = Lambda + K + S;
-    fill(lambda_N, lambda_N + N, 0.0);
+    fill(lambda_S, lambda_S +S+ N, 0.0);
     int nrhs = 1;
     int lda = S;
     int ldb = S;
@@ -1869,9 +1893,8 @@ class CG {
      * b= -beta_S
      *
      */
-    fill(b, b + S, 0.0);
 
-    b[saturate_link_ids[exitLink.id]] = -1.0;
+    lambda_S[saturate_link_ids[exitLink.id]] = -1.0;
 
 #ifdef DEBUG
     cout << "link dimension: " << S << " nonzero elements: " << 1 << endl;
@@ -1883,11 +1906,11 @@ class CG {
      */
     double t = 0;
     if (KLU == para.solver) {
-      callTime(t, klusolver.solve(b));
+      callTime(t, klusolver.solve(lambda_S));
 
     } else if (LAPACK == para.solver) {
       copy(SM, SM + S * S, workS);
-      callTime(t, dgesv_(&S, &nrhs, workS, &lda, ipiv, b, &ldb, &info));
+      callTime(t, dgesv_(&S, &nrhs, workS, &lda, ipiv, lambda_S, &ldb, &info));
 
       if (info > 0) {
         assert(false);
@@ -1903,10 +1926,9 @@ class CG {
         exit(1);
       }
     } else if (SPARSE == para.solver) {
-      callTime(t, sparseSolver.locSolver(b));
+      callTime(t, sparseSolver.locSolver(lambda_S));
     }
     sdata.lpsolvertime += t;
-    memcpy(lambda_S, b, S * sizeof(double));
 
     /**
      * lambda_K=-B lambda_S
@@ -2239,11 +2261,11 @@ class CG {
      *
      */
 
-    fill(b, b + S, 0.0);
+    fill(dual_solution, dual_solution + S, 0.0);
     for (int i = 0; i < S; i++) {
       int linkid = saturate_links[i];
       int pid = saturate_link_path_loc[linkid];
-      b[i] = getOrigCost(paths[pid].path);
+      dual_solution[i] = getOrigCost(paths[pid].path);
     }
 
     for (int i = 0; i < S; i++) {
@@ -2251,15 +2273,15 @@ class CG {
       int pid = saturate_link_path_loc[linkid];
       int oindex = paths[pid].owner;
       int ppid = primary_path_loc[oindex];
-      b[i] -= getOrigCost(paths[ppid].path);
+      dual_solution[i] -= getOrigCost(paths[ppid].path);
     }
 
     double t = 0;
     if (KLU == para.solver) {
-      callTime(t, klusolver.tsolve(b));
+      callTime(t, klusolver.tsolve(dual_solution));
     } else if (LAPACK == para.solver) {
       copy(SM, SM + S * S, workS);
-      callTime(t, dgesv_(&S, &nrhs, (double *)workS, &lda, ipiv, (double *)b,
+      callTime(t, dgesv_(&S, &nrhs, (double *)workS, &lda, ipiv, (double *)dual_solution,
                          &ldb, &info));
       if (info > 0) {
         assert(false);
@@ -2275,17 +2297,16 @@ class CG {
         exit(1);
       }
     } else if (SPARSE == para.solver) {
-      sparseSolver.tincSolver(Mu, b);
-      memcpy(Mu, b, S * sizeof(double));
+      sparseSolver.tincSolver(Mu, dual_solution);
+      memcpy(Mu, dual_solution, S * sizeof(double));
     }
     sdata.lpsolvertime += t;
     update_weights = orignal_weights;
 
-    fill(dual_solution.begin(), dual_solution.end(), 0.0);
 
     for (int i = 0; i < S; i++) {
-      dual_solution[saturate_links[i]] = b[i];
-      update_weights[saturate_links[i]] += b[i];
+
+      update_weights[saturate_links[i]] += dual_solution[i];
     }
   }
 
