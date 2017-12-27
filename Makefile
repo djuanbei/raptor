@@ -28,7 +28,7 @@ RCOBJS     = $(addsuffix r,  $(COBJS))
 ifeq ($(SRCSUF),cpp)
 	# CC=g++  -fopenmp -DUSING_LAPACK  -DSTATIC_TABLE
 	# CC=g++   -DUSING_LAPACK  -DSTATIC_TABLE -DUSING_KLU
-	CC=g++-5  -std=c++11   -DUSING_LAPACK   -DUSING_KLU   # -DCPLEX_SOLVER -DIL_STD
+	CC=g++ -std=c++11   -DUSING_LAPACK  # -DUSING_KLU # -DCPLEX_SOLVER -DIL_STD
 	# CC=g++  -DUSING_LAPACK
 	CLANG=clang++
 
@@ -54,11 +54,12 @@ endif
 # COPTIMIZE	= -m64 -Ofast -flto -march=native  -funroll-loops
 COPTIMIZE ?= -O2 
 
-CFLAGS    += -I  include -I include/klu  -I  /opt/ibm/ILOG/CPLEX_Studio_Community127/concert/include -I    /opt/ibm/ILOG/CPLEX_Studio_Community127/cplex/include 
+CFLAGS    += -I  include -I include/klu 
 
-#-L ~/demo/SuiteSparse/  -lklu -lbtf -lamd -lcolamd -lsuitesparseconfig # $(LIB_WITH_PARTITION) $(LDLIBS)
-LFLAGS    +=-llapack   -L lib   -lklu -lbtf -lamd -lcolamd -L     /opt/ibm/ILOG/CPLEX_Studio_Community127/cplex/lib/x86-64_linux/static_pic -L    /opt/ibm/ILOG/CPLEX_Studio_Community127/concert/lib/x86-64_linux/static_pic -lilocplex -lconcert -lcplex    -lglpk  -lm -lpthread
-# LFLAGS    +=-llapack     -lm
+ # -L ~/demo/SuiteSparse/  -lklu -lbtf -lamd -lcolamd -lsuitesparseconfig # $(LIB_WITH_PARTITION) $(LDLIBS)
+# LFLAGS    +=-llapack   -L lib   -lklu -lbtf -lamd -lcolamd  -lglpk -lm
+
+LFLAGS    +=-llapack -lglpk     -lm
 
 
 

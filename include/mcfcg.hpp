@@ -134,11 +134,9 @@ class CG {
 
   vector<Path> paths;  // all the paths save in this vector
 
-  vector<vector<int>> lastSP;
+  vector<Path> lastSP;
 
   vector<int> empty_paths;  // the location which  is delete path
-
-  // vector<C> dual_solution;  // only link have dual value
 
   vector<double> min_commodity_cost;
 
@@ -163,7 +161,7 @@ class CG {
 
   Statistics_data sdata;
 
-  vector<int> candidate_enter;
+  vector<int> candidate_enters;
 
   KLUsolver klusolver;
 
@@ -695,7 +693,6 @@ class CG {
 
     K = demands.size();
     demand_secondary_path_locs.resize(K);
-    lastSP.resize(K);
 
     S = 0;
     N = origLink_num + 1;
@@ -1461,8 +1458,8 @@ class CG {
     /**
      * fast way to choose entering variable as a path
      */
-    for (size_t i = 0; i < candidate_enter.size(); i++) {
-      int id = candidate_enter[i];
+    for (size_t i = 0; i < candidate_enters.size(); i++) {
+      int id = candidate_enters[i];
       int src = demands[id].src;
       int snk = demands[id].snk;
       vector<int> path;
@@ -1475,10 +1472,10 @@ class CG {
         W new_cost = path_cost(update_weights, path, (W)0.0);
         W diff = old_cost - new_cost;
 
-        if (diff > 10000 * EPS && diff > sdata.objSpeed){
+        if (diff > 1000 * EPS && diff > sdata.objSpeed){
 
-          candidate_enter.erase(candidate_enter.begin(),
-                                candidate_enter.begin() + i + 1);
+          candidate_enters.erase(candidate_enters.begin(),
+                                candidate_enters.begin() + i + 1);
           enter_variable.id = id;
           enter_variable.type = PATH_T;
           enter_variable.path.swap(path);
@@ -1491,15 +1488,12 @@ class CG {
       }
     }
 
-    candidate_enter.clear();
+    candidate_enters.clear();
 
     sdata.estimee_opt_diff = 0;
     vector<double> opt_gap(thread_num, 0);
-    vector<double> max_gaps(thread_num, EPS);
     vector<double> max_diffs(thread_num, EPS);
-    vector<vector<int>> candidate(thread_num);
 
-    vector<vector<int>> path(thread_num);
     vector<ENTER_VARIABLE> enter_variables(thread_num);
 
     int chid = -1;
@@ -1508,39 +1502,55 @@ class CG {
       enter_variables[i].type = PATH_T;
       enter_variables[i].id = -1;
     }
-
+    cout<<"lastSP size: "<<lastSP.size()<<endl;
 #pragma omp parallel for
-    for (int i = 0; i < K; i++) {
+    for(size_t k=0; k< lastSP.size(); k++){
+
 #ifdef _OPENMP
       int tid = omp_get_thread_num();
 #else
       int tid = 0;
 
 #endif  // (_OPENMP)
+      int i=lastSP[k].owner;
       if (!orig_success[i]) {
         continue;
       }
       int src = demands[i].src;
       int snk = demands[i].snk;
-      if (!lastSP[i].empty()) {
-        W old_cost =
-            path_cost(update_weights, paths[primary_path_loc[i]].path, (W)0.0);
-        W new_cost = path_cost(update_weights, lastSP[i], (W)0.0);
-        if (old_cost - new_cost > max_diff) {
-          max_diff = old_cost - new_cost;
-          chid = i;
+
+      W old_cost =
+          path_cost(update_weights, paths[primary_path_loc[i]].path, (W)0.0);
+      W new_cost = path_cost(update_weights, lastSP[k].path, (W)0.0);
+      W temp_diff = (old_cost - new_cost);
+      if(temp_diff>EPS){
+        if(temp_diff>max_diffs[tid]){
+          max_diffs[tid]=temp_diff;
+          enter_variables[tid].id = i;
+          enter_variables[tid].path=lastSP[k].path;
         }
       }
     }
-    if (chid > -1) {
-      enter_variable.type = PATH_T;
-      enter_variable.id = chid;
-      enter_variable.path = lastSP[chid];
-      lastSP[chid].clear();
-      enterVariables.push_back(enter_variable);
+    
+    chid = 0;
+    max_diff = max_diffs[0];
+
+    for (int i = 1; i < thread_num; i++) {
+      if (max_diffs[i] > max_diff) {
+        max_diff = max_diffs[i];
+        chid = i;
+      }
+    }
+    
+    if(enter_variables[chid].id>-1){
+      enterVariables.push_back(enter_variables[chid]);
       return ;
     }
 
+
+
+    vector<vector<int>> candidate(thread_num);
+    vector<vector<int>> path(thread_num);
 #pragma omp parallel for
     for (int i = 0; i < K; i++) {
 #ifdef _OPENMP
@@ -1565,7 +1575,7 @@ class CG {
        */
 
       if ((old_cost - min_commodity_cost[i]) * demands[i].bandwidth <
-          max_gaps[tid]) {
+          max_diffs[tid]) {
         continue;
       }
 
@@ -1580,22 +1590,22 @@ class CG {
         }
 
         W temp_diff = (old_cost - new_cost);
-        if (lastSP[i] != path[tid]) {
-          lastSP[i] = path[tid];
-        }
+        // if (lastSP[i] != path[tid]) {
+        //   lastSP[i] = path[tid];
+        // }
 
         if (temp_diff > EPS) {
+          Path temp;
+          temp.owner=i;
+          temp.path=path[tid];
+          lastSP.push_back(temp);
           if (temp_diff > max_diffs[tid]) {
             max_diffs[tid] = temp_diff;
-          }
-          opt_gap[tid] += temp_diff * demands[i].bandwidth;
+            opt_gap[tid] += temp_diff * demands[i].bandwidth;
 
-          if (temp_diff > max_gaps[tid]) {
             if (temp_diff > 10000 * EPS) {
               candidate[tid].push_back(i);
             }
-
-            max_gaps[tid] = temp_diff;
 
             enter_variables[tid].id = i;
             enter_variables[tid].path.swap(path[tid]);
@@ -1605,13 +1615,13 @@ class CG {
     }
 
     chid = 0;
-    double max_gap = max_gaps[0];
-    candidate_enter = candidate[0];
+    max_diff = max_diffs[0];
+    candidate_enters = candidate[0];
     for (int i = 1; i < thread_num; i++) {
-      candidate_enter.insert(candidate_enter.end(), candidate[i].begin(),
+      candidate_enters.insert(candidate_enters.end(), candidate[i].begin(),
                              candidate[i].end());
-      if (max_gaps[i] > max_gap) {
-        max_gap = max_gaps[i];
+      if (max_diffs[i] > max_diff) {
+        max_diff = max_diffs[i];
         chid = i;
       }
     }
@@ -2098,7 +2108,6 @@ class CG {
 
         deletePrimarySatuateLinks(exit_commodity_id);
         empty_paths.push_back(primary_path_loc[exit_commodity_id]);
-        paths[primary_path_loc[exit_commodity_id]].path.clear();
 
         if (paths[spid].owner == exit_commodity_id) {
           primary_path_loc[exit_commodity_id] = spid;
@@ -2137,17 +2146,11 @@ class CG {
 
           deleteElem(demand_secondary_path_locs[paths[spid].owner], spid);
 
-          paths[spid].owner = -1;
-          paths[spid].path.clear();
         } else {
           int pid = saturate_link_path_loc[exit_base.id];
           empty_paths.push_back(pid);
-          paths[pid].path.clear();
 
           deleteElem(demand_secondary_path_locs[paths[pid].owner], pid);
-
-          paths[pid].owner = -1;
-          paths[pid].link = -1;
 
           setStatusLink(exit_base.id, spid);
         }
