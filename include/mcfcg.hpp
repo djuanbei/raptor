@@ -134,7 +134,7 @@ class CG {
 
   vector<Path> paths;  // all the paths save in this vector
 
-  vector<vector<int>> lastSP;
+  vector<vector<int>> candiates;
 
   vector<int> empty_paths;  // the location which  is delete path
 
@@ -163,7 +163,7 @@ class CG {
 
   Statistics_data sdata;
 
-  vector<int> candidate_enter;
+  vector<int> lastCandidateEnter;
 
   KLUsolver klusolver;
 
@@ -695,7 +695,7 @@ class CG {
 
     K = demands.size();
     demand_secondary_path_locs.resize(K);
-    lastSP.resize(K);
+    candiates.resize(K);
 
     S = 0;
     N = origLink_num + 1;
@@ -960,7 +960,7 @@ class CG {
 
       IloInt linkNum = bws.getSize() - 1;
 
-      vector<vector<int>> lastSP(commodityNum);
+      vector<vector<int>> candiates(commodityNum);
 
       for (j = 0; j < commodityNum; j++) {
         usedVariable.add(IloNumVar(totalPrice(penalty) + demandCons[j](1) +
@@ -989,9 +989,9 @@ class CG {
           /// FIND AND ADD A NEW PATTERN ///
           if (bidijkstra_shortest_path(graph, price, demands[i].src,
                                        demands[i].snk, path, inf_weight)) {
-            if (lastSP[i].empty() || (path_cost(price, lastSP[i], 0.0) >
+            if (candiates[i].empty() || (path_cost(price, candiates[i], 0.0) >
                                       path_cost(price, path, 0.0))) {
-              lastSP[i] = path;
+              candiates[i] = path;
               state = true;
               for (int i = 0; i < linkNum; i++) {
                 newPathVarible[i] = 0;
@@ -1075,7 +1075,7 @@ class CG {
     glp_load_matrix(lp, index - 1, A_row, A_column, A_value);
 
     int n = commodityNum;
-    vector<vector<int>> lastSP(commodityNum);
+    vector<vector<int>> candiates(commodityNum);
     vector<double> price(linkNum);
     //
     // PROBLEM SOLVING ITERATIONS
@@ -1104,10 +1104,10 @@ class CG {
         /// FIND AND ADD A NEW PATTERN ///
         if (bidijkstra_shortest_path(graph, price, demands[i].src,
                                      demands[i].snk, path, inf_weight)) {
-          if (lastSP[i].empty() || (path_cost(price, lastSP[i], 0.0) >
+          if (candiates[i].empty() || (path_cost(price, candiates[i], 0.0) >
                                     path_cost(price, path, 0.0))) {
 
-            lastSP[i] = path;
+            candiates[i] = path;
             stop = false;
             columnIndex[1] = i + 1;
             columnValue[1] = 1.0;
@@ -1461,8 +1461,8 @@ class CG {
     /**
      * fast way to choose entering variable as a path
      */
-    for (size_t i = 0; i < candidate_enter.size(); i++) {
-      int id = candidate_enter[i];
+    for (size_t i = 0; i < lastCandidateEnter.size(); i++) {
+      int id = lastCandidateEnter[i];
       int src = demands[id].src;
       int snk = demands[id].snk;
       vector<int> path;
@@ -1477,8 +1477,8 @@ class CG {
 
         if (diff > 10000 * EPS && diff > sdata.objSpeed){
 
-          candidate_enter.erase(candidate_enter.begin(),
-                                candidate_enter.begin() + i + 1);
+          lastCandidateEnter.erase(lastCandidateEnter.begin(),
+                                lastCandidateEnter.begin() + i + 1);
           enter_variable.id = id;
           enter_variable.type = PATH_T;
           enter_variable.path.swap(path);
@@ -1491,7 +1491,7 @@ class CG {
       }
     }
 
-    candidate_enter.clear();
+    lastCandidateEnter.clear();
 
     sdata.estimee_opt_diff = 0;
     vector<double> opt_gap(thread_num, 0);
@@ -1522,10 +1522,10 @@ class CG {
       }
       int src = demands[i].src;
       int snk = demands[i].snk;
-      if (!lastSP[i].empty()) {
+      if (!candiates[i].empty()) {
         W old_cost =
             path_cost(update_weights, paths[primary_path_loc[i]].path, (W)0.0);
-        W new_cost = path_cost(update_weights, lastSP[i], (W)0.0);
+        W new_cost = path_cost(update_weights, candiates[i], (W)0.0);
         if (old_cost - new_cost > max_diff) {
           max_diff = old_cost - new_cost;
           chid = i;
@@ -1535,8 +1535,8 @@ class CG {
     if (chid > -1) {
       enter_variable.type = PATH_T;
       enter_variable.id = chid;
-      enter_variable.path = lastSP[chid];
-      lastSP[chid].clear();
+      enter_variable.path = candiates[chid];
+      candiates[chid].clear();
       enterVariables.push_back(enter_variable);
       return ;
     }
@@ -1580,8 +1580,8 @@ class CG {
         }
 
         W temp_diff = (old_cost - new_cost);
-        if (lastSP[i] != path[tid]) {
-          lastSP[i] = path[tid];
+        if (candiates[i] != path[tid]) {
+          candiates[i] = path[tid];
         }
 
         if (temp_diff > EPS) {
@@ -1606,9 +1606,9 @@ class CG {
 
     chid = 0;
     double max_gap = max_gaps[0];
-    candidate_enter = candidate[0];
+    lastCandidateEnter = candidate[0];
     for (int i = 1; i < thread_num; i++) {
-      candidate_enter.insert(candidate_enter.end(), candidate[i].begin(),
+      lastCandidateEnter.insert(lastCandidateEnter.end(), candidate[i].begin(),
                              candidate[i].end());
       if (max_gaps[i] > max_gap) {
         max_gap = max_gaps[i];
@@ -2098,7 +2098,6 @@ class CG {
 
         deletePrimarySatuateLinks(exit_commodity_id);
         empty_paths.push_back(primary_path_loc[exit_commodity_id]);
-        paths[primary_path_loc[exit_commodity_id]].path.clear();
 
         if (paths[spid].owner == exit_commodity_id) {
           primary_path_loc[exit_commodity_id] = spid;
@@ -2137,17 +2136,12 @@ class CG {
 
           deleteElem(demand_secondary_path_locs[paths[spid].owner], spid);
 
-          paths[spid].owner = -1;
-          paths[spid].path.clear();
         } else {
           int pid = saturate_link_path_loc[exit_base.id];
           empty_paths.push_back(pid);
-          paths[pid].path.clear();
+
 
           deleteElem(demand_secondary_path_locs[paths[pid].owner], pid);
-
-          paths[pid].owner = -1;
-          paths[pid].link = -1;
 
           setStatusLink(exit_base.id, spid);
         }
