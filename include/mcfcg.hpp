@@ -629,6 +629,7 @@ class CG {
       re.id = un_saturate_links[reK-K-S];
       re.type = OTHER_LINK;
     }
+
     return re;
 
   }
@@ -1154,8 +1155,8 @@ class CG {
   bool solve() {
     initial_solution();
     sdata.start_time = systemTime();
-    GlkpSolve();
-    cout << "total take " << systemTime() - sdata.start_time << endl;
+    // GlkpSolve();
+    // cout << "total take " << systemTime() - sdata.start_time << endl;
 
 #ifdef CPLEX_SOLVER
     CPLEX_solve();
@@ -1383,10 +1384,10 @@ class CG {
        *  exit base  choose
        *
        */
-      if (PATH_T == enterVariables[0].type) {
-        exit_base = getExitBasebyPath(enterVariables[0]);
-      } else {
+      if (LINK_T == enterVariables[0].type) {
         exit_base = getExitBasebyStatusLink(enterVariables[0]);
+      } else {
+        exit_base = getExitBasebyPath(enterVariables[0]);
       }
 
       pivot(enterVariables[0], exit_base);
