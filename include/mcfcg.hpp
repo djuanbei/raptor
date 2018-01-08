@@ -190,7 +190,7 @@ class CG {
   double *lambda_K;
   double *lambda_S;
   double *lambda_N;
-
+  double enterValue;
   C CZERO;
   /**
    * K: number of commodity
@@ -471,11 +471,16 @@ class CG {
    *rhs  =  [rhs_K  rhs_S   rhsa_N]
    *x_N  =  ( C rhs_K -rhs_S )/(CB-D)=( C rhs_K -rhs_S )/(SM)
    **/
-  void computeRHS() {
-    x_K = X;
-    x_S = X + K;
-    x_N = X + K + S;
-
+  void computeRHS(bool s=false) {
+    if(s){
+      x_K = X;
+      x_S = X + K;
+      x_N = X + K + S;
+    }else{
+      x_K = Lambda;
+      x_S = Lambda + K;
+      x_N = Lambda + K + S;
+    }
     int nrhs = 1;
     int lda = S;
 
@@ -545,6 +550,7 @@ class CG {
         assert(false);
       }
       sdata.lpsolvertime += t;
+
       memcpy(x_S, b, S * sizeof(double));
 #ifdef DEBUG
       for (int i = 0; i < S; i++) {
@@ -576,13 +582,23 @@ class CG {
       int link = un_saturate_links[i];
       x_N[i] = rhs[K + link];
     }
-    computeLeftN(X);
+    if(s){
+      computeLeftN(X);
+    
+    }else{
+      computeLeftN(Lambda);
+    }
 
 #ifdef DEBUG
     for (int i = 0; i < K + N + S; i++) {
       assert(X[i] >= -EPS);
+      if(!s){
+        assert(fabs(X[i]-Lambda[i])<1e-6);
+      }
     }
 #endif
+
+    
   }
 
   /**
@@ -598,7 +614,7 @@ class CG {
      */
 
     int reK = -1;
-    double minK = numeric_limits<double>::max();
+    enterValue = numeric_limits<double>::max();
     double temp;
     int i = 0;
     
@@ -607,16 +623,20 @@ class CG {
     while (i < num) {
       if (Lambda[i] > EPS) {
         temp = X[i] / Lambda[i];
-        if (temp < minK) {
+        if (temp < enterValue) {
           reK = i;
-          minK = temp;
+          enterValue = temp;
         }
       }
       i++;
     }
     assert(reK>-1);
-    if (minK <= EPS / 100.0) {
+    if (enterValue <= EPS / 100.0) {
         sdata.empty_iterator_num++;
+    }else{
+      for(i=0; i<num;i++){
+        X[i]-=Lambda[i]*enterValue;
+      }
     }
     Exit_base re;
     if(reK<K){
@@ -1024,7 +1044,7 @@ class CG {
 
 #endif
 
-  bool GlkpSolve() {
+  bool GlpkSolve() {
     glp_term_out(GLP_OFF);
     // Creates the GLPK problem instance.
     glp_prob *lp = glp_create_prob();
@@ -1155,7 +1175,7 @@ class CG {
   bool solve() {
     initial_solution();
     sdata.start_time = systemTime();
-    // GlkpSolve();
+    // GlpkSolve();
     // cout << "total take " << systemTime() - sdata.start_time << endl;
 
 #ifdef CPLEX_SOLVER
@@ -1318,7 +1338,7 @@ class CG {
   bool iteration() {
     vector<ENTER_VARIABLE>  enterVariables;
     
-    computeRHS();
+    computeRHS(true);
     while (true) {
       sdata.iterator_num++;
 
@@ -1416,7 +1436,7 @@ class CG {
           if (LAPACK == para.solver) {
             transposeS();
           }
-          computeRHS();
+          // computeRHS();
         }
       }
     }
@@ -1981,7 +2001,9 @@ class CG {
 
         paths[exit_primary_pid].path.swap(entering_commodity.path);
         paths[exit_primary_pid].owner = entering_commodity.id;
-
+        
+        X[exit_base.id]=enterValue;
+        
         if (entering_commodity.id != exit_base.id) {
           /**
            * when entering commodity and exit
@@ -2001,6 +2023,10 @@ class CG {
           int pid = *it;
           int link = paths[pid].link;
 
+          int pathId=K+saturate_link_ids[link];
+          X[exit_base.id]=X[pathId];
+          X[pathId]=enterValue;
+          
           assert(link >= 0);
 
           /**
@@ -2024,7 +2050,10 @@ class CG {
         sdata.pivotType = NOCHANGE;
         int pid = saturate_link_path_loc[exit_base.id];
         paths[pid].path.swap(entering_commodity.path);
-
+        
+        int pathId=K+saturate_link_ids[exit_base.id];
+        X[pathId]=enterValue;
+        
         /**
          * when the owner of the exit path is not owner
          * of entering path
@@ -2044,6 +2073,12 @@ class CG {
         // link to saturate link
         sdata.pivotType = ADDLINK;
         sdata.linkId = exit_base.id;
+        int exitUnsaturateLinkID=un_saturate_link_ids[exit_base.id]+K+S;
+        for(int i=exitUnsaturateLinkID; i>K+S; i--){
+          X[i]=X[i-1];
+        }
+        X[K+S]=enterValue;
+        
         if (empty_paths.empty()) {
           Path npath(entering_commodity.path, entering_commodity.id,
                      exit_base.id);
@@ -2086,10 +2121,18 @@ class CG {
        * entering a saturate link
        *
        */
-
+      int enteringSaturateLinkID=saturate_link_ids[entering_commodity.id]+K;
+      vector<int>::const_iterator it = lower_bound(un_saturate_links.begin(),un_saturate_links.begin()+N, entering_commodity.id);
+      int enteringUnsaturateLinkID=it-un_saturate_links.begin();
+      
+      if(enteringUnsaturateLinkID<0){
+        enteringUnsaturateLinkID=-1;
+      }
+      enteringUnsaturateLinkID+=K+S-1;
+      
       if (DEMAND_T == exit_base.type) {
         int enter_saturate_link = entering_commodity.id;
-
+        
         int spid = saturate_link_path_loc[enter_saturate_link];
         deleteSaturateLink(enter_saturate_link);
         int exit_commodity_id = exit_base.id;
@@ -2102,8 +2145,11 @@ class CG {
 
         if (paths[spid].owner == exit_commodity_id) {
           primary_path_loc[exit_commodity_id] = spid;
-
           deleteElem(demand_secondary_path_locs[exit_commodity_id], spid);
+
+          X[exit_commodity_id]=X[enteringSaturateLinkID];
+
+          
         } else {
           assert(!demand_secondary_path_locs[exit_commodity_id].empty());
           vector<int>::const_iterator it =
@@ -2111,6 +2157,7 @@ class CG {
 
           int pid = *it;
           int link = paths[pid].link;
+          int pathid=saturate_link_ids[link]+K;
 
           assert(link >= 0);
 
@@ -2118,19 +2165,36 @@ class CG {
           primary_path_loc[exit_commodity_id] = pid;
 
           setStatusLink(link, spid);
+          
+          X[exit_commodity_id]=X[pathid];
+          X[pathid]=X[enteringSaturateLinkID];
         }
+
+        for(int i=enteringSaturateLinkID; i< enteringUnsaturateLinkID; i++){
+          X[i]=X[i+1];
+        }
+        X[enteringUnsaturateLinkID]=enterValue;
 
         addPrimarySaturateLink(exit_commodity_id);
 
       } else if (STATUS_LINK == exit_base.type) {
+        int exit_commodity_id = exit_base.id;
+        
+        X[K+saturate_link_ids[exit_commodity_id]]=X[enteringSaturateLinkID];
+        
         int enter_saturate_link = entering_commodity.id;
-
         int spid = saturate_link_path_loc[enter_saturate_link];
         deleteSaturateLink(enter_saturate_link);
-        int exit_commodity_id = exit_base.id;
+
 
         sdata.pivotType = DELETELINK;
         sdata.linkId = exit_base.id;
+
+
+        for(int i=enteringSaturateLinkID; i< enteringUnsaturateLinkID; i++){
+          X[i]=X[i+1];
+        }
+        X[enteringUnsaturateLinkID]=enterValue;
 
         if (exit_base.id == entering_commodity.id) {
           empty_paths.push_back(spid);
@@ -2149,10 +2213,25 @@ class CG {
 
       } else {
         int enter_saturate_link = entering_commodity.id;
+        
 
         int spid = saturate_link_path_loc[enter_saturate_link];
 
         sdata.linkId = exit_base.id;
+        int exitUnsaturateLinkID=un_saturate_link_ids[exit_base.id]+K+S;
+        
+        if(enteringUnsaturateLinkID>exitUnsaturateLinkID){
+          for(int i=exitUnsaturateLinkID; i< enteringUnsaturateLinkID; i++){
+            X[i]=X[i+1];
+          }
+          X[enteringUnsaturateLinkID]=enterValue;
+          
+        }else{
+          for(int i=exitUnsaturateLinkID; i> enteringUnsaturateLinkID+1; i--){
+            X[i]=X[i-1];
+          }
+          X[enteringUnsaturateLinkID+1]=enterValue;
+        }
 
         sdata.pivotType = CHANGE_SATURATE_LINK;
 
