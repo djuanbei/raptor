@@ -548,7 +548,7 @@ class CG {
       for (int i = 0; i < S; i++) {
         int link = saturate_links[i];
         int spid = saturate_link_path_loc[link];
-        assert(b[i] <= rhs[paths[spid].owner]);
+        assert(b[i] <= rhs[paths[spid].owner]+EPS);
       }
 #endif
     }
@@ -1502,7 +1502,7 @@ class CG {
       enter_variables[i].type = PATH_T;
       enter_variables[i].id = -1;
     }
-    cout<<"lastSP size: "<<lastSP.size()<<endl;
+    // cout<<"lastSP size: "<<lastSP.size()<<endl;
 #pragma omp parallel for
     for(size_t k=0; k< lastSP.size(); k++){
 
