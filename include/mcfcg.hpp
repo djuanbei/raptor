@@ -556,7 +556,7 @@ class CG {
       for (int i = 0; i < S; i++) {
         int link = saturate_links[i];
         int spid = saturate_link_path_loc[link];
-        assert(b[i] <= rhs[paths[spid].owner]);
+        assert(b[i] <= rhs[paths[spid].owner]+EPS);
       }
 #endif
     }
@@ -1176,7 +1176,7 @@ class CG {
     initial_solution();
     sdata.start_time = systemTime();
     // GlpkSolve();
-    // cout << "total take " << systemTime() - sdata.start_time << endl;
+    cout << "total take " << systemTime() - sdata.start_time << endl;
 
 #ifdef CPLEX_SOLVER
     CPLEX_solve();
@@ -1436,7 +1436,8 @@ class CG {
           if (LAPACK == para.solver) {
             transposeS();
           }
-          // computeRHS();
+          
+          // computeRHS(true);
         }
       }
     }
