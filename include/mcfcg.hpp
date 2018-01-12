@@ -1433,8 +1433,7 @@ class CG {
   /**
    *
    * choose a comodity which the current best path has biggest diff from
-   *old
-   *solution
+   *old solution
    *
    * @return
    */
@@ -1459,8 +1458,7 @@ class CG {
 
     /**
      * If there is a dual value of  saturate link is negative then this link
-     * is
-     * a entering variable
+     * is  a entering variable
      */
 
     if (enter_variable.id >= 0) {
@@ -1568,8 +1566,7 @@ class CG {
           path_cost(update_weights, paths[primary_path_loc[i]].path, (W)0.0);
       /**
        * If the possible biggest reduce objective value is less than exist
-       * found
-       * one then continue
+       * found one then continue
        *
        */
 
