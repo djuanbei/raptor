@@ -1099,7 +1099,8 @@ C dijkstra(const G &graph, int src, int snk, const WV &weights,
 
   link_path.clear();
 
-  size_t j, outDegree, inDegree, link, next;
+  size_t j, outDegree, inDegree, link;
+  int next;
   int current;
   int weight, current_weight;
   int vertex_num = graph.getVertex_num();
@@ -1113,10 +1114,13 @@ C dijkstra(const G &graph, int src, int snk, const WV &weights,
 
   C INF = std::numeric_limits<C>::max() / 10;
 
-  Q.push(backDis[src], src);
+  Q.push(make_pair(backDis[src], src));
 
   while (!Q.empty()) {
-    Q.top(current_weight, current);
+    PII p=    Q.top();
+    current=p.second;
+    current_weight=p.first;
+
 
     if (current == snk) {
       while (current != src) {
@@ -1147,7 +1151,7 @@ C dijkstra(const G &graph, int src, int snk, const WV &weights,
         if (weight < dis[snk] && weight < dis[next]) {
           preLink[next] = link;
           dis[next] = weight;
-          Q.push(weight + backDis[next], next);
+          Q.push(make_pair(weight + backDis[next], next));
         }
       }
     }
@@ -1162,7 +1166,7 @@ C dijkstra(const G &graph, int src, int snk, const WV &weights,
         if (weight < dis[snk] && weight < dis[next]) {
           preLink[next] = link;
           dis[next] = weight;
-          Q.push_back(weight + backDis[next], next);
+          Q.push(make_pair(weight + backDis[next], next));
         }
       }
     }
